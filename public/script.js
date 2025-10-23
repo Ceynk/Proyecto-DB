@@ -7,6 +7,11 @@ const dynForm = document.getElementById('dynForm');
 const formTitle = document.getElementById('formTitle');
 const formMsg = document.getElementById('formMsg');
 
+// Base de la API. Por defecto usa el mismo origen (""),
+// pero si sirves el frontend desde GitHub Pages, define window.API_BASE
+// en index.html o guarda una clave `API_BASE` en localStorage con la URL del backend en Railway.
+const API_BASE = (typeof window !== 'undefined' && (window.API_BASE || localStorage.getItem('API_BASE'))) || '';
+
 const ENTITIES = [
   'empleado', 'cliente', 'proyecto', 'apartamento', 'material',
   'inventario', 'ingreso', 'gasto', 'pago', 'tarea', 'turno', 'factura'
@@ -73,7 +78,7 @@ async function loadData() {
     if (lastFetchAbort) lastFetchAbort.abort();
     const ctrl = new AbortController();
     lastFetchAbort = ctrl;
-    const res = await fetch(url, { signal: ctrl.signal });
+  const res = await fetch(`${API_BASE}${url}`, { signal: ctrl.signal });
     const contentType = res.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
       const txt = await res.text();
@@ -201,7 +206,7 @@ async function buildForm() {
       }
       if (f.source) {
         try {
-          const r = await fetch(f.source);
+          const r = await fetch(`${API_BASE}${f.source}`);
           const data = await r.json();
           data.forEach((it) => {
             const o = mk('option', '', `${it.id} - ${it.nombre}`);
@@ -236,7 +241,7 @@ dynForm.addEventListener('submit', async (ev) => {
     if (el.tagName === 'SELECT' || el.type !== 'checkbox') data[el.name] = el.value === '' ? null : el.value;
   });
   try {
-    const r = await fetch(`/api/create/${current}`, {
+    const r = await fetch(`${API_BASE}/api/create/${current}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
