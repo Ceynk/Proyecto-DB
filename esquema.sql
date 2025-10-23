@@ -1,11 +1,9 @@
--- Crear base de datos
 CREATE DATABASE IF NOT EXISTS BuildSmarts
   DEFAULT CHARACTER SET utf8mb4
   DEFAULT COLLATE utf8mb4_general_ci;
 
 USE BuildSmarts;
 
--- 1. Tabla: clientes
 CREATE TABLE clientes (
     idCliente INT AUTO_INCREMENT PRIMARY KEY,
     Nombre VARCHAR(150) NOT NULL,
@@ -13,7 +11,6 @@ CREATE TABLE clientes (
     Telefono VARCHAR(50)
 );
 
--- 2. Tabla: proyectos
 CREATE TABLE proyectos (
     idProyecto INT AUTO_INCREMENT PRIMARY KEY,
     Nombre VARCHAR(150) NOT NULL,
@@ -21,7 +18,6 @@ CREATE TABLE proyectos (
     FOREIGN KEY (idCliente) REFERENCES clientes(idCliente)
 );
 
--- 3. Tabla: empleados
 CREATE TABLE empleados (
     idEmpleado INT AUTO_INCREMENT PRIMARY KEY,
     Nombre VARCHAR(120) NOT NULL,
@@ -33,7 +29,6 @@ CREATE TABLE empleados (
     FOREIGN KEY (idProyecto) REFERENCES proyectos(idProyecto)
 );
 
--- 4. Tabla: usuarios
 CREATE TABLE usuarios (
     idUsuario INT AUTO_INCREMENT PRIMARY KEY,
     nombre_usuario VARCHAR(50) UNIQUE NOT NULL,
@@ -43,7 +38,6 @@ CREATE TABLE usuarios (
     FOREIGN KEY (idEmpleado) REFERENCES empleados(idEmpleado)
 );
 
--- 5. Tabla: apartamentos
 CREATE TABLE apartamentos (
     idApartamento INT AUTO_INCREMENT PRIMARY KEY,
     num_apartamento INT NOT NULL,
@@ -53,7 +47,6 @@ CREATE TABLE apartamentos (
     FOREIGN KEY (idProyecto) REFERENCES proyectos(idProyecto)
 );
 
--- 6. Tabla: pisos
 CREATE TABLE pisos (
     idPiso INT AUTO_INCREMENT PRIMARY KEY,
     idProyecto INT,
@@ -63,7 +56,6 @@ CREATE TABLE pisos (
     FOREIGN KEY (idProyecto) REFERENCES proyectos(idProyecto)
 );
 
--- 7. Tabla: materials
 CREATE TABLE materials (
     idMaterial INT AUTO_INCREMENT PRIMARY KEY,
     Nombre VARCHAR(120) NOT NULL,
@@ -71,7 +63,6 @@ CREATE TABLE materials (
     tipo VARCHAR(60)
 );
 
--- 8. Tabla: turnos
 CREATE TABLE turnos (
     idTurno INT AUTO_INCREMENT PRIMARY KEY,
     Hora_inicio TIME NOT NULL,
@@ -81,7 +72,6 @@ CREATE TABLE turnos (
     FOREIGN KEY (idEmpleado) REFERENCES empleados(idEmpleado)
 );
 
--- 9. Tabla: tareas
 CREATE TABLE tareas (
     idTarea INT AUTO_INCREMENT PRIMARY KEY,
     Descripcion VARCHAR(250),
@@ -92,7 +82,6 @@ CREATE TABLE tareas (
     FOREIGN KEY (idEmpleado) REFERENCES empleados(idEmpleado)
 );
 
--- 10. Tabla: inventarios
 CREATE TABLE inventarios (
     idInventario INT AUTO_INCREMENT PRIMARY KEY,
     tipo_movimiento VARCHAR(30),
@@ -104,7 +93,6 @@ CREATE TABLE inventarios (
     FOREIGN KEY (idProyecto) REFERENCES proyectos(idProyecto)
 );
 
--- 11. Tabla: ingresos
 CREATE TABLE ingresos (
     idIngreso INT AUTO_INCREMENT PRIMARY KEY,
     fecha DATE NOT NULL,
@@ -114,7 +102,6 @@ CREATE TABLE ingresos (
     FOREIGN KEY (idProyecto) REFERENCES proyectos(idProyecto)
 );
 
--- 12. Tabla: gastos
 CREATE TABLE gastos (
     idGasto INT AUTO_INCREMENT PRIMARY KEY,
     Valor DECIMAL(12,2) NOT NULL,
@@ -124,7 +111,6 @@ CREATE TABLE gastos (
     FOREIGN KEY (idProyecto) REFERENCES proyectos(idProyecto)
 );
 
--- 13. Tabla: facturas
 CREATE TABLE facturas (
     idFactura INT AUTO_INCREMENT PRIMARY KEY,
     Fecha DATE NOT NULL,
@@ -135,7 +121,6 @@ CREATE TABLE facturas (
     FOREIGN KEY (idCliente) REFERENCES clientes(idCliente)
 );
 
--- 14. Tabla: pagos
 CREATE TABLE pagos (
     idPago INT AUTO_INCREMENT PRIMARY KEY,
     Fecha DATE NOT NULL,

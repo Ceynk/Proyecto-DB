@@ -6,6 +6,9 @@ const formWrap = document.getElementById('formWrap');
 const dynForm = document.getElementById('dynForm');
 const formTitle = document.getElementById('formTitle');
 const formMsg = document.getElementById('formMsg');
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+const sidebar = document.getElementById('sidebar');
+const refreshBtn = document.getElementById('refreshBtn');
 
 // Base de la API. Por defecto usa el mismo origen (""),
 // pero si sirves el frontend desde GitHub Pages, define window.API_BASE
@@ -19,6 +22,27 @@ const ENTITIES = [
 
 let current = 'empleado';
 let lastFetchAbort = null;
+
+// Mobile menu toggle
+if (mobileMenuBtn && sidebar) {
+  mobileMenuBtn.addEventListener('click', () => {
+    sidebar.classList.toggle('mobile-open');
+  });
+  
+  // Close sidebar when clicking a menu item on mobile
+  sidebar.addEventListener('click', (e) => {
+    if (e.target.tagName === 'BUTTON' && window.innerWidth < 768) {
+      sidebar.classList.remove('mobile-open');
+    }
+  });
+}
+
+// Refresh button
+if (refreshBtn) {
+  refreshBtn.addEventListener('click', () => {
+    loadData();
+  });
+}
 
 function mk(tag, cls, text) {
   const el = document.createElement(tag);
@@ -46,7 +70,7 @@ function renderSidebar() {
 function renderTable(rows) {
   tableWrap.innerHTML = '';
   if (!rows || rows.length === 0) {
-    tableWrap.textContent = 'Sin datos';
+    tableWrap.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Sin datos para mostrar</div>';
     return;
   }
   const table = mk('table');
@@ -73,7 +97,7 @@ function renderTable(rows) {
 async function loadData() {
   const q = buscarEl.value.trim();
   const url = q ? `/api/list/${current}?q=${encodeURIComponent(q)}` : `/api/list/${current}`;
-  tableWrap.textContent = 'Cargando...';
+  tableWrap.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Cargando...</div>';
   try {
     if (lastFetchAbort) lastFetchAbort.abort();
     const ctrl = new AbortController();
@@ -89,7 +113,7 @@ async function loadData() {
     renderTable(data);
   } catch (e) {
     if (e.name === 'AbortError') return; // ignore
-    tableWrap.textContent = 'Error: ' + e.message;
+    tableWrap.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--error);">Error: ${e.message}</div>`;
   }
 }
 
