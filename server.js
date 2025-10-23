@@ -281,7 +281,7 @@ app.use('/api', (req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada', path: req.originalUrl });
 });
 
-const PORT = Number(process.env.PORT || 5175);
+const PORT = Number(process.env.PORT || 3000);
 app.listen(PORT, () => {
   console.log(`Servidor escuchando en http://localhost:${PORT}`);
 });
