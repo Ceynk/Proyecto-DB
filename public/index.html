@@ -2,39 +2,49 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Mi Pagina Basica</title>
+  <title>Proyecto DB</title>
   <link rel="stylesheet" href="style.css">
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>/* inline fallback for super basico */</style>
   </head>
 <body>
-  <div class="layout">
-    <aside class="sidebar">
-      <div class="sb-title">Entidades</div>
-      <div id="entidades" class="sb-list">
-        <!-- botones de entidades -->
-      </div>
-    </aside>
-    <main class="main">
-      <div class="panel">
-        <h1 id="titulo">Empleado</h1>
-        <div class="toolbar">
-          <input id="buscar" class="input" type="text" placeholder="Buscar..." />
+  <header class="site-header" role="banner">
+    <div class="container header-inner">
+      <div class="brand">Proyecto DB</div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="layout">
+      <aside class="sidebar" role="complementary" aria-label="Entidades">
+        <div class="sb-title">Entidades</div>
+        <div id="entidades" class="sb-list">
+          <!-- botones de entidades -->
         </div>
-        <div id="tableWrap" class="table-wrap">
-          <!-- tabla -->
+      </aside>
+      <main class="main" role="main">
+        <div class="panel">
+          <h1 id="titulo">Empleado</h1>
+          <div class="toolbar">
+            <input id="buscar" class="input" type="text" placeholder="Buscar..." />
+          </div>
+          <div id="tableWrap" class="table-wrap" aria-live="polite">
+            <!-- tabla -->
+          </div>
+          <div id="formWrap" class="form-wrap">
+            <h3 class="form-heading">Crear <span id="formTitle">Empleado</span></h3>
+            <form id="dynForm" class="dyn-form"></form>
+            <div id="formMsg" class="form-msg"></div>
+          </div>
         </div>
-        <div id="formWrap" style="margin-top:16px; border-top:1px solid var(--border); padding-top:12px;">
-          <h3 style="margin:8px 0;">Crear <span id="formTitle">Empleado</span></h3>
-          <form id="dynForm" class="dyn-form"></form>
-          <div id="formMsg" style="margin-top:8px;color:#89ff9f"></div>
-        </div>
-      </div>
-    </main>
+      </main>
+    </div>
   </div>
 
-  <footer class="foot">
+  <footer class="site-footer" role="contentinfo">
+    <div class="container">
+      <small>© 2025 Proyecto DB</small>
+    </div>
   </footer>
   <script src="script.js"></script>
-</body>
+  </body>
 </html>
