@@ -1,11 +1,4 @@
-<<<<<<< HEAD
-# Proyecto super básico (Node + MySQL)
-
-Muy simple, estilo estudiante primerizo. Frontend básico con HTML/CSS/JS y backend con Node.js/Express conectado a MySQL.
-
-## Requisitos
-- Node.js 18+
-- MySQL (servidor local)
+Frontend con HTML/CSS/JS y backend con Node.js/Express conectado a MySQL.
 
 ## Configuración de la base de datos
 1. Asegúrate de tener MySQL corriendo y un usuario `root` con la contraseña indicada.
@@ -22,7 +15,7 @@ DB_NAME=Proyecto
 PORT=5175
 ```
 
-## Instalar y ejecutar (PowerShell)
+##ejecutar 
 ```powershell
 # Ir a la carpeta del proyecto
 Set-Location "c:\Users\diazl\OneDrive\Desktop\Proyectoo"
@@ -50,9 +43,6 @@ Luego abre: http://localhost:5175
 - `public/`: HTML/CSS/JS muy básico
 - `esquema.sql`: creación de tablas
 
-## Notas
-- El estilo es intencionalmente simple.
-- Si el puerto de MySQL no es 3305 en tu PC, ajusta `DB_PORT` en `.env`.
 =======
 # Proyecto-DB
 Proyecto de Alejandro Diaz, Karen Cagua y Miguel Montañez
