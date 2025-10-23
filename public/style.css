@@ -75,6 +75,8 @@ body {
   font-size: 15px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 /* ========================================
@@ -86,11 +88,18 @@ body {
   max-width: 1400px;
   margin: 0 auto;
   padding: 0 var(--spacing-md);
+  overflow-x: hidden;
 }
 
 @media (min-width: 768px) {
   .container {
     padding: 0 var(--spacing-lg);
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 0 var(--spacing-sm);
   }
 }
 
@@ -124,6 +133,7 @@ body {
   font-size: 1.25rem;
   color: var(--text-primary);
   letter-spacing: -0.02em;
+  flex-shrink: 0;
 }
 
 .logo-icon {
@@ -131,15 +141,29 @@ body {
   height: 32px;
   color: var(--accent-primary);
   filter: drop-shadow(0 0 8px var(--accent-glow));
+  flex-shrink: 0;
 }
 
 .brand-text {
   display: none;
+  white-space: nowrap;
 }
 
 @media (min-width: 640px) {
   .brand-text {
     display: inline;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand {
+    font-size: 1rem;
+    gap: var(--spacing-sm);
+  }
+  
+  .logo-icon {
+    width: 28px;
+    height: 28px;
   }
 }
 
@@ -247,6 +271,14 @@ body {
   right: var(--spacing-md);
   z-index: 90;
   max-height: calc(100vh - 80px);
+  overflow-y: auto;
+}
+
+@media (max-width: 480px) {
+  .sidebar.mobile-open {
+    left: var(--spacing-sm);
+    right: var(--spacing-sm);
+  }
 }
 
 .sb-header {
@@ -321,11 +353,20 @@ body {
   padding: var(--spacing-xl);
   box-shadow: var(--shadow-md);
   min-height: 600px;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 @media (max-width: 767px) {
   .main .panel {
     padding: var(--spacing-lg);
+  }
+}
+
+@media (max-width: 480px) {
+  .main .panel {
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
   }
 }
 
@@ -345,11 +386,19 @@ h1 {
   letter-spacing: -0.02em;
   text-transform: capitalize;
   margin: 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 @media (max-width: 767px) {
   h1 {
     font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  h1 {
+    font-size: 1.25rem;
   }
 }
 
@@ -440,11 +489,14 @@ h1 {
 
 .table-wrap {
   overflow-x: auto;
+  overflow-y: auto;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-light);
   margin-bottom: var(--spacing-xl);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
 }
 
 .table-wrap::-webkit-scrollbar {
@@ -469,6 +521,21 @@ table {
   border-collapse: separate;
   border-spacing: 0;
   font-size: 0.875rem;
+  min-width: 600px;
+}
+
+@media (max-width: 767px) {
+  table {
+    min-width: 500px;
+    font-size: 0.8125rem;
+  }
+}
+
+@media (max-width: 480px) {
+  table {
+    min-width: 400px;
+    font-size: 0.75rem;
+  }
 }
 
 thead {
@@ -494,6 +561,33 @@ td {
   padding: var(--spacing-md);
   border-bottom: 1px solid var(--border-light);
   color: var(--text-primary);
+  word-wrap: break-word;
+  max-width: 250px;
+}
+
+@media (max-width: 767px) {
+  th, td {
+    padding: var(--spacing-sm) var(--spacing-sm);
+  }
+  
+  td {
+    max-width: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  th, td {
+    padding: 0.375rem 0.5rem;
+  }
+  
+  td {
+    max-width: 150px;
+    font-size: 0.75rem;
+  }
+  
+  th {
+    font-size: 0.75rem;
+  }
 }
 
 tbody tr {
@@ -544,11 +638,18 @@ tbody tr:last-child td {
   grid-template-columns: 1fr;
   gap: var(--spacing-lg);
   max-width: 600px;
+  width: 100%;
 }
 
 @media (min-width: 640px) {
   .dyn-form {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .dyn-form {
+    gap: var(--spacing-md);
   }
 }
 
@@ -564,6 +665,7 @@ tbody tr:last-child td {
 .dyn-form input,
 .dyn-form select {
   width: 100%;
+  max-width: 100%;
   background: var(--surface);
   border: 1px solid var(--border-light);
   color: var(--text-primary);
@@ -572,6 +674,15 @@ tbody tr:last-child td {
   font-size: 0.9375rem;
   font-family: inherit;
   transition: all var(--transition-fast);
+  box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+  .dyn-form input,
+  .dyn-form select {
+    font-size: 1rem;
+    padding: 0.625rem var(--spacing-sm);
+  }
 }
 
 .dyn-form input:focus,
@@ -691,16 +802,47 @@ tbody tr:last-child td {
     overflow-y: auto;
   }
   
-  table {
-    font-size: 0.8125rem;
-  }
-  
-  th, td {
-    padding: var(--spacing-sm);
+  .panel-header {
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
   }
   
   .dyn-form {
     grid-template-columns: 1fr;
+  }
+  
+  .search-box {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-inner {
+    min-height: 56px;
+  }
+  
+  .panel-header {
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-md);
+  }
+  
+  .toolbar {
+    margin-bottom: var(--spacing-lg);
+  }
+  
+  .form-wrap {
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-lg);
+  }
+  
+  .btn-icon {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .btn-icon svg {
+    width: 18px;
+    height: 18px;
   }
 }
 
@@ -718,5 +860,74 @@ tbody tr:last-child td {
   :root {
     --border-light: #4a5f7f;
     --border-medium: #5a6f8f;
+  }
+}
+
+/* Ajustes adicionales para dispositivos muy pequeños */
+@media (max-width: 360px) {
+  :root {
+    --spacing-md: 0.75rem;
+    --spacing-lg: 1rem;
+    --spacing-xl: 1.25rem;
+  }
+  
+  .brand {
+    font-size: 0.875rem;
+  }
+  
+  .logo-icon {
+    width: 24px;
+    height: 24px;
+  }
+  
+  h1 {
+    font-size: 1.125rem;
+  }
+  
+  .main .panel {
+    padding: var(--spacing-sm);
+  }
+  
+  .btn-icon {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .btn-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* Prevenir overflow horizontal */
+html {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+* {
+  max-width: 100%;
+}
+
+img, svg, video, canvas, iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Touch targets mejorados para móviles */
+@media (hover: none) and (pointer: coarse) {
+  button, a, input, select, textarea {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  .sb-list button {
+    padding: var(--spacing-md);
+    min-height: 48px;
+  }
+  
+  .mobile-menu-btn {
+    min-width: 44px;
+    min-height: 44px;
   }
 }
