@@ -35,67 +35,67 @@ const pool = mysql.createPool({
 // Whitelisted entities with basic column lists and searchable fields
 const ENTITIES = {
   empleado: {
-    table: 'empleado',
+    table: 'empleados',
     columns: ['idEmpleado','Nombre','Correo','Telefono','Asistencia','Especialidad','idProyecto'],
     search: ['Nombre','Correo','Telefono','Especialidad']
   },
   cliente: {
-    table: 'cliente',
-    columns: ['idCliente','Nombre','Documento','Telefono','Correo'],
-    search: ['Nombre','Documento','Telefono','Correo']
+    table: 'clientes',
+    columns: ['idCliente','Nombre','Telefono','Correo'],
+    search: ['Nombre','Telefono','Correo']
   },
   proyecto: {
-    table: 'proyecto',
+    table: 'proyectos',
     columns: ['idProyecto','Nombre','idCliente'],
     search: ['Nombre']
   },
   apartamento: {
-    table: 'apartamento',
+    table: 'apartamentos',
     columns: ['idApartamento','num_apartamento','num_piso','estado','idProyecto'],
     search: ['estado']
   },
   piso: {
-    table: 'piso',
+    table: 'pisos',
     columns: ['idPiso','idProyecto','numero','idApartamento'],
     search: ['numero']
   },
   material: {
-    table: 'material',
+    table: 'materials',
     columns: ['idMaterial','Nombre','costo_unitario','tipo'],
     search: ['Nombre','tipo']
   },
   inventario: {
-    table: 'inventario',
+    table: 'inventarios',
     columns: ['idInventario','tipo_movimiento','cantidad','fecha','idMaterial','idProyecto'],
     search: ['tipo_movimiento']
   },
   ingreso: {
-    table: 'ingreso',
+    table: 'ingresos',
     columns: ['idIngreso','fecha','Valor','Descripcion','idProyecto'],
     search: ['Descripcion']
   },
   gasto: {
-    table: 'gasto',
+    table: 'gastos',
     columns: ['idGasto','Valor','Descripcion','fecha','idProyecto'],
     search: ['Descripcion']
   },
   factura: {
-    table: 'factura',
+    table: 'facturas',
     columns: ['idFactura','Fecha','Valor_total','idProyecto','idCliente'],
     search: []
   },
   pago: {
-    table: 'pago',
+    table: 'pagos',
     columns: ['idPago','Fecha','Monto','idFactura'],
     search: []
   },
   tarea: {
-    table: 'tarea',
+    table: 'tareas',
     columns: ['idTarea','Descripcion','Estado','idProyecto','idEmpleado'],
     search: ['Descripcion','Estado']
   },
   turno: {
-    table: 'turno',
+    table: 'turnos',
     columns: ['idTurno','Hora_inicio','Hora_fin','Tipo_jornada','idEmpleado'],
     search: ['Tipo_jornada']
   }
@@ -134,7 +134,7 @@ app.get('/api/list/:entity', async (req, res) => {
 
 // Simple map of insertable columns per entity (exclude PK id)
 const CREATE_COLS = {
-  cliente: ['Nombre','Documento','Telefono','Correo'],
+  cliente: ['Nombre','Telefono','Correo'],
   proyecto: ['Nombre','idCliente'],
   apartamento: ['num_apartamento','num_piso','estado','idProyecto'],
   piso: ['idProyecto','numero','idApartamento'],
@@ -200,7 +200,7 @@ app.get('/api/health', async (req, res) => {
 // List clientes (very basic)
 app.get('/api/clientes', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT idCliente, Nombre, Documento, Telefono, Correo FROM cliente ORDER BY idCliente DESC LIMIT 50');
+    const [rows] = await pool.query('SELECT idCliente, Nombre, Telefono, Correo FROM clientes ORDER BY idCliente DESC LIMIT 50');
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -212,8 +212,8 @@ app.get('/api/proyectos', async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT p.idProyecto, p.Nombre AS Proyecto, c.Nombre AS Cliente
-      FROM proyecto p
-      LEFT JOIN cliente c ON c.idCliente = p.idCliente
+      FROM proyectos p
+      LEFT JOIN clientes c ON c.idCliente = p.idCliente
       ORDER BY p.idProyecto DESC
       LIMIT 50
     `);
@@ -225,16 +225,16 @@ app.get('/api/proyectos', async (req, res) => {
 
 // Add a super simple POST to add a cliente
 app.post('/api/clientes', async (req, res) => {
-  const { Nombre, Documento, Telefono, Correo } = req.body || {};
-  if (!Nombre || !Documento) {
-    return res.status(400).json({ error: 'Nombre y Documento son obligatorios' });
+  const { Nombre, Telefono, Correo } = req.body || {};
+  if (!Nombre) {
+    return res.status(400).json({ error: 'Nombre es obligatorio' });
   }
   try {
     const [result] = await pool.query(
-      'INSERT INTO cliente (Nombre, Documento, Telefono, Correo) VALUES (?, ?, ?, ?)',
-      [Nombre, Documento, Telefono || null, Correo || null]
+      'INSERT INTO clientes (Nombre, Telefono, Correo) VALUES (?, ?, ?)',
+      [Nombre, Telefono || null, Correo || null]
     );
-    res.status(201).json({ idCliente: result.insertId, Nombre, Documento, Telefono, Correo });
+    res.status(201).json({ idCliente: result.insertId, Nombre, Telefono, Correo });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -243,35 +243,35 @@ app.post('/api/clientes', async (req, res) => {
 // Minimal lists for relations (id and name-ish)
 app.get('/api/min/clientes', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT idCliente as id, Nombre as nombre FROM cliente ORDER BY idCliente DESC LIMIT 200');
+    const [rows] = await pool.query('SELECT idCliente as id, Nombre as nombre FROM clientes ORDER BY idCliente DESC LIMIT 200');
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/min/proyectos', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT idProyecto as id, Nombre as nombre FROM proyecto ORDER BY idProyecto DESC LIMIT 200');
+    const [rows] = await pool.query('SELECT idProyecto as id, Nombre as nombre FROM proyectos ORDER BY idProyecto DESC LIMIT 200');
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/min/empleados', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT idEmpleado as id, Nombre as nombre FROM empleado ORDER BY idEmpleado DESC LIMIT 200');
+    const [rows] = await pool.query('SELECT idEmpleado as id, Nombre as nombre FROM empleados ORDER BY idEmpleado DESC LIMIT 200');
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/min/materiales', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT idMaterial as id, Nombre as nombre FROM material ORDER BY idMaterial DESC LIMIT 200');
+    const [rows] = await pool.query('SELECT idMaterial as id, Nombre as nombre FROM materials ORDER BY idMaterial DESC LIMIT 200');
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/min/facturas', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT idFactura as id, CONCAT("Factura ", idFactura) as nombre FROM factura ORDER BY idFactura DESC LIMIT 200');
+    const [rows] = await pool.query('SELECT idFactura as id, CONCAT("Factura ", idFactura) as nombre FROM facturas ORDER BY idFactura DESC LIMIT 200');
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

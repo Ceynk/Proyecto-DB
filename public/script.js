@@ -107,7 +107,6 @@ buildForm();
 const FORM_FIELDS = {
   cliente: [
     { name: 'Nombre', type: 'text', req: true },
-    { name: 'Documento', type: 'text', req: true },
     { name: 'Telefono', type: 'text' },
     { name: 'Correo', type: 'email' }
   ],
