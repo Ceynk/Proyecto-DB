@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Proyecto super básico (Node + MySQL)
 
 Muy simple, estilo estudiante primerizo. Frontend básico con HTML/CSS/JS y backend con Node.js/Express conectado a MySQL.
@@ -52,3 +53,7 @@ Luego abre: http://localhost:5175
 ## Notas
 - El estilo es intencionalmente simple.
 - Si el puerto de MySQL no es 3305 en tu PC, ajusta `DB_PORT` en `.env`.
+=======
+# Proyecto-DB
+Proyecto de Alejandro Diaz, Karen Cagua y Miguel Montañez
+>>>>>>> 3d2e47b081e2ce3fb434cc92425bb2a29444c9b3
