@@ -1,0 +1,54 @@
+# Proyecto super básico (Node + MySQL)
+
+Muy simple, estilo estudiante primerizo. Frontend básico con HTML/CSS/JS y backend con Node.js/Express conectado a MySQL.
+
+## Requisitos
+- Node.js 18+
+- MySQL (servidor local)
+
+## Configuración de la base de datos
+1. Asegúrate de tener MySQL corriendo y un usuario `root` con la contraseña indicada.
+2. Importa el archivo `esquema.sql` para crear la BD y tablas.
+
+## Variables de entorno
+El archivo `.env` ya está creado con:
+```
+DB_HOST=127.0.0.1
+DB_PORT=3305
+DB_USER=root
+DB_PASSWORD=L1973284650
+DB_NAME=Proyecto
+PORT=5175
+```
+
+## Instalar y ejecutar (PowerShell)
+```powershell
+# Ir a la carpeta del proyecto
+Set-Location "c:\Users\diazl\OneDrive\Desktop\Proyectoo"
+
+# Instalar dependencias
+npm install
+
+# Ejecutar en modo desarrollo (con reinicio automático)
+npm run dev
+
+# (opcional) Ejecutar normal
+# npm start
+```
+
+Luego abre: http://localhost:5175
+
+## Endpoints
+- GET `/api/health`
+- GET `/api/clientes`
+- POST `/api/clientes` { Nombre, Documento, Telefono?, Correo? }
+- GET `/api/proyectos`
+
+## Estructura
+- `server.js`: servidor Express + conexión MySQL
+- `public/`: HTML/CSS/JS muy básico
+- `esquema.sql`: creación de tablas
+
+## Notas
+- El estilo es intencionalmente simple.
+- Si el puerto de MySQL no es 3305 en tu PC, ajusta `DB_PORT` en `.env`.

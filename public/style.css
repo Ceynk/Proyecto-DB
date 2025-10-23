@@ -1,0 +1,107 @@
+/* Estilo super básico, oscuro, con barra lateral */
+:root {
+  --bg: #0f1620;
+  --panel: #121a26;
+  --border: #1e2a3a;
+  --text: #e5ecf3;
+  --muted: #a9b3be;
+  --btn: #1b2533;
+  --btn-hover: #243144;
+  --accent: #89b4ff;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 16px;
+  padding: 16px;
+  min-height: calc(100vh - 46px);
+}
+
+.sidebar {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+}
+.sb-title {
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+.sb-list button {
+  width: 100%;
+  display: block;
+  text-align: left;
+  background: var(--btn);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.sb-list button:hover { background: var(--btn-hover); }
+.sb-list button.active { outline: 1px solid var(--accent); }
+
+.main .panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  min-height: 70vh;
+}
+
+h1 { margin: 0 0 10px 0; }
+
+.toolbar { margin: 10px 0 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+.input {
+  width: 240px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+.input::placeholder { color: var(--muted); }
+
+.dyn-form label {
+  display: block;
+  margin: 8px 0 4px;
+  color: var(--muted);
+}
+.dyn-form input, .dyn-form select, .dyn-form button {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+.dyn-form button { cursor: pointer; margin-top: 10px; background: var(--btn); }
+.dyn-form button:hover { background: var(--btn-hover); }
+
+.table-wrap { overflow: auto; border-radius: 6px; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+thead { background: #0d1520; }
+th, td {
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  font-size: 14px;
+}
+th { text-align: left; color: var(--muted); }
+
+.foot {
+  color: var(--muted);
+  padding: 0 16px 12px;
+}
