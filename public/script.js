@@ -1,145 +1,144 @@
-const entidadesEl = document.getElementById('entidades');
+const listaEntidadesEl = document.getElementById('entidades');
 const tituloEl = document.getElementById('titulo');
 const buscarEl = document.getElementById('buscar');
-const tableWrap = document.getElementById('tableWrap');
-const formWrap = document.getElementById('formWrap');
-const dynForm = document.getElementById('dynForm');
-const formTitle = document.getElementById('formTitle');
-const formMsg = document.getElementById('formMsg');
-const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-const sidebar = document.getElementById('sidebar');
-const refreshBtn = document.getElementById('refreshBtn');
+const contenedorTabla = document.getElementById('tableWrap');
+const contenedorFormulario = document.getElementById('formWrap');
+const formularioDinamico = document.getElementById('dynForm');
+const tituloFormulario = document.getElementById('formTitle');
+const mensajeFormulario = document.getElementById('formMsg');
+const botonMenuMovil = document.getElementById('mobileMenuBtn');
+const barraLateral = document.getElementById('sidebar');
+const botonActualizar = document.getElementById('refreshBtn');
 
-// Base de la API. Por defecto usa el mismo origen (""),
-// pero si sirves el frontend desde GitHub Pages, define window.API_BASE
+
 // en index.html o guarda una clave `API_BASE` en localStorage con la URL del backend en Railway.
-const API_BASE = (typeof window !== 'undefined' && (window.API_BASE || localStorage.getItem('API_BASE'))) || '';
+const apiBase = (typeof window !== 'undefined' && (window.API_BASE || localStorage.getItem('API_BASE'))) || '';
 
-const ENTITIES = [
+const entidades = [
   'empleado', 'cliente', 'proyecto', 'apartamento', 'material',
   'inventario', 'ingreso', 'gasto', 'pago', 'tarea', 'turno', 'factura'
 ];
 
-let current = 'empleado';
-let lastFetchAbort = null;
+let actual = 'empleado';
+let ultimoAbortCtrl = null;
 
 // Mobile menu toggle
-if (mobileMenuBtn && sidebar) {
-  mobileMenuBtn.addEventListener('click', () => {
-    sidebar.classList.toggle('mobile-open');
+if (botonMenuMovil && barraLateral) {
+  botonMenuMovil.addEventListener('click', () => {
+    barraLateral.classList.toggle('mobile-open');
   });
   
   // Close sidebar when clicking a menu item on mobile
-  sidebar.addEventListener('click', (e) => {
+  barraLateral.addEventListener('click', (e) => {
     if (e.target.tagName === 'BUTTON' && window.innerWidth < 768) {
-      sidebar.classList.remove('mobile-open');
+      barraLateral.classList.remove('mobile-open');
     }
   });
 }
 
 // Refresh button
-if (refreshBtn) {
-  refreshBtn.addEventListener('click', () => {
-    loadData();
+if (botonActualizar) {
+  botonActualizar.addEventListener('click', () => {
+    cargarDatos();
   });
 }
 
-function mk(tag, cls, text) {
-  const el = document.createElement(tag);
-  if (cls) el.className = cls;
-  if (text) el.textContent = text;
+function crear(etiqueta, clase, texto) {
+  const el = document.createElement(etiqueta);
+  if (clase) el.className = clase;
+  if (texto) el.textContent = texto;
   return el;
 }
 
 // Helpers para sanitizar entradas según el tipo deseado
-function sanitizeLettersAndSpaces(value) {
+function sanitizarLetrasYEspacios(value) {
   // Permite letras (incluye acentos) y espacios
   return value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '');
 }
 
-function sanitizeDigits(value) {
+function sanitizarDigitos(value) {
   // Solo dígitos (el teléfono no admite letras ni signos)
   return value.replace(/\D/g, '');
 }
 
-function renderSidebar() {
-  entidadesEl.innerHTML = '';
-  ENTITIES.forEach((name) => {
-    const btn = mk('button', name === current ? 'active' : '', name.charAt(0).toUpperCase() + name.slice(1));
+function renderizarBarraLateral() {
+  listaEntidadesEl.innerHTML = '';
+  entidades.forEach((nombre) => {
+    const btn = crear('button', nombre === actual ? 'active' : '', nombre.charAt(0).toUpperCase() + nombre.slice(1));
     btn.addEventListener('click', () => {
-      current = name;
-      renderSidebar();
-      tituloEl.textContent = name.charAt(0).toUpperCase() + name.slice(1);
+      actual = nombre;
+      renderizarBarraLateral();
+      tituloEl.textContent = nombre.charAt(0).toUpperCase() + nombre.slice(1);
       buscarEl.value = '';
-      loadData();
-      buildForm();
+      cargarDatos();
+      construirFormulario();
     });
-    entidadesEl.appendChild(btn);
+    listaEntidadesEl.appendChild(btn);
   });
 }
 
-function renderTable(rows) {
-  tableWrap.innerHTML = '';
-  if (!rows || rows.length === 0) {
-    tableWrap.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Sin datos para mostrar</div>';
+function renderizarTabla(filas) {
+  contenedorTabla.innerHTML = '';
+  if (!filas || filas.length === 0) {
+    contenedorTabla.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Sin datos para mostrar</div>';
     return;
   }
-  const table = mk('table');
-  const thead = mk('thead');
-  const htr = mk('tr');
-  const headers = Object.keys(rows[0]);
-  headers.forEach((h) => htr.appendChild(mk('th', '', h)));
+  const tabla = crear('table');
+  const thead = crear('thead');
+  const htr = crear('tr');
+  const encabezados = Object.keys(filas[0]);
+  encabezados.forEach((h) => htr.appendChild(crear('th', '', h)));
   thead.appendChild(htr);
-  const tbody = mk('tbody');
-  rows.forEach((r) => {
-    const tr = mk('tr');
-    headers.forEach((h) => {
-      const td = mk('td');
+  const tbody = crear('tbody');
+  filas.forEach((r) => {
+    const tr = crear('tr');
+    encabezados.forEach((h) => {
+      const td = crear('td');
       td.textContent = r[h] == null ? '' : String(r[h]);
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
   });
-  table.appendChild(thead);
-  table.appendChild(tbody);
-  tableWrap.appendChild(table);
+  tabla.appendChild(thead);
+  tabla.appendChild(tbody);
+  contenedorTabla.appendChild(tabla);
 }
 
-async function loadData() {
+async function cargarDatos() {
   const q = buscarEl.value.trim();
-  const url = q ? `/api/list/${current}?q=${encodeURIComponent(q)}` : `/api/list/${current}`;
-  tableWrap.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Cargando...</div>';
+  const url = q ? `/api/list/${actual}?q=${encodeURIComponent(q)}` : `/api/list/${actual}`;
+  contenedorTabla.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Cargando...</div>';
   try {
-    if (lastFetchAbort) lastFetchAbort.abort();
+    if (ultimoAbortCtrl) ultimoAbortCtrl.abort();
     const ctrl = new AbortController();
-    lastFetchAbort = ctrl;
-  const res = await fetch(`${API_BASE}${url}`, { signal: ctrl.signal });
-    const contentType = res.headers.get('content-type') || '';
-    if (!contentType.includes('application/json')) {
-      const txt = await res.text();
-      throw new Error(`Respuesta no JSON (${res.status}): ${txt.substring(0, 120)}...`);
+    ultimoAbortCtrl = ctrl;
+    const resp = await fetch(`${apiBase}${url}`, { signal: ctrl.signal });
+    const tipoContenido = resp.headers.get('content-type') || '';
+    if (!tipoContenido.includes('application/json')) {
+      const txt = await resp.text();
+      throw new Error(`Respuesta no JSON (${resp.status}): ${txt.substring(0, 120)}...`);
     }
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Error');
-    renderTable(data);
+    const datos = await resp.json();
+    if (!resp.ok) throw new Error(datos.error || 'Error');
+    renderizarTabla(datos);
   } catch (e) {
     if (e.name === 'AbortError') return; // ignore
-    tableWrap.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--error);">Error: ${e.message}</div>`;
+    contenedorTabla.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--error);">Error: ${e.message}</div>`;
   }
 }
 
 buscarEl.addEventListener('input', () => {
   // simple debounce
   if (buscarEl._t) clearTimeout(buscarEl._t);
-  buscarEl._t = setTimeout(loadData, 300);
+  buscarEl._t = setTimeout(cargarDatos, 300);
 });
 
-renderSidebar();
-loadData();
-buildForm();
+renderizarBarraLateral();
+cargarDatos();
+construirFormulario();
 
 // Define form fields for each entity 
-const FORM_FIELDS = {
+const camposFormulario = {
   cliente: [
     { name: 'Nombre', type: 'text', req: true, pattern: '[A-Za-zÁÉÍÓÚáéíóúÑñ\\s]+' },
     { name: 'Telefono', type: 'tel' },
@@ -217,105 +216,105 @@ const FORM_FIELDS = {
   ]
 };
 
-async function buildForm() {
-  formTitle.textContent = current.charAt(0).toUpperCase() + current.slice(1);
-  dynForm.innerHTML = '';
-  formMsg.textContent = '';
-  const fields = FORM_FIELDS[current] || [];
-  for (const f of fields) {
-    const lab = mk('label', '', f.name);
-    dynForm.appendChild(lab);
+async function construirFormulario() {
+  tituloFormulario.textContent = actual.charAt(0).toUpperCase() + actual.slice(1);
+  formularioDinamico.innerHTML = '';
+  mensajeFormulario.textContent = '';
+  const campos = camposFormulario[actual] || [];
+  for (const f of campos) {
+    const etiqueta = crear('label', '', f.name);
+    formularioDinamico.appendChild(etiqueta);
     if (f.type === 'select') {
-      const sel = mk('select');
-      sel.name = f.name;
-      const optEmpty = mk('option', '', '--');
-      optEmpty.value = '';
-      sel.appendChild(optEmpty);
+      const selectEl = crear('select');
+      selectEl.name = f.name;
+      const opcionVacia = crear('option', '', '--');
+      opcionVacia.value = '';
+      selectEl.appendChild(opcionVacia);
       if (f.options) {
         f.options.forEach((v) => {
-          const o = mk('option', '', v);
-          o.value = v;
-          sel.appendChild(o);
+          const op = crear('option', '', v);
+          op.value = v;
+          selectEl.appendChild(op);
         });
       }
       if (f.source) {
         try {
-          const r = await fetch(`${API_BASE}${f.source}`);
-          const data = await r.json();
-          data.forEach((it) => {
-            const o = mk('option', '', `${it.id} - ${it.nombre}`);
-            o.value = it.id;
-            sel.appendChild(o);
+          const resp = await fetch(`${apiBase}${f.source}`);
+          const datos = await resp.json();
+          datos.forEach((item) => {
+            const op = crear('option', '', `${item.id} - ${item.nombre}`);
+            op.value = item.id;
+            selectEl.appendChild(op);
           });
-        } catch (e) { /* ignore for simple */ }
+        } catch (e) { /* ignorar en simple */ }
       }
-      dynForm.appendChild(sel);
+      formularioDinamico.appendChild(selectEl);
     } else {
-      const inp = mk('input');
-      inp.name = f.name;
-      inp.type = f.type || 'text';
-      if (f.step) inp.step = f.step;
-      if (f.req) inp.required = true;
+      const inputEl = crear('input');
+      inputEl.name = f.name;
+      inputEl.type = f.type || 'text';
+      if (f.step) inputEl.step = f.step;
+      if (f.req) inputEl.required = true;
 
       // Reglas de validación en vivo según tipo
-      const lowerName = (f.name || '').toLowerCase();
-      if (inp.type === 'email') {
+      const nombreEnMinusculas = (f.name || '').toLowerCase();
+      if (inputEl.type === 'email') {
         // Sin sanitización adicional para email
-      } else if (inp.type === 'tel' || lowerName.includes('telefono')) {
+      } else if (inputEl.type === 'tel' || nombreEnMinusculas.includes('telefono')) {
         // Solo dígitos en teléfono, exactamente 10
-        inp.setAttribute('pattern', '\\d{10}');
-        inp.setAttribute('inputmode', 'numeric');
-        inp.setAttribute('maxlength', '10');
-        inp.setAttribute('minlength', '10');
-        if (!inp.placeholder) inp.placeholder = '10 dígitos';
-        inp.addEventListener('input', () => {
-          let clean = sanitizeDigits(inp.value);
-          if (clean.length > 10) clean = clean.slice(0, 10);
-          if (inp.value !== clean) inp.value = clean;
+        inputEl.setAttribute('pattern', '\\d{10}');
+        inputEl.setAttribute('inputmode', 'numeric');
+        inputEl.setAttribute('maxlength', '10');
+        inputEl.setAttribute('minlength', '10');
+        if (!inputEl.placeholder) inputEl.placeholder = '10 dígitos';
+        inputEl.addEventListener('input', () => {
+          let limpio = sanitizarDigitos(inputEl.value);
+          if (limpio.length > 10) limpio = limpio.slice(0, 10);
+          if (inputEl.value !== limpio) inputEl.value = limpio;
         });
-      } else if (inp.type === 'text') {
+      } else if (inputEl.type === 'text') {
         // Si no hay un patrón específico, aceptar solo letras y espacios
         if (f.pattern) {
-          inp.setAttribute('pattern', f.pattern);
+          inputEl.setAttribute('pattern', f.pattern);
         } else {
-          inp.setAttribute('pattern', '[A-Za-zÁÉÍÓÚáéíóúÑñ\\s]+');
+          inputEl.setAttribute('pattern', '[A-Za-zÁÉÍÓÚáéíóúÑñ\\s]+');
         }
-        inp.addEventListener('input', () => {
-          const clean = sanitizeLettersAndSpaces(inp.value);
-          if (inp.value !== clean) inp.value = clean;
+        inputEl.addEventListener('input', () => {
+          const limpio = sanitizarLetrasYEspacios(inputEl.value);
+          if (inputEl.value !== limpio) inputEl.value = limpio;
         });
       }
-      dynForm.appendChild(inp);
+      formularioDinamico.appendChild(inputEl);
     }
   }
-  const btn = mk('button', '', 'Guardar');
-  btn.type = 'submit';
-  dynForm.appendChild(btn);
+  const boton = crear('button', '', 'Guardar');
+  boton.type = 'submit';
+  formularioDinamico.appendChild(boton);
 }
 
-dynForm.addEventListener('submit', async (ev) => {
+formularioDinamico.addEventListener('submit', async (ev) => {
   ev.preventDefault();
-  formMsg.style.color = '#89ff9f';
-  formMsg.textContent = 'Guardando...';
-  const data = {};
-  Array.from(dynForm.elements).forEach((el) => {
+  mensajeFormulario.style.color = '#89ff9f';
+  mensajeFormulario.textContent = 'Guardando...';
+  const datos = {};
+  Array.from(formularioDinamico.elements).forEach((el) => {
     if (!el.name) return;
     if (el.type === 'submit') return;
-    if (el.tagName === 'SELECT' || el.type !== 'checkbox') data[el.name] = el.value === '' ? null : el.value;
+    if (el.tagName === 'SELECT' || el.type !== 'checkbox') datos[el.name] = el.value === '' ? null : el.value;
   });
   try {
-    const r = await fetch(`${API_BASE}/api/create/${current}`, {
+    const resp = await fetch(`${apiBase}/api/create/${actual}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      body: JSON.stringify(datos)
     });
-    const body = await r.json();
-    if (!r.ok) throw new Error(body.error || 'Error al guardar');
-    formMsg.textContent = 'Guardado con id ' + body.id;
-    dynForm.reset();
-    loadData();
+    const cuerpo = await resp.json();
+    if (!resp.ok) throw new Error(cuerpo.error || 'Error al guardar');
+    mensajeFormulario.textContent = 'Guardado con id ' + cuerpo.id;
+    formularioDinamico.reset();
+    cargarDatos();
   } catch (e) {
-    formMsg.style.color = 'salmon';
-    formMsg.textContent = 'Error: ' + e.message;
+    mensajeFormulario.style.color = 'salmon';
+    mensajeFormulario.textContent = 'Error: ' + e.message;
   }
 });
