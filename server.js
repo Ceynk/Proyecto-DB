@@ -32,72 +32,94 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-// Whitelisted entities with basic column lists and searchable fields
+// Whitelisted entities with column lists, joins (views) and searchable fields
+// For nicer tables we JOIN related names and alias them
 const ENTITIES = {
   empleado: {
-    table: 'empleados',
-    columns: ['idEmpleado','Nombre','Correo','Telefono','Asistencia','Especialidad','idProyecto'],
-    search: ['Nombre','Correo','Telefono','Especialidad']
+    from: 'empleados e LEFT JOIN proyectos p ON p.idProyecto = e.idProyecto',
+    columns: [
+      'e.idEmpleado AS idEmpleado',
+      'e.Nombre AS Nombre',
+      'e.Correo AS Correo',
+      'e.Telefono AS Telefono',
+      'e.Asistencia AS Asistencia',
+      'e.Especialidad AS Especialidad',
+      'p.Nombre AS Proyecto'
+    ],
+    search: ['e.Nombre','e.Correo','e.Telefono','e.Especialidad','p.Nombre'],
+    orderBy: 'idEmpleado'
   },
   cliente: {
-    table: 'clientes',
-    columns: ['idCliente','Nombre','Telefono','Correo'],
-    search: ['Nombre','Telefono','Correo']
+    from: 'clientes c',
+    columns: ['c.idCliente AS idCliente','c.Nombre AS Nombre','c.Telefono AS Telefono','c.Correo AS Correo'],
+    search: ['c.Nombre','c.Telefono','c.Correo'],
+    orderBy: 'idCliente'
   },
   proyecto: {
-    table: 'proyectos',
-    columns: ['idProyecto','Nombre','idCliente'],
-    search: ['Nombre']
+    from: 'proyectos p LEFT JOIN clientes c ON c.idCliente = p.idCliente',
+    columns: ['p.idProyecto AS idProyecto','p.Nombre AS Nombre','c.Nombre AS Cliente'],
+    search: ['p.Nombre','c.Nombre'],
+    orderBy: 'idProyecto'
   },
   apartamento: {
-    table: 'apartamentos',
-    columns: ['idApartamento','num_apartamento','num_piso','estado','idProyecto'],
-    search: ['estado']
+    from: 'apartamentos a LEFT JOIN proyectos p ON p.idProyecto = a.idProyecto',
+    columns: ['a.idApartamento AS idApartamento','a.num_apartamento AS num_apartamento','a.num_piso AS num_piso','a.estado AS estado','p.Nombre AS Proyecto'],
+    search: ['a.estado','p.Nombre'],
+    orderBy: 'idApartamento'
   },
   piso: {
-    table: 'pisos',
-    columns: ['idPiso','idProyecto','numero','idApartamento'],
-    search: ['numero']
+    from: 'pisos s LEFT JOIN proyectos p ON p.idProyecto = s.idProyecto LEFT JOIN apartamentos a ON a.idApartamento = s.idApartamento',
+    columns: ['s.idPiso AS idPiso','p.Nombre AS Proyecto','s.numero AS numero','a.num_apartamento AS Apartamento'],
+    search: ['p.Nombre','s.numero','a.num_apartamento'],
+    orderBy: 'idPiso'
   },
   material: {
-    table: 'materials',
-    columns: ['idMaterial','Nombre','costo_unitario','tipo'],
-    search: ['Nombre','tipo']
+    from: 'materials m',
+    columns: ['m.idMaterial AS idMaterial','m.Nombre AS Nombre','m.costo_unitario AS costo_unitario','m.tipo AS tipo'],
+    search: ['m.Nombre','m.tipo'],
+    orderBy: 'idMaterial'
   },
   inventario: {
-    table: 'inventarios',
-    columns: ['idInventario','tipo_movimiento','cantidad','fecha','idMaterial','idProyecto'],
-    search: ['tipo_movimiento']
+    from: 'inventarios i LEFT JOIN materials m ON m.idMaterial = i.idMaterial LEFT JOIN proyectos p ON p.idProyecto = i.idProyecto',
+    columns: ['i.idInventario AS idInventario','i.tipo_movimiento AS tipo_movimiento','i.cantidad AS cantidad','i.fecha AS fecha','m.Nombre AS Material','p.Nombre AS Proyecto'],
+    search: ['i.tipo_movimiento','m.Nombre','p.Nombre'],
+    orderBy: 'idInventario'
   },
   ingreso: {
-    table: 'ingresos',
-    columns: ['idIngreso','fecha','Valor','Descripcion','idProyecto'],
-    search: ['Descripcion']
+    from: 'ingresos g LEFT JOIN proyectos p ON p.idProyecto = g.idProyecto',
+    columns: ['g.idIngreso AS idIngreso','g.fecha AS fecha','g.Valor AS Valor','g.Descripcion AS Descripcion','p.Nombre AS Proyecto'],
+    search: ['g.Descripcion','p.Nombre'],
+    orderBy: 'idIngreso'
   },
   gasto: {
-    table: 'gastos',
-    columns: ['idGasto','Valor','Descripcion','fecha','idProyecto'],
-    search: ['Descripcion']
+    from: 'gastos g LEFT JOIN proyectos p ON p.idProyecto = g.idProyecto',
+    columns: ['g.idGasto AS idGasto','g.Valor AS Valor','g.Descripcion AS Descripcion','g.fecha AS fecha','p.Nombre AS Proyecto'],
+    search: ['g.Descripcion','p.Nombre'],
+    orderBy: 'idGasto'
   },
   factura: {
-    table: 'facturas',
-    columns: ['idFactura','Fecha','Valor_total','idProyecto','idCliente'],
-    search: []
+    from: 'facturas f LEFT JOIN proyectos p ON p.idProyecto = f.idProyecto LEFT JOIN clientes c ON c.idCliente = f.idCliente',
+    columns: ['f.idFactura AS idFactura','f.Fecha AS Fecha','f.Valor_total AS Valor_total','p.Nombre AS Proyecto','c.Nombre AS Cliente'],
+    search: ['p.Nombre','c.Nombre'],
+    orderBy: 'idFactura'
   },
   pago: {
-    table: 'pagos',
-    columns: ['idPago','Fecha','Monto','idFactura'],
-    search: []
+    from: 'pagos y LEFT JOIN facturas f ON f.idFactura = y.idFactura',
+    columns: ['y.idPago AS idPago','y.Fecha AS Fecha','y.Monto AS Monto','CONCAT("Factura ", f.idFactura) AS Factura'],
+    search: ['y.Monto','f.idFactura'],
+    orderBy: 'idPago'
   },
   tarea: {
-    table: 'tareas',
-    columns: ['idTarea','Descripcion','Estado','idProyecto','idEmpleado'],
-    search: ['Descripcion','Estado']
+    from: 'tareas t LEFT JOIN proyectos p ON p.idProyecto = t.idProyecto LEFT JOIN empleados e ON e.idEmpleado = t.idEmpleado',
+    columns: ['t.idTarea AS idTarea','t.Descripcion AS Descripcion','t.Estado AS Estado','p.Nombre AS Proyecto','e.Nombre AS Empleado'],
+    search: ['t.Descripcion','t.Estado','p.Nombre','e.Nombre'],
+    orderBy: 'idTarea'
   },
   turno: {
-    table: 'turnos',
-    columns: ['idTurno','Hora_inicio','Hora_fin','Tipo_jornada','idEmpleado'],
-    search: ['Tipo_jornada']
+    from: 'turnos u LEFT JOIN empleados e ON e.idEmpleado = u.idEmpleado',
+    columns: ['u.idTurno AS idTurno','u.Hora_inicio AS Hora_inicio','u.Hora_fin AS Hora_fin','u.Tipo_jornada AS Tipo_jornada','e.Nombre AS Empleado'],
+    search: ['u.Tipo_jornada','e.Nombre'],
+    orderBy: 'idTurno'
   }
 };
 
@@ -115,7 +137,8 @@ app.get('/api/list/:entity', async (req, res) => {
 
   try {
     const cols = info.columns.join(', ');
-    let sql = `SELECT ${cols} FROM ${info.table}`;
+    const from = info.from || info.table;
+    let sql = `SELECT ${cols} FROM ${from}`;
     const params = [];
     if (q && info.search && info.search.length) {
       const likes = info.search.map((c) => `${c} LIKE ?`).join(' OR ');
@@ -123,8 +146,8 @@ app.get('/api/list/:entity', async (req, res) => {
       info.search.forEach(() => params.push(`%${q}%`));
     }
     // order by first id column if present
-    const idCol = info.columns.find((c) => c.toLowerCase().startsWith('id')) || info.columns[0];
-    sql += ` ORDER BY ${idCol} DESC LIMIT 100`;
+    const orderBy = info.orderBy || '1';
+    sql += ` ORDER BY ${orderBy} DESC LIMIT 100`;
     const [rows] = await pool.query(sql, params);
     res.json(rows);
   } catch (err) {
