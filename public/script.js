@@ -152,7 +152,7 @@ const FORM_FIELDS = {
   apartamento: [
     { name: 'num_apartamento', type: 'number', req: true },
     { name: 'num_piso', type: 'number', req: true },
-    { name: 'estado', type: 'select', options: ['Disponible','Ocupado','En mantenimiento'] },
+    { name: 'estado', type: 'select', options: ['Activo','Inactivo'] },
     { name: 'idProyecto', type: 'select', source: '/api/min/proyectos' }
   ],
   piso: [
@@ -169,8 +169,8 @@ const FORM_FIELDS = {
     { name: 'Nombre', type: 'text', req: true, pattern: '[A-Za-zÁÉÍÓÚáéíóúÑñ\\s]+'},
     { name: 'Correo', type: 'email' },
     { name: 'Telefono', type: 'tel' },
-    { name: 'Asistencia', type: 'text' },
-    { name: 'Especialidad', type: 'text' },
+    { name: 'Asistencia', type: 'select', options: ['Si','No'] },
+    { name: 'Especialidad', type: 'select', options: ['Activo','Inactivo'] },
     { name: 'idProyecto', type: 'select', source: '/api/min/proyectos' }
   ],
   turno: [
@@ -181,7 +181,7 @@ const FORM_FIELDS = {
   ],
   tarea: [
     { name: 'Descripcion', type: 'text' },
-    { name: 'Estado', type: 'text' },
+    { name: 'Estado', type: 'select', options: ['Activo','Inactivo'] },
     { name: 'idProyecto', type: 'select', source: '/api/min/proyectos' },
     { name: 'idEmpleado', type: 'select', source: '/api/min/empleados' }
   ],
