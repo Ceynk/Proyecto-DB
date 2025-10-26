@@ -51,6 +51,17 @@ function mk(tag, cls, text) {
   return el;
 }
 
+// Helpers para sanitizar entradas según el tipo deseado
+function sanitizeLettersAndSpaces(value) {
+  // Permite letras (incluye acentos) y espacios
+  return value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '');
+}
+
+function sanitizeDigits(value) {
+  // Solo dígitos (el teléfono no admite letras ni signos)
+  return value.replace(/\D/g, '');
+}
+
 function renderSidebar() {
   entidadesEl.innerHTML = '';
   ENTITIES.forEach((name) => {
@@ -131,7 +142,7 @@ buildForm();
 const FORM_FIELDS = {
   cliente: [
     { name: 'Nombre', type: 'text', req: true, pattern: '[A-Za-zÁÉÍÓÚáéíóúÑñ\\s]+' },
-    { name: 'Telefono', type: 'text' },
+    { name: 'Telefono', type: 'tel' },
     { name: 'Correo', type: 'email' }
   ],
   proyecto: [
@@ -155,9 +166,9 @@ const FORM_FIELDS = {
     { name: 'tipo', type: 'text' }
   ],
   empleado: [
-    { name: 'Nombre', type: 'text', req: true },
+    { name: 'Nombre', type: 'text', req: true, pattern: '[A-Za-zÁÉÍÓÚáéíóúÑñ\\s]+'},
     { name: 'Correo', type: 'email' },
-    { name: 'Telefono', type: 'text' },
+    { name: 'Telefono', type: 'tel' },
     { name: 'Asistencia', type: 'text' },
     { name: 'Especialidad', type: 'text' },
     { name: 'idProyecto', type: 'select', source: '/api/min/proyectos' }
@@ -245,6 +256,35 @@ async function buildForm() {
       inp.type = f.type || 'text';
       if (f.step) inp.step = f.step;
       if (f.req) inp.required = true;
+
+      // Reglas de validación en vivo según tipo
+      const lowerName = (f.name || '').toLowerCase();
+      if (inp.type === 'email') {
+        // Sin sanitización adicional para email
+      } else if (inp.type === 'tel' || lowerName.includes('telefono')) {
+        // Solo dígitos en teléfono, exactamente 10
+        inp.setAttribute('pattern', '\\d{10}');
+        inp.setAttribute('inputmode', 'numeric');
+        inp.setAttribute('maxlength', '10');
+        inp.setAttribute('minlength', '10');
+        if (!inp.placeholder) inp.placeholder = '10 dígitos';
+        inp.addEventListener('input', () => {
+          let clean = sanitizeDigits(inp.value);
+          if (clean.length > 10) clean = clean.slice(0, 10);
+          if (inp.value !== clean) inp.value = clean;
+        });
+      } else if (inp.type === 'text') {
+        // Si no hay un patrón específico, aceptar solo letras y espacios
+        if (f.pattern) {
+          inp.setAttribute('pattern', f.pattern);
+        } else {
+          inp.setAttribute('pattern', '[A-Za-zÁÉÍÓÚáéíóúÑñ\\s]+');
+        }
+        inp.addEventListener('input', () => {
+          const clean = sanitizeLettersAndSpaces(inp.value);
+          if (inp.value !== clean) inp.value = clean;
+        });
+      }
       dynForm.appendChild(inp);
     }
   }
