@@ -127,10 +127,10 @@ renderSidebar();
 loadData();
 buildForm();
 
-// Define form fields for each entity (simple, estilo estudiante)
+// Define form fields for each entity 
 const FORM_FIELDS = {
   cliente: [
-    { name: 'Nombre', type: 'text', req: true },
+    { name: 'Nombre', type: 'text', req: true, pattern: '[A-Za-zÁÉÍÓÚáéíóúÑñ\\s]+' },
     { name: 'Telefono', type: 'text' },
     { name: 'Correo', type: 'email' }
   ],
