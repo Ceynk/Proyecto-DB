@@ -32,108 +32,144 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-// Whitelisted entities with basic column lists and searchable fields
-const ENTITIES = {
+// Entidades permitidas con columnas, joins (vistas) y campos buscables
+// Para tablas más claras se hacen JOINs y alias
+const entidades = {
   empleado: {
+    from: 'empleados e LEFT JOIN proyectos p ON p.idProyecto = e.idProyecto',
     table: 'empleados',
-    columns: ['idEmpleado','Nombre','Correo','Telefono','Asistencia','Especialidad','idProyecto'],
-    search: ['Nombre','Correo','Telefono','Especialidad']
+    columns: [
+      'e.idEmpleado AS idEmpleado',
+      'e.Nombre AS Nombre',
+      'e.Correo AS Correo',
+      'e.Telefono AS Telefono',
+      'e.Asistencia AS Asistencia',
+      'e.Especialidad AS Especialidad',
+      'p.Nombre AS Proyecto'
+    ],
+    search: ['e.Nombre','e.Correo','e.Telefono','e.Especialidad','p.Nombre'],
+    orderBy: 'idEmpleado'
   },
   cliente: {
+    from: 'clientes c',
     table: 'clientes',
-    columns: ['idCliente','Nombre','Telefono','Correo'],
-    search: ['Nombre','Telefono','Correo']
+    columns: ['c.idCliente AS idCliente','c.Nombre AS Nombre','c.Telefono AS Telefono','c.Correo AS Correo'],
+    search: ['c.Nombre','c.Telefono','c.Correo'],
+    orderBy: 'idCliente'
   },
   proyecto: {
+    from: 'proyectos p LEFT JOIN clientes c ON c.idCliente = p.idCliente',
     table: 'proyectos',
-    columns: ['idProyecto','Nombre','idCliente'],
-    search: ['Nombre']
+    columns: ['p.idProyecto AS idProyecto','p.Nombre AS Nombre','c.Nombre AS Cliente'],
+    search: ['p.Nombre','c.Nombre'],
+    orderBy: 'idProyecto'
   },
   apartamento: {
+    from: 'apartamentos a LEFT JOIN proyectos p ON p.idProyecto = a.idProyecto',
     table: 'apartamentos',
-    columns: ['idApartamento','num_apartamento','num_piso','estado','idProyecto'],
-    search: ['estado']
+    columns: ['a.idApartamento AS idApartamento','a.num_apartamento AS num_apartamento','a.num_piso AS num_piso','a.estado AS estado','p.Nombre AS Proyecto'],
+    search: ['a.estado','p.Nombre'],
+    orderBy: 'idApartamento'
   },
   piso: {
+    from: 'pisos s LEFT JOIN proyectos p ON p.idProyecto = s.idProyecto LEFT JOIN apartamentos a ON a.idApartamento = s.idApartamento',
     table: 'pisos',
-    columns: ['idPiso','idProyecto','numero','idApartamento'],
-    search: ['numero']
+    columns: ['s.idPiso AS idPiso','p.Nombre AS Proyecto','s.numero AS numero','a.num_apartamento AS Apartamento'],
+    search: ['p.Nombre','s.numero','a.num_apartamento'],
+    orderBy: 'idPiso'
   },
   material: {
+    from: 'materials m',
     table: 'materials',
-    columns: ['idMaterial','Nombre','costo_unitario','tipo'],
-    search: ['Nombre','tipo']
+    columns: ['m.idMaterial AS idMaterial','m.Nombre AS Nombre','m.costo_unitario AS costo_unitario','m.tipo AS tipo'],
+    search: ['m.Nombre','m.tipo'],
+    orderBy: 'idMaterial'
   },
   inventario: {
+    from: 'inventarios i LEFT JOIN materials m ON m.idMaterial = i.idMaterial LEFT JOIN proyectos p ON p.idProyecto = i.idProyecto',
     table: 'inventarios',
-    columns: ['idInventario','tipo_movimiento','cantidad','fecha','idMaterial','idProyecto'],
-    search: ['tipo_movimiento']
+    columns: ['i.idInventario AS idInventario','i.tipo_movimiento AS tipo_movimiento','i.cantidad AS cantidad','i.fecha AS fecha','m.Nombre AS Material','p.Nombre AS Proyecto'],
+    search: ['i.tipo_movimiento','m.Nombre','p.Nombre'],
+    orderBy: 'idInventario'
   },
   ingreso: {
+    from: 'ingresos g LEFT JOIN proyectos p ON p.idProyecto = g.idProyecto',
     table: 'ingresos',
-    columns: ['idIngreso','fecha','Valor','Descripcion','idProyecto'],
-    search: ['Descripcion']
+    columns: ['g.idIngreso AS idIngreso','g.fecha AS fecha','g.Valor AS Valor','g.Descripcion AS Descripcion','p.Nombre AS Proyecto'],
+    search: ['g.Descripcion','p.Nombre'],
+    orderBy: 'idIngreso'
   },
   gasto: {
+    from: 'gastos g LEFT JOIN proyectos p ON p.idProyecto = g.idProyecto',
     table: 'gastos',
-    columns: ['idGasto','Valor','Descripcion','fecha','idProyecto'],
-    search: ['Descripcion']
+    columns: ['g.idGasto AS idGasto','g.Valor AS Valor','g.Descripcion AS Descripcion','g.fecha AS fecha','p.Nombre AS Proyecto'],
+    search: ['g.Descripcion','p.Nombre'],
+    orderBy: 'idGasto'
   },
   factura: {
+    from: 'facturas f LEFT JOIN proyectos p ON p.idProyecto = f.idProyecto LEFT JOIN clientes c ON c.idCliente = f.idCliente',
     table: 'facturas',
-    columns: ['idFactura','Fecha','Valor_total','idProyecto','idCliente'],
-    search: []
+    columns: ['f.idFactura AS idFactura','f.Fecha AS Fecha','f.Valor_total AS Valor_total','p.Nombre AS Proyecto','c.Nombre AS Cliente'],
+    search: ['p.Nombre','c.Nombre'],
+    orderBy: 'idFactura'
   },
   pago: {
+    from: 'pagos y LEFT JOIN facturas f ON f.idFactura = y.idFactura',
     table: 'pagos',
-    columns: ['idPago','Fecha','Monto','idFactura'],
-    search: []
+    columns: ['y.idPago AS idPago','y.Fecha AS Fecha','y.Monto AS Monto','CONCAT("Factura ", f.idFactura) AS Factura'],
+    search: ['y.Monto','f.idFactura'],
+    orderBy: 'idPago'
   },
   tarea: {
+    from: 'tareas t LEFT JOIN proyectos p ON p.idProyecto = t.idProyecto LEFT JOIN empleados e ON e.idEmpleado = t.idEmpleado',
     table: 'tareas',
-    columns: ['idTarea','Descripcion','Estado','idProyecto','idEmpleado'],
-    search: ['Descripcion','Estado']
+    columns: ['t.idTarea AS idTarea','t.Descripcion AS Descripcion','t.Estado AS Estado','p.Nombre AS Proyecto','e.Nombre AS Empleado'],
+    search: ['t.Descripcion','t.Estado','p.Nombre','e.Nombre'],
+    orderBy: 'idTarea'
   },
   turno: {
+    from: 'turnos u LEFT JOIN empleados e ON e.idEmpleado = u.idEmpleado',
     table: 'turnos',
-    columns: ['idTurno','Hora_inicio','Hora_fin','Tipo_jornada','idEmpleado'],
-    search: ['Tipo_jornada']
+    columns: ['u.idTurno AS idTurno','u.Hora_inicio AS Hora_inicio','u.Hora_fin AS Hora_fin','u.Tipo_jornada AS Tipo_jornada','e.Nombre AS Empleado'],
+    search: ['u.Tipo_jornada','e.Nombre'],
+    orderBy: 'idTurno'
   }
 };
 
 // List available entities
 app.get('/api/entities', (req, res) => {
-  res.json(Object.keys(ENTITIES));
+  res.json(Object.keys(entidades));
 });
 
 // Generic list with optional text search (?q=)
 app.get('/api/list/:entity', async (req, res) => {
-  const entity = String(req.params.entity || '').toLowerCase();
-  const info = ENTITIES[entity];
-  if (!info) return res.status(400).json({ error: 'Entidad no valida' });
-  const q = (req.query.q || '').toString().trim();
+  const entidad = String(req.params.entity || '').toLowerCase();
+  const definicion = entidades[entidad];
+  if (!definicion) return res.status(400).json({ error: 'Entidad no valida' });
+  const busqueda = (req.query.q || '').toString().trim();
 
   try {
-    const cols = info.columns.join(', ');
-    let sql = `SELECT ${cols} FROM ${info.table}`;
-    const params = [];
-    if (q && info.search && info.search.length) {
-      const likes = info.search.map((c) => `${c} LIKE ?`).join(' OR ');
-      sql += ` WHERE ${likes}`;
-      info.search.forEach(() => params.push(`%${q}%`));
+    const columnas = definicion.columns.join(', ');
+    const desde = definicion.from || definicion.table;
+    let sql = `SELECT ${columnas} FROM ${desde}`;
+    const parametros = [];
+    if (busqueda && definicion.search && definicion.search.length) {
+      const coincidencias = definicion.search.map((c) => `${c} LIKE ?`).join(' OR ');
+      sql += ` WHERE ${coincidencias}`;
+      definicion.search.forEach(() => parametros.push(`%${busqueda}%`));
     }
     // order by first id column if present
-    const idCol = info.columns.find((c) => c.toLowerCase().startsWith('id')) || info.columns[0];
-    sql += ` ORDER BY ${idCol} DESC LIMIT 100`;
-    const [rows] = await pool.query(sql, params);
-    res.json(rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    const ordenarPor = definicion.orderBy || '1';
+    sql += ` ORDER BY ${ordenarPor} DESC LIMIT 100`;
+    const [filas] = await pool.query(sql, parametros);
+    res.json(filas);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
-// Simple map of insertable columns per entity (exclude PK id)
-const CREATE_COLS = {
+// Mapa simple de columnas insertables por entidad (excluye la PK id)
+const columnasCrear = {
   cliente: ['Nombre','Telefono','Correo'],
   proyecto: ['Nombre','idCliente'],
   apartamento: ['num_apartamento','num_piso','estado','idProyecto'],
@@ -151,19 +187,19 @@ const CREATE_COLS = {
 
 // Generic create
 app.post('/api/create/:entity', async (req, res) => {
-  const entity = String(req.params.entity || '').toLowerCase();
-  const info = ENTITIES[entity];
-  const cols = CREATE_COLS[entity];
-  if (!info || !cols) return res.status(400).json({ error: 'Entidad no valida' });
+  const entidad = String(req.params.entity || '').toLowerCase();
+  const definicion = entidades[entidad];
+  const cols = columnasCrear[entidad];
+  if (!definicion || !cols) return res.status(400).json({ error: 'Entidad no valida' });
   try {
-    console.log('[CREATE]', entity, req.body);
+    console.log('[CREATE]', entidad, req.body);
     const values = cols.map((c) => (req.body && Object.prototype.hasOwnProperty.call(req.body, c)) ? req.body[c] : null);
     const placeholders = cols.map(() => '?').join(', ');
-    const sql = `INSERT INTO ${info.table} (${cols.join(', ')}) VALUES (${placeholders})`;
-    const [result] = await pool.query(sql, values);
-    res.status(201).json({ id: result.insertId });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    const sql = `INSERT INTO ${definicion.table} (${cols.join(', ')}) VALUES (${placeholders})`;
+    const [resultado] = await pool.query(sql, values);
+    res.status(201).json({ id: resultado.insertId });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -171,8 +207,8 @@ app.post('/api/create/:entity', async (req, res) => {
 app.get('/api/version', (req, res) => {
   res.json({
     ok: true,
-    entities: Object.keys(ENTITIES),
-    creatable: Object.keys(CREATE_COLS)
+    entities: Object.keys(entidades),
+    creatable: Object.keys(columnasCrear)
   });
 });
 
@@ -180,46 +216,46 @@ app.get('/api/check/:entity', (req, res) => {
   const e = String(req.params.entity || '').toLowerCase();
   res.json({
     entity: e,
-    known: !!ENTITIES[e],
-    creatable: !!CREATE_COLS[e],
-    listColumns: ENTITIES[e]?.columns || [],
-    createColumns: CREATE_COLS[e] || []
+    known: !!entidades[e],
+    creatable: !!columnasCrear[e],
+    listColumns: entidades[e]?.columns || [],
+    createColumns: columnasCrear[e] || []
   });
 });
 
 // Simple health endpoint
 app.get('/api/health', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT 1 AS ok');
-    res.json({ ok: true, db: rows[0].ok === 1 });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
+    const [filas] = await pool.query('SELECT 1 AS ok');
+    res.json({ ok: true, db: filas[0].ok === 1 });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
   }
 });
 
 // List clientes (very basic)
 app.get('/api/clientes', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT idCliente, Nombre, Telefono, Correo FROM clientes ORDER BY idCliente DESC LIMIT 50');
-    res.json(rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    const [filas] = await pool.query('SELECT idCliente, Nombre, Telefono, Correo FROM clientes ORDER BY idCliente DESC LIMIT 50');
+    res.json(filas);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
 // List proyectos with cliente name if available
 app.get('/api/proyectos', async (req, res) => {
   try {
-    const [rows] = await pool.query(`
+    const [filas] = await pool.query(`
       SELECT p.idProyecto, p.Nombre AS Proyecto, c.Nombre AS Cliente
       FROM proyectos p
       LEFT JOIN clientes c ON c.idCliente = p.idCliente
       ORDER BY p.idProyecto DESC
       LIMIT 50
     `);
-    res.json(rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.json(filas);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -230,50 +266,50 @@ app.post('/api/clientes', async (req, res) => {
     return res.status(400).json({ error: 'Nombre es obligatorio' });
   }
   try {
-    const [result] = await pool.query(
+    const [resultado] = await pool.query(
       'INSERT INTO clientes (Nombre, Telefono, Correo) VALUES (?, ?, ?)',
       [Nombre, Telefono || null, Correo || null]
     );
-    res.status(201).json({ idCliente: result.insertId, Nombre, Telefono, Correo });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(201).json({ idCliente: resultado.insertId, Nombre, Telefono, Correo });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
 // Minimal lists for relations (id and name-ish)
 app.get('/api/min/clientes', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT idCliente as id, Nombre as nombre FROM clientes ORDER BY idCliente DESC LIMIT 200');
-    res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const [filas] = await pool.query('SELECT idCliente as id, Nombre as nombre FROM clientes ORDER BY idCliente DESC LIMIT 200');
+    res.json(filas);
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.get('/api/min/proyectos', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT idProyecto as id, Nombre as nombre FROM proyectos ORDER BY idProyecto DESC LIMIT 200');
-    res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const [filas] = await pool.query('SELECT idProyecto as id, Nombre as nombre FROM proyectos ORDER BY idProyecto DESC LIMIT 200');
+    res.json(filas);
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.get('/api/min/empleados', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT idEmpleado as id, Nombre as nombre FROM empleados ORDER BY idEmpleado DESC LIMIT 200');
-    res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const [filas] = await pool.query('SELECT idEmpleado as id, Nombre as nombre FROM empleados ORDER BY idEmpleado DESC LIMIT 200');
+    res.json(filas);
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.get('/api/min/materiales', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT idMaterial as id, Nombre as nombre FROM materials ORDER BY idMaterial DESC LIMIT 200');
-    res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const [filas] = await pool.query('SELECT idMaterial as id, Nombre as nombre FROM materials ORDER BY idMaterial DESC LIMIT 200');
+    res.json(filas);
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.get('/api/min/facturas', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT idFactura as id, CONCAT("Factura ", idFactura) as nombre FROM facturas ORDER BY idFactura DESC LIMIT 200');
-    res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const [filas] = await pool.query('SELECT idFactura as id, CONCAT("Factura ", idFactura) as nombre FROM facturas ORDER BY idFactura DESC LIMIT 200');
+    res.json(filas);
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 // Ensure unknown /api routes return JSON instead of HTML
