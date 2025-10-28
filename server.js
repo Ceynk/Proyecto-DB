@@ -12,12 +12,15 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(cors());
+// Handle CORS preflight for all routes (needed for POST with application/json)
 app.options('*', cors());
 app.use(express.json());
 
+// Static files
 app.use(express.static(path.join(__dirname, 'public')));
 
-
+// Create a MySQL connection pool
+// Support both custom DB_* env vars and Railway defaults (MYSQLHOST, MYSQLPORT, MYSQLUSER, MYSQLPASSWORD, MYSQLDATABASE)
 const pool = mysql.createPool({
   host: process.env.DB_HOST || process.env.MYSQLHOST || process.env.MYSQL_HOST,
   port: Number(process.env.DB_PORT || process.env.MYSQLPORT || process.env.MYSQL_PORT || 3306),
@@ -29,6 +32,7 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
+// Whitelisted entities with basic column lists and searchable fields
 const ENTITIES = {
   empleado: {
     table: 'empleados',
@@ -128,6 +132,7 @@ app.get('/api/list/:entity', async (req, res) => {
   }
 });
 
+// Simple map of insertable columns per entity (exclude PK id)
 const CREATE_COLS = {
   cliente: ['Nombre','Telefono','Correo'],
   proyecto: ['Nombre','idCliente'],
@@ -144,6 +149,7 @@ const CREATE_COLS = {
   pago: ['Fecha','Monto','idFactura']
 };
 
+// Generic create
 app.post('/api/create/:entity', async (req, res) => {
   const entity = String(req.params.entity || '').toLowerCase();
   const info = ENTITIES[entity];
@@ -161,6 +167,7 @@ app.post('/api/create/:entity', async (req, res) => {
   }
 });
 
+// Version/info endpoints to help debug
 app.get('/api/version', (req, res) => {
   res.json({
     ok: true,
@@ -180,6 +187,7 @@ app.get('/api/check/:entity', (req, res) => {
   });
 });
 
+// Simple health endpoint
 app.get('/api/health', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT 1 AS ok');
@@ -189,6 +197,7 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// List clientes (very basic)
 app.get('/api/clientes', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT idCliente, Nombre, Telefono, Correo FROM clientes ORDER BY idCliente DESC LIMIT 50');
@@ -198,6 +207,7 @@ app.get('/api/clientes', async (req, res) => {
   }
 });
 
+// List proyectos with cliente name if available
 app.get('/api/proyectos', async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -213,6 +223,7 @@ app.get('/api/proyectos', async (req, res) => {
   }
 });
 
+// Add a super simple POST to add a cliente
 app.post('/api/clientes', async (req, res) => {
   const { Nombre, Telefono, Correo } = req.body || {};
   if (!Nombre) {
@@ -229,6 +240,7 @@ app.post('/api/clientes', async (req, res) => {
   }
 });
 
+// Minimal lists for relations (id and name-ish)
 app.get('/api/min/clientes', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT idCliente as id, Nombre as nombre FROM clientes ORDER BY idCliente DESC LIMIT 200');
@@ -264,6 +276,7 @@ app.get('/api/min/facturas', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Ensure unknown /api routes return JSON instead of HTML
 app.use('/api', (req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada', path: req.originalUrl });
 });
