@@ -15,6 +15,8 @@ const loginArea = document.getElementById('loginArea');
 const appArea = document.getElementById('appArea');
 const loginForm = document.getElementById('loginForm');
 const loginMsg = document.getElementById('loginMsg');
+const totpForm = document.getElementById('totpForm');
+const totpMsg = document.getElementById('totpMsg');
 const logoutBtn = document.getElementById('logoutBtn');
 
 // Empleado-only panel
@@ -29,6 +31,11 @@ const updateIdInput = document.getElementById('updateIdInput');
 const btnUpdate = document.getElementById('btnUpdate');
 const btnDelete = document.getElementById('btnDelete');
 const updateMsg = document.getElementById('updateMsg');
+
+// Admin create form
+const adminCreateWrap = document.getElementById('adminCreateWrap');
+const adminCreateForm = document.getElementById('adminCreateForm');
+const adminCreateMsg = document.getElementById('adminCreateMsg');
 
 
 // en index.html o guarda una clave `API_BASE` en localStorage con la URL del backend en Railway.
@@ -210,6 +217,7 @@ function updateUIForAuth() {
     document.querySelector('.toolbar').style.display = '';
     document.getElementById('formWrap').style.display = '';
     updateControls.style.display = '';
+    adminCreateWrap.style.display = '';
     renderizarBarraLateral();
     construirFormulario();
     cargarDatos();
@@ -222,6 +230,7 @@ function updateUIForAuth() {
     barraLateral.style.display = 'none';
     document.querySelector('.toolbar').style.display = 'none';
     document.getElementById('formWrap').style.display = 'none';
+    adminCreateWrap.style.display = 'none';
     contenedorTabla.innerHTML = '';
     tituloEl.textContent = 'Mi panel';
     empleadoPanel.style.display = '';
@@ -260,12 +269,43 @@ if (loginForm) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      currentUser = r.user;
-      loginForm.reset();
-      updateUIForAuth();
+      if (r.requires2fa) {
+        // Show TOTP form
+        loginMsg.textContent = 'Se requiere 2FA. Ingresa el código.';
+        totpForm.style.display = '';
+        loginForm.style.display = 'none';
+      } else {
+        currentUser = r.user;
+        loginForm.reset();
+        updateUIForAuth();
+      }
     } catch (e) {
       loginMsg.style.color = 'salmon';
       loginMsg.textContent = e.message;
+    }
+  });
+}
+
+if (totpForm) {
+  totpForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    totpMsg.textContent = 'Verificando...';
+    totpMsg.style.color = '';
+    const token = new FormData(totpForm).get('token');
+    try {
+      const r = await apiFetch('/api/2fa/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      });
+      currentUser = r.user;
+      totpForm.reset();
+      totpForm.style.display = 'none';
+      loginForm.style.display = '';
+      updateUIForAuth();
+    } catch (e) {
+      totpMsg.style.color = 'salmon';
+      totpMsg.textContent = e.message;
     }
   });
 }
@@ -534,6 +574,30 @@ if (btnDelete) {
     } catch (e) {
       updateMsg.style.color = 'salmon';
       updateMsg.textContent = e.message;
+    }
+  });
+}
+
+// Admin create form submit (multipart)
+if (adminCreateForm) {
+  adminCreateForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    adminCreateMsg.textContent = 'Creando...';
+    adminCreateMsg.style.color = '';
+    const fd = new FormData(adminCreateForm);
+    try {
+      const res = await fetch(`${apiBase}/api/admin/create`, {
+        method: 'POST',
+        credentials: 'include',
+        body: fd
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Error');
+      adminCreateMsg.textContent = `Admin creado (id ${body.idUsuario})`;
+      adminCreateForm.reset();
+    } catch (e) {
+      adminCreateMsg.style.color = 'salmon';
+      adminCreateMsg.textContent = e.message;
     }
   });
 }
