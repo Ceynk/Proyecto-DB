@@ -5,7 +5,12 @@ import mysql from 'mysql2/promise';
 import session from 'express-session';
 import bcrypt from 'bcryptjs';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
+import multer from 'multer';
+import speakeasy from 'speakeasy';
+import QRCode from 'qrcode';
+import { RekognitionClient, CompareFacesCommand } from '@aws-sdk/client-rekognition';
 
 dotenv.config();
 
@@ -35,6 +40,12 @@ app.use(
 
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
+// Static uploads
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsDir));
 
 // Create a MySQL connection pool
 // Support both custom DB_* env vars and Railway defaults (MYSQLHOST, MYSQLPORT, MYSQLUSER, MYSQLPASSWORD, MYSQLDATABASE)
@@ -48,6 +59,41 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0
 });
+
+// Ensure schema (extra columns) and seed admin user
+async function ensureSchemaAndSeed() {
+  try {
+    const [c1] = await pool.query("SHOW COLUMNS FROM usuarios LIKE 'totp_secret'");
+    if (c1.length === 0) {
+      await pool.query("ALTER TABLE usuarios ADD COLUMN totp_secret VARCHAR(64) NULL");
+    }
+  } catch (e) {
+    console.warn('No se pudo verificar/agregar columna totp_secret:', e.message);
+  }
+  try {
+    const [c2] = await pool.query("SHOW COLUMNS FROM usuarios LIKE 'foto_url'");
+    if (c2.length === 0) {
+      await pool.query("ALTER TABLE usuarios ADD COLUMN foto_url VARCHAR(255) NULL");
+    }
+  } catch (e) {
+    console.warn('No se pudo verificar/agregar columna foto_url:', e.message);
+  }
+  try {
+    const [rows] = await pool.query("SELECT COUNT(*) AS n FROM usuarios WHERE rol='Administrador'");
+    if (rows[0].n === 0) {
+      const username = process.env.ADMIN_USER || 'admin';
+      const password = process.env.ADMIN_PASS || 'admin123';
+      const hash = await bcrypt.hash(password, 10);
+      await pool.query(
+        "INSERT INTO usuarios (nombre_usuario, contraseña, rol, idEmpleado) VALUES (?, ?, 'Administrador', NULL)",
+        [username, hash]
+      );
+      console.log(`Usuario admin creado: ${username} (contraseña en .env o 'admin123')`);
+    }
+  } catch (e) {
+    console.warn('No se pudo crear admin por defecto:', e.message);
+  }
+}
 
 // Entidades permitidas con columnas, joins (vistas) y campos buscables
 // Para tablas más claras se hacen JOINs y alias
@@ -166,6 +212,33 @@ const entidades = {
   }
 };
 
+// Multer (uploads)
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadsDir);
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const base = path.basename(file.originalname || 'foto', ext).replace(/[^a-z0-9_-]/gi, '_');
+    const fname = `${Date.now()}_${Math.random().toString(36).slice(2)}_${base}${ext}`;
+    cb(null, fname);
+  }
+});
+const upload = multer({ storage });
+
+// Optional AWS Rekognition
+let rekognitionClient = null;
+if ((process.env.FACE_PROVIDER || '').toLowerCase() === 'aws') {
+  try {
+    rekognitionClient = new RekognitionClient({ region: process.env.AWS_REGION || 'us-east-1' });
+  } catch (e) {
+    console.warn('AWS Rekognition no inicializado:', e.message);
+  }
+}
+
+// 2FA helpers
+const needs2FA = (u) => Boolean(u?.totp_secret);
+
 // --- Auth helpers ---
 const requireAuth = (req, res, next) => {
   if (req.session && req.session.user) return next();
@@ -189,7 +262,7 @@ app.post('/api/auth/login', async (req, res) => {
   if (!username || !password) return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
   try {
     const [rows] = await pool.query(
-      'SELECT idUsuario, nombre_usuario, contraseña, rol, idEmpleado FROM usuarios WHERE nombre_usuario = ? LIMIT 1',
+      'SELECT idUsuario, nombre_usuario, contraseña, rol, idEmpleado, totp_secret FROM usuarios WHERE nombre_usuario = ? LIMIT 1',
       [username]
     );
     if (!rows || rows.length === 0) return res.status(401).json({ error: 'Credenciales inválidas' });
@@ -202,13 +275,17 @@ app.post('/api/auth/login', async (req, res) => {
       ok = password === hash; // fallback para contraseñas en texto plano
     }
     if (!ok) return res.status(401).json({ error: 'Credenciales inválidas' });
+    if (needs2FA(u)) {
+      req.session.pending2fa = { idUsuario: u.idUsuario };
+      return res.json({ ok: true, requires2fa: true });
+    }
     req.session.user = {
       idUsuario: u.idUsuario,
       nombre_usuario: u.nombre_usuario,
       rol: u.rol,
       idEmpleado: u.idEmpleado || null
     };
-    res.json({ ok: true, user: req.session.user });
+    res.json({ ok: true, user: req.session.user, requires2fa: false });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -222,6 +299,40 @@ app.post('/api/auth/logout', (req, res) => {
 
 app.get('/api/auth/me', (req, res) => {
   res.json({ user: req.session?.user || null });
+});
+
+// 2FA setup and verify
+app.get('/api/2fa/setup', requireAuth, async (req, res) => {
+  try {
+    const u = req.session.user;
+    const [rows] = await pool.query('SELECT idUsuario, nombre_usuario, totp_secret FROM usuarios WHERE idUsuario = ?', [u.idUsuario]);
+    if (!rows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+    let secret = rows[0].totp_secret;
+    if (!secret) {
+      const sec = speakeasy.generateSecret({ length: 20, name: `BuildSmarts (${rows[0].nombre_usuario})` });
+      secret = sec.base32;
+      await pool.query('UPDATE usuarios SET totp_secret = ? WHERE idUsuario = ?', [secret, u.idUsuario]);
+    }
+    const otpauth = `otpauth://totp/BuildSmarts:${rows[0].nombre_usuario}?secret=${secret}&issuer=BuildSmarts`;
+    const qr = await QRCode.toDataURL(otpauth);
+    res.json({ secret, otpauth, qr });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/2fa/verify', async (req, res) => {
+  const { token } = req.body || {};
+  const pending = req.session?.pending2fa;
+  if (!pending?.idUsuario) return res.status(400).json({ error: 'No hay 2FA pendiente' });
+  try {
+    const [rows] = await pool.query('SELECT idUsuario, nombre_usuario, rol, idEmpleado, totp_secret FROM usuarios WHERE idUsuario = ?', [pending.idUsuario]);
+    if (!rows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const u = rows[0];
+    const ok = speakeasy.totp.verify({ secret: u.totp_secret, encoding: 'base32', token: String(token || '') });
+    if (!ok) return res.status(401).json({ error: 'Código 2FA inválido' });
+    req.session.user = { idUsuario: u.idUsuario, nombre_usuario: u.nombre_usuario, rol: u.rol, idEmpleado: u.idEmpleado || null };
+    delete req.session.pending2fa;
+    res.json({ ok: true, user: req.session.user });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // List available entities (admin)
@@ -438,6 +549,55 @@ app.get('/api/min/facturas', requireAuth, requireAdmin, async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// Crear admin con foto (multipart)
+app.post('/api/admin/create', requireAuth, requireAdmin, upload.single('foto'), async (req, res) => {
+  try {
+    const { username, password, enable2fa } = req.body || {};
+    if (!username || !password) return res.status(400).json({ error: 'username y password requeridos' });
+    const [exist] = await pool.query('SELECT idUsuario FROM usuarios WHERE nombre_usuario = ?', [username]);
+    if (exist.length) return res.status(400).json({ error: 'Usuario ya existe' });
+    const hash = await bcrypt.hash(password, 10);
+    const foto_url = req.file ? `/uploads/${req.file.filename}` : null;
+    let totp_secret = null;
+    if (String(enable2fa).toLowerCase() === 'true') {
+      const sec = speakeasy.generateSecret({ length: 20, name: `BuildSmarts (${username})` });
+      totp_secret = sec.base32;
+    }
+    const [r] = await pool.query(
+      'INSERT INTO usuarios (nombre_usuario, contraseña, rol, idEmpleado, foto_url, totp_secret) VALUES (?, ?, "Administrador", NULL, ?, ?)',
+      [username, hash, foto_url, totp_secret]
+    );
+    res.status(201).json({ idUsuario: r.insertId, username, foto_url, has2fa: !!totp_secret });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// API de verificación facial (opcional Rekognition)
+app.post('/api/face/verify', upload.single('foto'), async (req, res) => {
+  try {
+    const { username } = req.body || {};
+    if (!username) return res.status(400).json({ error: 'username es requerido' });
+    const [rows] = await pool.query('SELECT foto_url FROM usuarios WHERE nombre_usuario = ?', [username]);
+    if (!rows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const stored = rows[0].foto_url;
+    if (!stored) return res.status(400).json({ error: 'Usuario sin foto registrada' });
+    if (!req.file) return res.status(400).json({ error: 'Falta foto para verificar' });
+    if (!rekognitionClient) return res.status(501).json({ error: 'Proveedor facial no configurado' });
+    const sourcePath = stored.startsWith('/uploads/') ? path.join(__dirname, stored) : path.join(__dirname, stored);
+    const sourceBytes = fs.readFileSync(sourcePath);
+    const targetBytes = fs.readFileSync(req.file.path);
+    const cmd = new CompareFacesCommand({
+      SourceImage: { Bytes: sourceBytes },
+      TargetImage: { Bytes: targetBytes },
+      SimilarityThreshold: Number(process.env.FACE_SIMILARITY || 85)
+    });
+    const out = await rekognitionClient.send(cmd);
+    const best = (out.FaceMatches || [])[0];
+    const confidence = best?.Similarity || 0;
+    const match = confidence >= Number(process.env.FACE_SIMILARITY || 85);
+    res.json({ match, confidence });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Endpoints para empleado
 app.get('/api/empleado/mis-datos', requireAuth, requireEmpleado, async (req, res) => {
   const idEmp = req.session.user?.idEmpleado;
@@ -474,6 +634,8 @@ app.use('/api', (req, res) => {
 });
 
 const PORT = Number(process.env.PORT || 8080);
-app.listen(PORT, () => {
-  console.log(`Servidor escuchando en http://localhost:${PORT}`);
+ensureSchemaAndSeed().finally(() => {
+  app.listen(PORT, () => {
+    console.log(`Servidor escuchando en http://localhost:${PORT}`);
+  });
 });
