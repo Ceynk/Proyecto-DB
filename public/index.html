@@ -17,6 +17,15 @@
       <div class="brand">
         <span class="brand-text">Sistema de Gestión</span>
       </div>
+      <div>
+        <button class="btn-icon" id="logoutBtn" title="Cerrar sesión" aria-label="Cerrar sesión" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M15 12H3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M11 8L15 12L11 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M9 3H17C18.1046 3 19 3.89543 19 5V19C19 20.1046 18.1046 21 17 21H9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
       <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Menú">
         <span></span>
         <span></span>
@@ -25,7 +34,24 @@
     </div>
   </header>
 
-  <div class="container">
+  <!-- Login -->
+  <div class="container" id="loginArea" style="display:none; padding-top: 2rem;">
+    <div class="panel" style="max-width:480px; margin:0 auto;">
+      <div class="panel-header">
+        <h1>Iniciar sesión</h1>
+      </div>
+      <form id="loginForm" class="dyn-form" style="display:grid; gap: 12px;">
+        <label>Usuario</label>
+        <input name="username" type="text" autocomplete="username" required />
+        <label>Contraseña</label>
+        <input name="password" type="password" autocomplete="current-password" required />
+        <button type="submit">Entrar</button>
+        <div id="loginMsg" class="form-msg"></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="container" id="appArea" style="display:none;">
     <div class="layout">
       <aside class="sidebar" id="sidebar" role="complementary" aria-label="Entidades">
         <div class="sb-header">
@@ -51,6 +77,15 @@
             </div>
           </div>
           
+          <!-- Panel para empleado (no admin) -->
+          <div id="empleadoPanel" style="display:none; margin-bottom: 1.5rem;">
+            <div id="empleadoInfo" class="table-wrap" style="padding:1rem;"></div>
+            <div style="margin-top: 1rem; display:flex; gap:.5rem;">
+              <button id="btnMarcarAsistencia">Marcar asistencia</button>
+              <div id="asistenciaMsg" class="form-msg"></div>
+            </div>
+          </div>
+
           <div class="toolbar">
             <div class="search-box">
               <svg class="search-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -76,6 +111,15 @@
             </div>
             <form id="dynForm" class="dyn-form" ></form>
             <div id="formMsg" class="form-msg"></div>
+            <div id="updateControls" class="dyn-form" style="margin-top: .75rem; display:none;">
+              <label>ID (para actualizar/eliminar)</label>
+              <input id="updateIdInput" type="number" min="1" step="1" />
+              <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
+                <button id="btnUpdate" type="button">Actualizar por ID</button>
+                <button id="btnDelete" type="button" style="background:#ef4444;">Eliminar por ID</button>
+              </div>
+              <div id="updateMsg" class="form-msg"></div>
+            </div>
           </div>
         </div>
       </main>

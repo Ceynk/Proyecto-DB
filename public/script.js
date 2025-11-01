@@ -10,9 +10,43 @@ const botonMenuMovil = document.getElementById('mobileMenuBtn');
 const barraLateral = document.getElementById('sidebar');
 const botonActualizar = document.getElementById('refreshBtn');
 
+// Auth/UI elements
+const loginArea = document.getElementById('loginArea');
+const appArea = document.getElementById('appArea');
+const loginForm = document.getElementById('loginForm');
+const loginMsg = document.getElementById('loginMsg');
+const logoutBtn = document.getElementById('logoutBtn');
+
+// Empleado-only panel
+const empleadoPanel = document.getElementById('empleadoPanel');
+const empleadoInfo = document.getElementById('empleadoInfo');
+const btnMarcarAsistencia = document.getElementById('btnMarcarAsistencia');
+const asistenciaMsg = document.getElementById('asistenciaMsg');
+
+// Update/Delete controls
+const updateControls = document.getElementById('updateControls');
+const updateIdInput = document.getElementById('updateIdInput');
+const btnUpdate = document.getElementById('btnUpdate');
+const btnDelete = document.getElementById('btnDelete');
+const updateMsg = document.getElementById('updateMsg');
+
 
 // en index.html o guarda una clave `API_BASE` en localStorage con la URL del backend en Railway.
 const apiBase = (typeof window !== 'undefined' && (window.API_BASE || localStorage.getItem('API_BASE'))) || '';
+
+let currentUser = null;
+
+async function apiFetch(path, opts = {}) {
+  const finalOpts = Object.assign({ credentials: 'include' }, opts);
+  const res = await fetch(`${apiBase}${path}`, finalOpts);
+  const ct = res.headers.get('content-type') || '';
+  const body = ct.includes('application/json') ? await res.json() : await res.text();
+  if (!res.ok) {
+    const msg = typeof body === 'string' ? body : (body && body.error) || 'Error';
+    throw new Error(msg);
+  }
+  return body;
+}
 
 const entidades = [
   'empleado', 'cliente', 'proyecto', 'apartamento', 'material',
@@ -77,6 +111,14 @@ function renderizarBarraLateral() {
   });
 }
 
+function detectarIdKey(filas) {
+  if (!filas || !filas.length) return null;
+  const keys = Object.keys(filas[0] || {});
+  // Preferir una clave que empiece por 'id'
+  const idLike = keys.find((k) => /^id/i.test(k));
+  return idLike || keys[0];
+}
+
 function renderizarTabla(filas) {
   contenedorTabla.innerHTML = '';
   if (!filas || filas.length === 0) {
@@ -88,8 +130,12 @@ function renderizarTabla(filas) {
   const htr = crear('tr');
   const encabezados = Object.keys(filas[0]);
   encabezados.forEach((h) => htr.appendChild(crear('th', '', h)));
+  if (currentUser?.rol === 'Administrador') {
+    htr.appendChild(crear('th', '', 'Acciones'));
+  }
   thead.appendChild(htr);
   const tbody = crear('tbody');
+  const idKey = detectarIdKey(filas);
   filas.forEach((r) => {
     const tr = crear('tr');
     encabezados.forEach((h) => {
@@ -97,6 +143,16 @@ function renderizarTabla(filas) {
       td.textContent = r[h] == null ? '' : String(r[h]);
       tr.appendChild(td);
     });
+    if (currentUser?.rol === 'Administrador') {
+      const tdAcc = crear('td');
+      const btnSetId = crear('button', '', 'Seleccionar ID');
+      btnSetId.addEventListener('click', () => {
+        if (idKey) updateIdInput.value = r[idKey];
+        updateMsg.textContent = `ID seleccionado: ${r[idKey]}`;
+      });
+      tdAcc.appendChild(btnSetId);
+      tr.appendChild(tdAcc);
+    }
     tbody.appendChild(tr);
   });
   tabla.appendChild(thead);
@@ -105,6 +161,7 @@ function renderizarTabla(filas) {
 }
 
 async function cargarDatos() {
+  if (!currentUser || currentUser.rol !== 'Administrador') return; // solo admin lista
   const q = buscarEl.value.trim();
   const url = q ? `/api/list/${actual}?q=${encodeURIComponent(q)}` : `/api/list/${actual}`;
   contenedorTabla.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Cargando...</div>';
@@ -112,14 +169,7 @@ async function cargarDatos() {
     if (ultimoAbortCtrl) ultimoAbortCtrl.abort();
     const ctrl = new AbortController();
     ultimoAbortCtrl = ctrl;
-    const resp = await fetch(`${apiBase}${url}`, { signal: ctrl.signal });
-    const tipoContenido = resp.headers.get('content-type') || '';
-    if (!tipoContenido.includes('application/json')) {
-      const txt = await resp.text();
-      throw new Error(`Respuesta no JSON (${resp.status}): ${txt.substring(0, 120)}...`);
-    }
-    const datos = await resp.json();
-    if (!resp.ok) throw new Error(datos.error || 'Error');
+    const datos = await apiFetch(url, { signal: ctrl.signal });
     renderizarTabla(datos);
   } catch (e) {
     if (e.name === 'AbortError') return; // ignore
@@ -133,9 +183,123 @@ buscarEl.addEventListener('input', () => {
   buscarEl._t = setTimeout(cargarDatos, 300);
 });
 
-renderizarBarraLateral();
-cargarDatos();
-construirFormulario();
+// Auth flow
+async function checkAuth() {
+  try {
+    const me = await apiFetch('/api/auth/me');
+    currentUser = me.user;
+  } catch (_) {
+    currentUser = null;
+  }
+  updateUIForAuth();
+}
+
+function updateUIForAuth() {
+  if (!currentUser) {
+    // Show login
+    loginArea.style.display = '';
+    appArea.style.display = 'none';
+    logoutBtn.style.display = 'none';
+  } else if (currentUser.rol === 'Administrador') {
+    // Show admin app
+    loginArea.style.display = 'none';
+    appArea.style.display = '';
+    logoutBtn.style.display = '';
+    empleadoPanel.style.display = 'none';
+    contenedorFormulario.style.display = '';
+    document.querySelector('.toolbar').style.display = '';
+    document.getElementById('formWrap').style.display = '';
+    updateControls.style.display = '';
+    renderizarBarraLateral();
+    construirFormulario();
+    cargarDatos();
+  } else {
+    // Empleado view
+    loginArea.style.display = 'none';
+    appArea.style.display = '';
+    logoutBtn.style.display = '';
+    // Hide admin-only sections
+    barraLateral.style.display = 'none';
+    document.querySelector('.toolbar').style.display = 'none';
+    document.getElementById('formWrap').style.display = 'none';
+    contenedorTabla.innerHTML = '';
+    tituloEl.textContent = 'Mi panel';
+    empleadoPanel.style.display = '';
+    cargarMisDatos();
+  }
+}
+
+async function cargarMisDatos() {
+  try {
+    const info = await apiFetch('/api/empleado/mis-datos');
+    empleadoInfo.innerHTML = `
+      <div><strong>Nombre:</strong> ${info.Nombre || ''}</div>
+      <div><strong>Correo:</strong> ${info.Correo || ''}</div>
+      <div><strong>Teléfono:</strong> ${info.Telefono || ''}</div>
+      <div><strong>Proyecto:</strong> ${info.Proyecto || '—'}</div>
+      <div><strong>Asistencia:</strong> ${info.Asistencia || '—'}</div>
+    `;
+  } catch (e) {
+    empleadoInfo.innerHTML = `<div style="color:salmon;">Error: ${e.message}</div>`;
+  }
+}
+
+if (loginForm) {
+  loginForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    loginMsg.textContent = 'Ingresando...';
+    loginMsg.style.color = '';
+    const formData = new FormData(loginForm);
+    const payload = {
+      username: formData.get('username'),
+      password: formData.get('password')
+    };
+    try {
+      const r = await apiFetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      currentUser = r.user;
+      loginForm.reset();
+      updateUIForAuth();
+    } catch (e) {
+      loginMsg.style.color = 'salmon';
+      loginMsg.textContent = e.message;
+    }
+  });
+}
+
+if (logoutBtn) {
+  logoutBtn.addEventListener('click', async () => {
+    try { await apiFetch('/api/auth/logout', { method: 'POST' }); } catch (_) {}
+    currentUser = null;
+    // Reset view to defaults
+    barraLateral.style.display = '';
+    updateUIForAuth();
+  });
+}
+
+if (btnMarcarAsistencia) {
+  btnMarcarAsistencia.addEventListener('click', async () => {
+    asistenciaMsg.textContent = 'Marcando...';
+    try {
+      await apiFetch('/api/empleado/asistencia', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: 'Presente' })
+      });
+      asistenciaMsg.style.color = '';
+      asistenciaMsg.textContent = 'Asistencia marcada';
+      cargarMisDatos();
+    } catch (e) {
+      asistenciaMsg.style.color = 'salmon';
+      asistenciaMsg.textContent = e.message;
+    }
+  });
+}
+
+checkAuth();
 
 // Define form fields for each entity 
 const camposFormulario = {
@@ -151,7 +315,7 @@ const camposFormulario = {
   apartamento: [
     { name: 'num_apartamento', type: 'number', req: true },
     { name: 'num_piso', type: 'number', req: true },
-    { name: 'estado', type: 'select', options: ['Activo','Inactivo'] },
+    { name: 'estado', type: 'select', options: ['Disponible','Ocupado','En mantenimiento'] },
     { name: 'idProyecto', type: 'select', source: '/api/min/proyectos' }
   ],
   piso: [
@@ -168,8 +332,8 @@ const camposFormulario = {
     { name: 'Nombre', type: 'text', req: true, pattern: '[A-Za-zÁÉÍÓÚáéíóúÑñ\\s]+'},
     { name: 'Correo', type: 'email' },
     { name: 'Telefono', type: 'tel' },
-    { name: 'Asistencia', type: 'select', options: ['Si','No'] },
-    { name: 'Especialidad', type: 'select', options: ['Activo','Inactivo'] },
+    { name: 'Asistencia', type: 'select', options: ['Presente','Ausente'] },
+    { name: 'Especialidad', type: 'text' },
     { name: 'idProyecto', type: 'select', source: '/api/min/proyectos' }
   ],
   turno: [
@@ -180,7 +344,7 @@ const camposFormulario = {
   ],
   tarea: [
     { name: 'Descripcion', type: 'text' },
-    { name: 'Estado', type: 'select', options: ['Activo','Inactivo'] },
+    { name: 'Estado', type: 'text' },
     { name: 'idProyecto', type: 'select', source: '/api/min/proyectos' },
     { name: 'idEmpleado', type: 'select', source: '/api/min/empleados' }
   ],
@@ -290,6 +454,8 @@ async function construirFormulario() {
   const boton = crear('button', '', 'Guardar');
   boton.type = 'submit';
   formularioDinamico.appendChild(boton);
+  // Reset update ID when changing entity
+  if (updateIdInput) updateIdInput.value = '';
 }
 
 formularioDinamico.addEventListener('submit', async (ev) => {
@@ -303,14 +469,12 @@ formularioDinamico.addEventListener('submit', async (ev) => {
     if (el.tagName === 'SELECT' || el.type !== 'checkbox') datos[el.name] = el.value === '' ? null : el.value;
   });
   try {
-    const resp = await fetch(`${apiBase}/api/create/${actual}`, {
+    const r = await apiFetch(`/api/create/${actual}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(datos)
     });
-    const cuerpo = await resp.json();
-    if (!resp.ok) throw new Error(cuerpo.error || 'Error al guardar');
-    mensajeFormulario.textContent = 'Guardado con id ' + cuerpo.id;
+    mensajeFormulario.textContent = 'Guardado con id ' + r.id;
     formularioDinamico.reset();
     cargarDatos();
   } catch (e) {
@@ -318,3 +482,58 @@ formularioDinamico.addEventListener('submit', async (ev) => {
     mensajeFormulario.textContent = 'Error: ' + e.message;
   }
 });
+
+// Update by ID using current form fields (admin)
+if (btnUpdate) {
+  btnUpdate.addEventListener('click', async () => {
+    updateMsg.textContent = '';
+    const id = updateIdInput.value.trim();
+    if (!id) { updateMsg.style.color = 'salmon'; updateMsg.textContent = 'Ingrese ID'; return; }
+    const datos = {};
+    Array.from(formularioDinamico.elements).forEach((el) => {
+      if (!el.name || el.type === 'submit') return;
+      if (el.tagName === 'SELECT' || el.type !== 'checkbox') {
+        if (el.value !== '') datos[el.name] = el.value; // solo campos llenos
+      }
+    });
+    if (Object.keys(datos).length === 0) {
+      updateMsg.style.color = 'salmon';
+      updateMsg.textContent = 'Complete al menos un campo para actualizar';
+      return;
+    }
+    try {
+      await apiFetch(`/api/update/${actual}/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos)
+      });
+      updateMsg.style.color = '';
+      updateMsg.textContent = 'Actualizado correctamente';
+      cargarDatos();
+    } catch (e) {
+      updateMsg.style.color = 'salmon';
+      updateMsg.textContent = e.message;
+    }
+  });
+}
+
+// Delete by ID (admin)
+if (btnDelete) {
+  btnDelete.addEventListener('click', async () => {
+    updateMsg.textContent = '';
+    const id = updateIdInput.value.trim();
+    if (!id) { updateMsg.style.color = 'salmon'; updateMsg.textContent = 'Ingrese ID'; return; }
+    if (!confirm('¿Eliminar registro ' + id + '?')) return;
+    try {
+      await apiFetch(`/api/delete/${actual}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      updateMsg.style.color = '';
+      updateMsg.textContent = 'Eliminado';
+      formularioDinamico.reset();
+      updateIdInput.value = '';
+      cargarDatos();
+    } catch (e) {
+      updateMsg.style.color = 'salmon';
+      updateMsg.textContent = e.message;
+    }
+  });
+}
