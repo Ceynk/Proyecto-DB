@@ -1,7 +1,7 @@
 {
   "name": "proyectoo-basico",
   "version": "1.0.0",
-  "description": "Pagina super basica con Node.js, Express y MySQL",
+  "description": "Pagina con Node.js, Express y MySQL",
   "main": "server.js",
   "type": "module",
   "scripts": {
