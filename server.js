@@ -552,8 +552,8 @@ app.get('/api/min/facturas', requerirAutenticacion, requerirAdmin, async (req, r
 
 // Estado del proveedor facial
 app.get('/api/face/status', (req, res) => {
-  const provider = FACE_PROVIDER || 'mock';
-  const configured = provider === 'aws' ? !!clienteRekognition : true;
+  const provider = FACE_PROVIDER || 'none';
+  const configured = provider === 'aws' ? !!clienteRekognition : (provider === 'mock');
   res.json({ provider, configured, similarity: Number(process.env.FACE_SIMILARITY || 85) });
 });
 
@@ -636,12 +636,14 @@ app.post('/api/face/verify', subida.single('foto'), async (req, res) => {
     const stored = rows[0].foto_url;
     if (!stored) return res.status(400).json({ error: 'Usuario sin foto registrada' });
     if (!req.file) return res.status(400).json({ error: 'Falta foto para verificar' });
-    // Modo MOCK (demo): si no es aws, aceptamos por defecto
-    if (FACE_PROVIDER !== 'aws') {
+    // Modo MOCK (demo) solo si se especifica explícitamente
+    if (FACE_PROVIDER === 'mock') {
       const confianza = Number(process.env.FACE_SIMILARITY || 85);
-      return res.json({ match: true, confidence: confianza });
+      return res.json({ match: true, confidence: confianza, mock: true });
     }
-    if (!clienteRekognition) return res.status(501).json({ error: 'Proveedor facial no configurado. Define FACE_PROVIDER=aws y credenciales AWS (AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) en .env' });
+    if (FACE_PROVIDER !== 'aws' || !clienteRekognition) {
+      return res.status(501).json({ error: 'Proveedor facial no configurado. Define FACE_PROVIDER=aws y credenciales AWS (AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) en .env' });
+    }
     // Resolver ruta de origen de forma robusta en Windows/Unix
     let sourcePath = stored;
     if (stored.startsWith('/uploads/')) {
@@ -680,18 +682,18 @@ app.post('/api/auth/login-facial', subida.single('foto'), async (req, res) => {
     if (!u.foto_url) return res.status(400).json({ error: 'Usuario sin foto registrada' });
     if (!req.file) return res.status(400).json({ error: 'Falta foto para verificar' });
 
-    // Si no es AWS (modo MOCK), aceptar siempre para DEMO
-    if (FACE_PROVIDER !== 'aws') {
+    // Modo MOCK (demo) solo si se especifica explícitamente
+    if (FACE_PROVIDER === 'mock') {
       const confianza = Number(process.env.FACE_SIMILARITY || 85);
       if (requiere2FA(u)) {
         req.session.pending2fa = { idUsuario: u.idUsuario };
-        return res.json({ ok: true, requires2fa: true, metodo: 'facial', confianza });
+        return res.json({ ok: true, requires2fa: true, metodo: 'facial', confianza, mock: true });
       }
       req.session.user = { idUsuario: u.idUsuario, nombre_usuario: u.nombre_usuario, rol: u.rol, idEmpleado: u.idEmpleado || null };
-      return res.json({ ok: true, user: req.session.user, requires2fa: false, metodo: 'facial', confianza });
+      return res.json({ ok: true, user: req.session.user, requires2fa: false, metodo: 'facial', confianza, mock: true });
     }
 
-    if (!clienteRekognition) return res.status(501).json({ error: 'Proveedor facial no configurado. Define FACE_PROVIDER=aws y credenciales AWS (AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) en .env' });
+    if (FACE_PROVIDER !== 'aws' || !clienteRekognition) return res.status(501).json({ error: 'Proveedor facial no configurado. Define FACE_PROVIDER=aws y credenciales AWS (AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) en .env' });
 
     // Resolver ruta de la foto guardada
     let sourcePath = u.foto_url;
