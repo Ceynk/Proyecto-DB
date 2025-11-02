@@ -36,6 +36,7 @@ const btnEscanearRostro = document.getElementById('btnEscanearRostro');
 const btnCancelarFacial = document.getElementById('btnCancelarFacial');
 const facialMsg = document.getElementById('facialMsg');
 let flujoCamara = null;
+let estadoProveedorFacial = { provider: 'none', configured: false };
 
 // Empleado-only panel
 const empleadoPanel = document.getElementById('empleadoPanel');
@@ -259,6 +260,7 @@ function actualizarUIParaAutenticacion() {
     areaLogin.style.display = '';
     areaApp.style.display = 'none';
     btnCerrarSesion.style.display = 'none';
+    verificarEstadoFacial();
   } else if (usuarioActual.rol === 'Administrador') {
     // Show admin app
     areaLogin.style.display = 'none';
@@ -309,6 +311,28 @@ function cerrarModalFacial() {
   modalFacial.style.display = 'none';
   detenerCamara();
   if (facialMsg) facialMsg.textContent = '';
+}
+
+async function verificarEstadoFacial() {
+  try {
+    const st = await solicitarAPI('/api/face/status');
+    estadoProveedorFacial = st;
+    if (btnLoginFacial) {
+      if (!st.configured) {
+        btnLoginFacial.disabled = true;
+        btnLoginFacial.title = 'Reconocimiento facial no disponible en este entorno';
+        btnLoginFacial.style.opacity = '0.6';
+        btnLoginFacial.style.cursor = 'not-allowed';
+      } else {
+        btnLoginFacial.disabled = false;
+        btnLoginFacial.title = '';
+        btnLoginFacial.style.opacity = '';
+        btnLoginFacial.style.cursor = '';
+      }
+    }
+  } catch (_) {
+    // si falla, no bloquear el flujo
+  }
 }
 
 async function iniciarCamara() {
