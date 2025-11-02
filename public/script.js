@@ -8,22 +8,22 @@ const tituloFormulario = document.getElementById('formTitle');
 const mensajeFormulario = document.getElementById('formMsg');
 const botonMenuMovil = document.getElementById('mobileMenuBtn');
 const botonActualizar = document.getElementById('refreshBtn');
-// Panels / admin nav
-const dataPanel = document.getElementById('dataPanel');
-const adminPanel = document.getElementById('adminPanel');
-const adminNav = document.getElementById('adminNav');
-const btnAdminPanel = document.getElementById('btnAdminPanel');
+// Paneles / navegación admin
+const panelDatos = document.getElementById('dataPanel');
+const panelAdmin = document.getElementById('adminPanel');
+const navAdmin = document.getElementById('adminNav');
+const btnPanelAdmin = document.getElementById('btnAdminPanel');
 const barraLateral = document.getElementById('sidebar');
-let currentMode = 'entities'; // 'entities' | 'admin'
+let modoActual = 'entidades'; // 'entidades' | 'admin'
 
-// Auth/UI elements
-const loginArea = document.getElementById('loginArea');
-const appArea = document.getElementById('appArea');
-const loginForm = document.getElementById('loginForm');
-const loginMsg = document.getElementById('loginMsg');
-const totpForm = document.getElementById('totpForm');
-const totpMsg = document.getElementById('totpMsg');
-const logoutBtn = document.getElementById('logoutBtn');
+// Elementos de Autenticación/UI
+const areaLogin = document.getElementById('loginArea');
+const areaApp = document.getElementById('appArea');
+const formularioLogin = document.getElementById('loginForm');
+const mensajeLogin = document.getElementById('loginMsg');
+const formularioTotp = document.getElementById('totpForm');
+const mensajeTotp = document.getElementById('totpMsg');
+const btnCerrarSesion = document.getElementById('logoutBtn');
 
 // Login facial elementos
 const btnLoginFacial = document.getElementById('btnLoginFacial');
@@ -43,50 +43,50 @@ const empleadoInfo = document.getElementById('empleadoInfo');
 const btnMarcarAsistencia = document.getElementById('btnMarcarAsistencia');
 const asistenciaMsg = document.getElementById('asistenciaMsg');
 
-// Update/Delete controls
-const updateControls = document.getElementById('updateControls');
-const updateIdInput = document.getElementById('updateIdInput');
-const btnUpdate = document.getElementById('btnUpdate');
-const btnDelete = document.getElementById('btnDelete');
-const updateMsg = document.getElementById('updateMsg');
+// Controles de Actualización/Eliminación
+const controlesActualizacion = document.getElementById('updateControls');
+const entradaIdActualizacion = document.getElementById('updateIdInput');
+const btnActualizar = document.getElementById('btnUpdate');
+const btnEliminar = document.getElementById('btnDelete');
+const mensajeActualizacion = document.getElementById('updateMsg');
 // Admin panel navigation
-if (btnAdminPanel) {
-  btnAdminPanel.addEventListener('click', () => {
-    if (currentUser?.rol !== 'Administrador') return;
-    currentMode = 'admin';
-    if (dataPanel) dataPanel.style.display = 'none';
-    if (adminPanel) adminPanel.style.display = '';
+if (btnPanelAdmin) {
+  btnPanelAdmin.addEventListener('click', () => {
+    if (usuarioActual?.rol !== 'Administrador') return;
+    modoActual = 'admin';
+    if (panelDatos) panelDatos.style.display = 'none';
+    if (panelAdmin) panelAdmin.style.display = '';
     // Remove active class from entity buttons
     Array.from(listaEntidadesEl.children).forEach((b) => b.classList.remove('active'));
-    btnAdminPanel.classList.add('active');
+    btnPanelAdmin.classList.add('active');
   });
 }
 
 // Admin create form
-const adminCreateWrap = document.getElementById('adminCreateWrap');
-const adminCreateForm = document.getElementById('adminCreateForm');
-const adminCreateMsg = document.getElementById('adminCreateMsg');
-// Admin users list/delete
-const adminUsersWrap = document.getElementById('adminUsersWrap');
-const adminUsersTable = document.getElementById('adminUsersTable');
-const adminUsersMsg = document.getElementById('adminUsersMsg');
-const btnRefreshAdmins = document.getElementById('btnRefreshAdmins');
+const envoltorioCrearAdmin = document.getElementById('adminCreateWrap');
+const formularioCrearAdmin = document.getElementById('adminCreateForm');
+const mensajeCrearAdmin = document.getElementById('adminCreateMsg');
+// Lista/eliminación de usuarios admin
+const envoltorioUsuariosAdmin = document.getElementById('adminUsersWrap');
+const tablaUsuariosAdmin = document.getElementById('adminUsersTable');
+const mensajeUsuariosAdmin = document.getElementById('adminUsersMsg');
+const btnRefrescarAdmins = document.getElementById('btnRefreshAdmins');
 
 
 // en index.html o guarda una clave `API_BASE` en localStorage con la URL del backend en Railway.
-const apiBase = (typeof window !== 'undefined' && (window.API_BASE || localStorage.getItem('API_BASE'))) || '';
+const baseAPI = (typeof window !== 'undefined' && (window.API_BASE || localStorage.getItem('API_BASE'))) || '';
 
-let currentUser = null;
-async function apiFetch(path, opts = {}) {
-  const finalOpts = Object.assign({ credentials: 'include' }, opts);
-  const res = await fetch(`${apiBase}${path}`, finalOpts);
-  const ct = res.headers.get('content-type') || '';
-  const body = ct.includes('application/json') ? await res.json() : await res.text();
+let usuarioActual = null;
+async function solicitarAPI(ruta, opciones = {}) {
+  const opcionesFinales = Object.assign({ credentials: 'include' }, opciones);
+  const res = await fetch(`${baseAPI}${ruta}`, opcionesFinales);
+  const tipoContenido = res.headers.get('content-type') || '';
+  const cuerpo = tipoContenido.includes('application/json') ? await res.json() : await res.text();
   if (!res.ok) {
-    const msg = typeof body === 'string' ? body : (body && body.error) || 'Error';
+    const msg = typeof cuerpo === 'string' ? cuerpo : (cuerpo && cuerpo.error) || 'Error';
     throw new Error(msg);
   }
-  return body;
+  return cuerpo;
 }
 
 const entidades = [
@@ -94,8 +94,8 @@ const entidades = [
   'inventario', 'ingreso', 'gasto', 'pago', 'tarea', 'turno', 'factura'
 ];
 
-let actual = 'empleado';
-let ultimoAbortCtrl = null;
+let entidadActual = 'empleado';
+let ultimoControlAbortar = null;
 
 if (botonMenuMovil && barraLateral) {
   botonMenuMovil.addEventListener('click', () => {
@@ -138,25 +138,25 @@ function sanitizarDigitos(value) {
 function renderizarBarraLateral() {
   listaEntidadesEl.innerHTML = '';
   entidades.forEach((nombre) => {
-    const btn = crear('button', nombre === actual ? 'active' : '', nombre.charAt(0).toUpperCase() + nombre.slice(1));
+    const btn = crear('button', nombre === entidadActual ? 'active' : '', nombre.charAt(0).toUpperCase() + nombre.slice(1));
     btn.addEventListener('click', () => {
-      actual = nombre;
-      currentMode = 'entities';
+      entidadActual = nombre;
+      modoActual = 'entidades';
       renderizarBarraLateral();
       tituloEl.textContent = nombre.charAt(0).toUpperCase() + nombre.slice(1);
       buscarEl.value = '';
       cargarDatos();
       construirFormulario();
-      cargarOpcionesUpdate();
-      if (dataPanel) dataPanel.style.display = '';
-      if (adminPanel) adminPanel.style.display = 'none';
-      if (btnAdminPanel) btnAdminPanel.classList.remove('active');
+      cargarOpcionesActualizacion();
+      if (panelDatos) panelDatos.style.display = '';
+      if (panelAdmin) panelAdmin.style.display = 'none';
+      if (btnPanelAdmin) btnPanelAdmin.classList.remove('active');
     });
     listaEntidadesEl.appendChild(btn);
   });
 }
 
-function detectarIdKey(filas) {
+function detectarClaveId(filas) {
   if (!filas || !filas.length) return null;
   const keys = Object.keys(filas[0] || {});
   // Preferir una clave que empiece por 'id'
@@ -175,12 +175,12 @@ function renderizarTabla(filas) {
   const htr = crear('tr');
   const encabezados = Object.keys(filas[0]);
   encabezados.forEach((h) => htr.appendChild(crear('th', '', h)));
-  if (currentUser?.rol === 'Administrador') {
+  if (usuarioActual?.rol === 'Administrador') {
     htr.appendChild(crear('th', '', 'Acciones'));
   }
   thead.appendChild(htr);
   const tbody = crear('tbody');
-  const idKey = detectarIdKey(filas);
+  const claveId = detectarClaveId(filas);
   filas.forEach((r) => {
     const tr = crear('tr');
     encabezados.forEach((h) => {
@@ -188,28 +188,28 @@ function renderizarTabla(filas) {
       td.textContent = r[h] == null ? '' : String(r[h]);
       tr.appendChild(td);
     });
-    if (currentUser?.rol === 'Administrador') {
-      const tdAcc = crear('td');
-      const btnSetId = crear('button', '', 'Seleccionar ID');
-      btnSetId.addEventListener('click', () => {
-        if (idKey) {
-          const idVal = String(r[idKey]);
+  if (usuarioActual?.rol === 'Administrador') {
+      const tdAcciones = crear('td');
+      const btnSeleccionarId = crear('button', '', 'Seleccionar ID');
+      btnSeleccionarId.addEventListener('click', () => {
+        if (claveId) {
+          const idVal = String(r[claveId]);
           // Ensure the ID exists in the dropdown
-          if (updateIdInput) {
-            let opt = Array.from(updateIdInput.options).find(o => o.value === idVal);
+          if (entradaIdActualizacion) {
+            let opt = Array.from(entradaIdActualizacion.options).find(o => o.value === idVal);
             if (!opt) {
               opt = document.createElement('option');
               opt.value = idVal;
               opt.textContent = `ID ${idVal}`;
-              updateIdInput.appendChild(opt);
+              entradaIdActualizacion.appendChild(opt);
             }
-            updateIdInput.value = idVal;
+            entradaIdActualizacion.value = idVal;
           }
         }
-        updateMsg.textContent = `ID seleccionado: ${r[idKey]}`;
+        mensajeActualizacion.textContent = `ID seleccionado: ${r[claveId]}`;
       });
-      tdAcc.appendChild(btnSetId);
-      tr.appendChild(tdAcc);
+      tdAcciones.appendChild(btnSeleccionarId);
+      tr.appendChild(tdAcciones);
     }
     tbody.appendChild(tr);
   });
@@ -219,16 +219,16 @@ function renderizarTabla(filas) {
 }
 
 async function cargarDatos() {
-  if (currentMode !== 'entities') return;
-  if (!currentUser || currentUser.rol !== 'Administrador') return; // solo admin lista
+  if (modoActual !== 'entidades') return;
+  if (!usuarioActual || usuarioActual.rol !== 'Administrador') return; // solo admin lista
   const q = buscarEl.value.trim();
-  const url = q ? `/api/list/${actual}?q=${encodeURIComponent(q)}` : `/api/list/${actual}`;
+  const url = q ? `/api/list/${entidadActual}?q=${encodeURIComponent(q)}` : `/api/list/${entidadActual}`;
   contenedorTabla.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Cargando...</div>';
   try {
-    if (ultimoAbortCtrl) ultimoAbortCtrl.abort();
+    if (ultimoControlAbortar) ultimoControlAbortar.abort();
     const ctrl = new AbortController();
-    ultimoAbortCtrl = ctrl;
-    const datos = await apiFetch(url, { signal: ctrl.signal });
+    ultimoControlAbortar = ctrl;
+    const datos = await solicitarAPI(url, { signal: ctrl.signal });
     renderizarTabla(datos);
   } catch (e) {
     if (e.name === 'AbortError') return; // ignore
@@ -243,54 +243,54 @@ buscarEl.addEventListener('input', () => {
 });
 
 // Auth flow
-async function checkAuth() {
+async function verificarAutenticacion() {
   try {
-    const me = await apiFetch('/api/auth/me');
-    currentUser = me.user;
+    const me = await solicitarAPI('/api/auth/me');
+    usuarioActual = me.user;
   } catch (_) {
-    currentUser = null;
+    usuarioActual = null;
   }
-  updateUIForAuth();
+  actualizarUIParaAutenticacion();
 }
 
-function updateUIForAuth() {
-  if (!currentUser) {
+function actualizarUIParaAutenticacion() {
+  if (!usuarioActual) {
     // Show login
-    loginArea.style.display = '';
-    appArea.style.display = 'none';
-    logoutBtn.style.display = 'none';
-  } else if (currentUser.rol === 'Administrador') {
+    areaLogin.style.display = '';
+    areaApp.style.display = 'none';
+    btnCerrarSesion.style.display = 'none';
+  } else if (usuarioActual.rol === 'Administrador') {
     // Show admin app
-    loginArea.style.display = 'none';
-    appArea.style.display = '';
-    logoutBtn.style.display = '';
+    areaLogin.style.display = 'none';
+    areaApp.style.display = '';
+    btnCerrarSesion.style.display = '';
     empleadoPanel.style.display = 'none';
     contenedorFormulario.style.display = '';
     document.querySelector('.toolbar').style.display = '';
     document.getElementById('formWrap').style.display = '';
-    updateControls.style.display = '';
-    if (adminNav) adminNav.style.display = '';
+    controlesActualizacion.style.display = '';
+    if (navAdmin) navAdmin.style.display = '';
     renderizarBarraLateral();
     construirFormulario();
-    cargarOpcionesUpdate();
-    currentMode = 'entities';
-    if (dataPanel) dataPanel.style.display = '';
-    if (adminPanel) adminPanel.style.display = 'none';
+    cargarOpcionesActualizacion();
+    modoActual = 'entidades';
+    if (panelDatos) panelDatos.style.display = '';
+    if (panelAdmin) panelAdmin.style.display = 'none';
     cargarDatos();
     // Pre-cargar admins para tener la lista actualizada si abren el panel
-    cargarAdminsSafe();
+    cargarAdminsSeguro();
   } else {
     // Empleado view
-    loginArea.style.display = 'none';
-    appArea.style.display = '';
-    logoutBtn.style.display = '';
+    areaLogin.style.display = 'none';
+    areaApp.style.display = '';
+    btnCerrarSesion.style.display = '';
     // Hide admin-only sections
     barraLateral.style.display = 'none';
     document.querySelector('.toolbar').style.display = 'none';
     document.getElementById('formWrap').style.display = 'none';
-    if (adminNav) adminNav.style.display = 'none';
-    if (dataPanel) dataPanel.style.display = '';
-    if (adminPanel) adminPanel.style.display = 'none';
+    if (navAdmin) navAdmin.style.display = 'none';
+    if (panelDatos) panelDatos.style.display = '';
+    if (panelAdmin) panelAdmin.style.display = 'none';
     contenedorTabla.innerHTML = '';
     tituloEl.textContent = 'Mi panel';
     empleadoPanel.style.display = '';
@@ -375,7 +375,7 @@ async function escanearRostroYLogin() {
     const fd = new FormData();
     fd.append('usuario', usuario);
     fd.append('foto', blob, 'captura.jpg');
-    const res = await fetch(`${apiBase}/api/auth/login-facial`, {
+  const res = await fetch(`${baseAPI}/api/auth/login-facial`, {
       method: 'POST',
       credentials: 'include',
       body: fd
@@ -385,15 +385,15 @@ async function escanearRostroYLogin() {
     if (body.requires2fa) {
       facialMsg.textContent = 'Rostro verificado. Ingresa tu código 2FA.';
       // Mostrar formulario TOTP
-      totpForm.style.display = '';
-      loginForm.style.display = 'none';
+  formularioTotp.style.display = '';
+  formularioLogin.style.display = 'none';
       cerrarModalFacial();
       return;
     }
     // Sesión creada
-    currentUser = body.user;
+  usuarioActual = body.user;
     cerrarModalFacial();
-    updateUIForAuth();
+  actualizarUIParaAutenticacion();
   } catch (e) {
     facialMsg.style.color = 'salmon';
     facialMsg.textContent = e.message;
@@ -408,7 +408,7 @@ if (btnAbrirCamara) btnAbrirCamara.addEventListener('click', () => iniciarCamara
 if (btnEscanearRostro) btnEscanearRostro.addEventListener('click', () => escanearRostroYLogin());
 
 // Map singular entity to plural route for /api/min/*
-const pluralMap = {
+const mapaPlural = {
   empleado: 'empleados',
   cliente: 'clientes',
   proyecto: 'proyectos',
@@ -424,11 +424,11 @@ const pluralMap = {
   turno: 'turnos'
 };
 
-function getPlural(name) {
-  return pluralMap[name] || `${name}s`;
+function obtenerPlural(nombre) {
+  return mapaPlural[nombre] || `${nombre}s`;
 }
 
-function textForItemOption(item) {
+function textoParaOpcionItem(item) {
   const id = item.id ?? item.ID ?? item.Id ?? item.idEmpleado ?? item.idCliente ?? item.idProyecto ?? item.idMaterial ?? item.idFactura ?? item.idTurno ?? item.idTarea ?? item.idInventario ?? item.idIngreso ?? item.idGasto ?? item.idPago;
   const candidates = [
     item.nombre, item.Nombre, item.descripcion, item.Descripcion,
@@ -439,35 +439,35 @@ function textForItemOption(item) {
   return `${id != null ? id : ''}${label ? ' - ' + label : ''}`.trim();
 }
 
-async function cargarOpcionesUpdate() {
-  if (!updateIdInput) return;
+async function cargarOpcionesActualizacion() {
+  if (!entradaIdActualizacion) return;
   // Clear existing options
-  updateIdInput.innerHTML = '';
-  const placeholder = document.createElement('option');
-  placeholder.value = '';
-  placeholder.textContent = '-- Selecciona --';
-  updateIdInput.appendChild(placeholder);
+  entradaIdActualizacion.innerHTML = '';
+  const marcadorPosicion = document.createElement('option');
+  marcadorPosicion.value = '';
+  marcadorPosicion.textContent = '-- Selecciona --';
+  entradaIdActualizacion.appendChild(marcadorPosicion);
   // Try min endpoint first
-  const plural = getPlural(actual);
-  let items = [];
+  const plural = obtenerPlural(entidadActual);
+  let elementos = [];
   try {
-    items = await apiFetch(`/api/min/${plural}`);
+    elementos = await solicitarAPI(`/api/min/${plural}`);
   } catch (_) {
     try {
-      items = await apiFetch(`/api/list/${actual}`);
+      elementos = await solicitarAPI(`/api/list/${entidadActual}`);
     } catch (_) {
-      items = [];
+      elementos = [];
     }
   }
   // Normalize to array of objects with id and nombre-ish
-  if (!Array.isArray(items)) items = [];
-  items.forEach((it) => {
+  if (!Array.isArray(elementos)) elementos = [];
+  elementos.forEach((it) => {
     const opt = document.createElement('option');
     const id = it.id ?? it.ID ?? it.Id ?? it.idEmpleado ?? it.idCliente ?? it.idProyecto ?? it.idMaterial ?? it.idFactura ?? it.idTurno ?? it.idTarea ?? it.idInventario ?? it.idIngreso ?? it.idGasto ?? it.idPago;
     if (id == null) return;
     opt.value = String(id);
-    opt.textContent = textForItemOption(it) || `ID ${id}`;
-    updateIdInput.appendChild(opt);
+    opt.textContent = textoParaOpcionItem(it) || `ID ${id}`;
+    entradaIdActualizacion.appendChild(opt);
   });
 }
 
@@ -486,70 +486,70 @@ async function cargarMisDatos() {
   }
 }
 
-if (loginForm) {
-  loginForm.addEventListener('submit', async (ev) => {
+if (formularioLogin) {
+  formularioLogin.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    loginMsg.textContent = 'Ingresando...';
-    loginMsg.style.color = '';
-    const formData = new FormData(loginForm);
+    mensajeLogin.textContent = 'Ingresando...';
+    mensajeLogin.style.color = '';
+    const formData = new FormData(formularioLogin);
     const payload = {
       username: formData.get('username'),
       password: formData.get('password')
     };
     try {
-      const r = await apiFetch('/api/auth/login', {
+      const r = await solicitarAPI('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       if (r.requires2fa) {
         // Show TOTP form
-        loginMsg.textContent = 'Se requiere 2FA. Ingresa el código.';
-        totpForm.style.display = '';
-        loginForm.style.display = 'none';
+        mensajeLogin.textContent = 'Se requiere 2FA. Ingresa el código.';
+        formularioTotp.style.display = '';
+        formularioLogin.style.display = 'none';
       } else {
-        currentUser = r.user;
-        loginForm.reset();
-        updateUIForAuth();
+        usuarioActual = r.user;
+        formularioLogin.reset();
+        actualizarUIParaAutenticacion();
       }
     } catch (e) {
-      loginMsg.style.color = 'salmon';
-      loginMsg.textContent = e.message;
+      mensajeLogin.style.color = 'salmon';
+      mensajeLogin.textContent = e.message;
     }
   });
 }
 
-if (totpForm) {
-  totpForm.addEventListener('submit', async (ev) => {
+if (formularioTotp) {
+  formularioTotp.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    totpMsg.textContent = 'Verificando...';
-    totpMsg.style.color = '';
-    const token = new FormData(totpForm).get('token');
+    mensajeTotp.textContent = 'Verificando...';
+    mensajeTotp.style.color = '';
+    const token = new FormData(formularioTotp).get('token');
     try {
-      const r = await apiFetch('/api/2fa/verify', {
+      const r = await solicitarAPI('/api/2fa/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token })
       });
-      currentUser = r.user;
-      totpForm.reset();
-      totpForm.style.display = 'none';
-      loginForm.style.display = '';
-      updateUIForAuth();
+      usuarioActual = r.user;
+      formularioTotp.reset();
+      formularioTotp.style.display = 'none';
+      formularioLogin.style.display = '';
+      actualizarUIParaAutenticacion();
     } catch (e) {
-      totpMsg.style.color = 'salmon';
-      totpMsg.textContent = e.message;
+      mensajeTotp.style.color = 'salmon';
+      mensajeTotp.textContent = e.message;
     }
   });
 }
 
-if (logoutBtn) {
-  logoutBtn.addEventListener('click', async () => {
-    try { await apiFetch('/api/auth/logout', { method: 'POST' }); } catch (_) {}
-    currentUser = null;
+if (btnCerrarSesion) {
+  btnCerrarSesion.addEventListener('click', async () => {
+    try { await solicitarAPI('/api/auth/logout', { method: 'POST' }); } catch (_) {}
+    usuarioActual = null;
     // Reset view to defaults
     barraLateral.style.display = '';
-    updateUIForAuth();
+    actualizarUIParaAutenticacion();
   });
 }
 
@@ -557,7 +557,7 @@ if (btnMarcarAsistencia) {
   btnMarcarAsistencia.addEventListener('click', async () => {
     asistenciaMsg.textContent = 'Marcando...';
     try {
-      await apiFetch('/api/empleado/asistencia', {
+      await solicitarAPI('/api/empleado/asistencia', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado: 'Presente' })
@@ -572,7 +572,7 @@ if (btnMarcarAsistencia) {
   });
 }
 
-checkAuth();
+verificarAutenticacion();
 
 // Define form fields for each entity 
 const camposFormulario = {
@@ -654,10 +654,10 @@ const camposFormulario = {
 };
 
 async function construirFormulario() {
-  tituloFormulario.textContent = actual.charAt(0).toUpperCase() + actual.slice(1);
+  tituloFormulario.textContent = entidadActual.charAt(0).toUpperCase() + entidadActual.slice(1);
   formularioDinamico.innerHTML = '';
   mensajeFormulario.textContent = '';
-  const campos = camposFormulario[actual] || [];
+  const campos = camposFormulario[entidadActual] || [];
   for (const f of campos) {
     const etiqueta = crear('label', '', f.name);
     formularioDinamico.appendChild(etiqueta);
@@ -676,7 +676,7 @@ async function construirFormulario() {
       }
       if (f.source) {
         try {
-          const resp = await fetch(`${apiBase}${f.source}`);
+          const resp = await fetch(`${baseAPI}${f.source}`);
           const datos = await resp.json();
           datos.forEach((item) => {
             const op = crear('option', '', `${item.id} - ${item.nombre}`);
@@ -728,7 +728,7 @@ async function construirFormulario() {
   boton.type = 'submit';
   formularioDinamico.appendChild(boton);
   // Reset update ID when changing entity
-  if (updateIdInput) updateIdInput.value = '';
+  if (entradaIdActualizacion) entradaIdActualizacion.value = '';
 }
 
 formularioDinamico.addEventListener('submit', async (ev) => {
@@ -742,7 +742,7 @@ formularioDinamico.addEventListener('submit', async (ev) => {
     if (el.tagName === 'SELECT' || el.type !== 'checkbox') datos[el.name] = el.value === '' ? null : el.value;
   });
   try {
-    const r = await apiFetch(`/api/create/${actual}`, {
+    const r = await solicitarAPI(`/api/create/${entidadActual}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(datos)
@@ -750,7 +750,7 @@ formularioDinamico.addEventListener('submit', async (ev) => {
     mensajeFormulario.textContent = 'Guardado con id ' + r.id;
     formularioDinamico.reset();
     cargarDatos();
-    cargarOpcionesUpdate();
+    cargarOpcionesActualizacion();
   } catch (e) {
     mensajeFormulario.style.color = 'salmon';
     mensajeFormulario.textContent = 'Error: ' + e.message;
@@ -758,11 +758,11 @@ formularioDinamico.addEventListener('submit', async (ev) => {
 });
 
 // Update by ID using current form fields (admin)
-if (btnUpdate) {
-  btnUpdate.addEventListener('click', async () => {
-    updateMsg.textContent = '';
-  const id = (updateIdInput.value || '').trim();
-    if (!id) { updateMsg.style.color = 'salmon'; updateMsg.textContent = 'Ingrese ID'; return; }
+if (btnActualizar) {
+  btnActualizar.addEventListener('click', async () => {
+    mensajeActualizacion.textContent = '';
+    const id = (entradaIdActualizacion.value || '').trim();
+    if (!id) { mensajeActualizacion.style.color = 'salmon'; mensajeActualizacion.textContent = 'Ingrese ID'; return; }
     const datos = {};
     Array.from(formularioDinamico.elements).forEach((el) => {
       if (!el.name || el.type === 'submit') return;
@@ -771,82 +771,82 @@ if (btnUpdate) {
       }
     });
     if (Object.keys(datos).length === 0) {
-      updateMsg.style.color = 'salmon';
-      updateMsg.textContent = 'Complete al menos un campo para actualizar';
+      mensajeActualizacion.style.color = 'salmon';
+      mensajeActualizacion.textContent = 'Complete al menos un campo para actualizar';
       return;
     }
     try {
-      await apiFetch(`/api/update/${actual}/${encodeURIComponent(id)}`, {
+      await solicitarAPI(`/api/update/${entidadActual}/${encodeURIComponent(id)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(datos)
       });
-      updateMsg.style.color = '';
-      updateMsg.textContent = 'Actualizado correctamente';
+      mensajeActualizacion.style.color = '';
+      mensajeActualizacion.textContent = 'Actualizado correctamente';
       cargarDatos();
-      cargarOpcionesUpdate();
+      cargarOpcionesActualizacion();
     } catch (e) {
-      updateMsg.style.color = 'salmon';
-      updateMsg.textContent = e.message;
+      mensajeActualizacion.style.color = 'salmon';
+      mensajeActualizacion.textContent = e.message;
     }
   });
 }
 
 // Delete by ID (admin)
-if (btnDelete) {
-  btnDelete.addEventListener('click', async () => {
-    updateMsg.textContent = '';
-  const id = (updateIdInput.value || '').trim();
-    if (!id) { updateMsg.style.color = 'salmon'; updateMsg.textContent = 'Ingrese ID'; return; }
+if (btnEliminar) {
+  btnEliminar.addEventListener('click', async () => {
+    mensajeActualizacion.textContent = '';
+    const id = (entradaIdActualizacion.value || '').trim();
+    if (!id) { mensajeActualizacion.style.color = 'salmon'; mensajeActualizacion.textContent = 'Ingrese ID'; return; }
     if (!confirm('¿Eliminar registro ' + id + '?')) return;
     try {
-      await apiFetch(`/api/delete/${actual}/${encodeURIComponent(id)}`, { method: 'DELETE' });
-      updateMsg.style.color = '';
-      updateMsg.textContent = 'Eliminado';
+      await solicitarAPI(`/api/delete/${entidadActual}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      mensajeActualizacion.style.color = '';
+      mensajeActualizacion.textContent = 'Eliminado';
       formularioDinamico.reset();
-      updateIdInput.value = '';
+      entradaIdActualizacion.value = '';
       cargarDatos();
-      cargarOpcionesUpdate();
+      cargarOpcionesActualizacion();
     } catch (e) {
-      updateMsg.style.color = 'salmon';
-      updateMsg.textContent = e.message;
+      mensajeActualizacion.style.color = 'salmon';
+      mensajeActualizacion.textContent = e.message;
     }
   });
 }
 
 // Admin create form submit (multipart)
-if (adminCreateForm) {
-  adminCreateForm.addEventListener('submit', async (ev) => {
+if (formularioCrearAdmin) {
+  formularioCrearAdmin.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    adminCreateMsg.textContent = 'Creando...';
-    adminCreateMsg.style.color = '';
-    const fd = new FormData(adminCreateForm);
+    mensajeCrearAdmin.textContent = 'Creando...';
+    mensajeCrearAdmin.style.color = '';
+    const fd = new FormData(formularioCrearAdmin);
     try {
-      const res = await fetch(`${apiBase}/api/admin/create`, {
+      const res = await fetch(`${baseAPI}/api/admin/create`, {
         method: 'POST',
         credentials: 'include',
         body: fd
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || 'Error');
-      adminCreateMsg.textContent = `Admin creado (id ${body.idUsuario})`;
-      adminCreateForm.reset();
-      cargarAdminsSafe();
+      mensajeCrearAdmin.textContent = `Admin creado (id ${body.idUsuario})`;
+      formularioCrearAdmin.reset();
+      cargarAdminsSeguro();
     } catch (e) {
-      adminCreateMsg.style.color = 'salmon';
-      adminCreateMsg.textContent = e.message;
+      mensajeCrearAdmin.style.color = 'salmon';
+      mensajeCrearAdmin.textContent = e.message;
     }
   });
 }
 
 // ===== Administradores: listar y eliminar =====
 async function cargarAdmins() {
-  if (!adminUsersTable) return;
-  adminUsersTable.innerHTML = '<div style="text-align:center; padding:1rem; color: var(--text-muted);">Cargando...</div>';
+  if (!tablaUsuariosAdmin) return;
+  tablaUsuariosAdmin.innerHTML = '<div style="text-align:center; padding:1rem; color: var(--text-muted);">Cargando...</div>';
   try {
-    const lista = await apiFetch('/api/admin/users');
+    const lista = await solicitarAPI('/api/admin/users');
     if (!Array.isArray(lista) || lista.length === 0) {
-      adminUsersTable.innerHTML = '<div style="text-align:center; padding:1rem; color: var(--text-muted);">No hay administradores</div>';
+      tablaUsuariosAdmin.innerHTML = '<div style="text-align:center; padding:1rem; color: var(--text-muted);">No hay administradores</div>';
       return;
     }
     const tabla = document.createElement('table');
@@ -889,34 +889,34 @@ async function cargarAdmins() {
     });
     tabla.appendChild(thead);
     tabla.appendChild(tbody);
-    adminUsersTable.innerHTML = '';
-    adminUsersTable.appendChild(tabla);
+    tablaUsuariosAdmin.innerHTML = '';
+    tablaUsuariosAdmin.appendChild(tabla);
   } catch (e) {
-    adminUsersTable.innerHTML = `<div style="color:salmon; padding:1rem;">Error: ${e.message}</div>`;
+    tablaUsuariosAdmin.innerHTML = `<div style="color:salmon; padding:1rem;">Error: ${e.message}</div>`;
   }
 }
 
 async function eliminarAdmin(id) {
-  adminUsersMsg.textContent = '';
+  mensajeUsuariosAdmin.textContent = '';
   if (!id) return;
   if (!confirm('¿Eliminar administrador ' + id + '?')) return;
   try {
-    const res = await apiFetch(`/api/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    adminUsersMsg.style.color = '';
-    adminUsersMsg.textContent = 'Administrador eliminado';
+    const res = await solicitarAPI(`/api/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    mensajeUsuariosAdmin.style.color = '';
+    mensajeUsuariosAdmin.textContent = 'Administrador eliminado';
     await cargarAdmins();
   } catch (e) {
-    adminUsersMsg.style.color = 'salmon';
-    adminUsersMsg.textContent = e.message;
+    mensajeUsuariosAdmin.style.color = 'salmon';
+    mensajeUsuariosAdmin.textContent = e.message;
   }
 }
 
-function cargarAdminsSafe() {
-  if (currentUser?.rol === 'Administrador' && adminUsersWrap && adminUsersTable) {
+function cargarAdminsSeguro() {
+  if (usuarioActual?.rol === 'Administrador' && envoltorioUsuariosAdmin && tablaUsuariosAdmin) {
     cargarAdmins();
   }
 }
 
-if (btnRefreshAdmins) {
-  btnRefreshAdmins.addEventListener('click', () => cargarAdminsSafe());
+if (btnRefrescarAdmins) {
+  btnRefrescarAdmins.addEventListener('click', () => cargarAdminsSeguro());
 }
