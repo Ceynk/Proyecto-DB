@@ -259,19 +259,20 @@
               <div id="adminCreateMsg" class="form-msg" style="grid-column: 1 / -1;"></div>
             </form>
           </div>
-        </div>
 
-        <div id="adminUsersWrap" class="form-wrap" style="margin-top:2rem;">
-          <div class="form-header" style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
-            <h3 class="form-heading">Administradores</h3>
-            <button class="btn-icon" id="btnRefreshAdmins" title="Actualizar lista">
-              
-            </button>
+          <!-- Lista de administradores (mover dentro del panel de administración) -->
+          <div id="adminUsersWrap" class="form-wrap" style="margin-top:2rem;">
+            <div class="form-header" style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
+              <h3 class="form-heading">Administradores</h3>
+              <button class="btn-icon" id="btnRefreshAdmins" title="Actualizar lista">
+                
+              </button>
+            </div>
+            <div id="adminUsersTable" class="table-wrap" style="padding: .75rem;">
+              <!-- Tabla de administradores renderizada por JS -->
+            </div>
+            <div id="adminUsersMsg" class="form-msg"></div>
           </div>
-          <div id="adminUsersTable" class="table-wrap" style="padding: .75rem;">
-            <!-- Tabla de administradores renderizada por JS -->
-          </div>
-          <div id="adminUsersMsg" class="form-msg"></div>
         </div>
         
       </main>
