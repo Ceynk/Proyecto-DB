@@ -53,6 +53,10 @@ Notas:
 - Si `FACE_PROVIDER` no es `aws`, la API de rostro responderá 501 (no configurada).
 - `FACE_SIMILARITY` define el umbral de similitud para considerar “match” (por defecto 85).
 
+Modo de pruebas (opcional y controlado):
+
+- Si deseas simular localmente sin AWS, puedes usar `FACE_PROVIDER=mock`. En ese caso, la verificación facial responderá éxito para facilitar pruebas controladas, pero NO lo uses en producción.
+
 ## Instalación y ejecución
 
 1) Instalar dependencias y levantar el servidor en dev:
@@ -114,6 +118,13 @@ Administración (solo Administrador):
   - Campos: `username`, `password`, `enable2fa` (true/false), archivo `foto`.
   - Guarda la imagen bajo `/uploads/` y el `foto_url` en usuarios. Si `enable2fa=true`, genera `totp_secret` automáticamente.
 
+Usuarios (cualquier rol)
+
+- `GET /api/users` (admin) → Lista todos los usuarios con su rol y si tienen 2FA.
+- `POST /api/users/create` (multipart, admin) → Crear usuario de rol `Administrador` | `Contador` | `Empleado`.
+  - Campos: `username`, `password`, `rol` (por defecto `Empleado`), `idEmpleado` (opcional, valida existencia), `enable2fa` (true/false), archivo `foto` (opcional).
+  - Persiste `foto_url` si envías imagen y (opcional) `totp_secret` cuando habilitas 2FA.
+
 Empleado:
 
 - `GET /api/empleado/mis-datos` → Datos del empleado logueado y su proyecto.
@@ -161,11 +172,21 @@ Pasos:
 3. Sube una foto al crear admin (`POST /api/admin/create`) o agrega `foto_url` a un usuario existente.
 4. Verifica con `POST /api/face/verify` enviando `username` y `foto`.
 
+Estado del proveedor:
+
+- `GET /api/face/status` devuelve `{ provider, configured, similarity }` para que el frontend decida si habilitar el botón de inicio con rostro.
+
 Seguridad y privacidad:
 
 - Almacena imágenes en disco (puedes cambiar a S3 si lo prefieres).
 - Asegura acceso al directorio `/uploads` si es producción.
 - Considera políticas de retención y consentimiento de datos biométricos.
+
+Notas sobre imágenes guardadas:
+
+- Las fotos subidas en la creación de usuarios/administradores se guardan físicamente en `./uploads` y su ruta relativa queda en la columna `usuarios.foto_url`.
+- El servidor expone `/uploads` como estático, por lo que `foto_url` es accesible desde el navegador (según permisos de tu despliegue).
+- Las capturas de “inicio con rostro” se usan sólo para comparar y no se almacenan por defecto; si deseas guardarlas como bitácora (con fines de auditoría), podemos agregar un registro de eventos con marca de tiempo y conservar las imágenes en una carpeta de logs o en S3.
 
 ## Desarrollo y estructura
 

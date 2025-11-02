@@ -625,6 +625,56 @@ app.delete('/api/admin/users/:id', requerirAutenticacion, requerirAdmin, async (
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ==========================
+// Gestión general de usuarios
+// ==========================
+
+// Listar todos los usuarios (cualquier rol)
+app.get('/api/users', requerirAutenticacion, requerirAdmin, async (req, res) => {
+  try {
+    const [filas] = await pool.query(
+      'SELECT idUsuario, nombre_usuario, rol, idEmpleado, foto_url, (totp_secret IS NOT NULL) AS has2fa FROM usuarios ORDER BY idUsuario DESC'
+    );
+    res.json(filas);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Crear usuario (Admin/Contador/Empleado) con foto opcional
+app.post('/api/users/create', requerirAutenticacion, requerirAdmin, subida.single('foto'), async (req, res) => {
+  try {
+    const { username, password, rol = 'Empleado', idEmpleado, enable2fa } = req.body || {};
+    if (!username || !password) return res.status(400).json({ error: 'username y password requeridos' });
+    const rolValido = ['Administrador','Contador','Empleado'];
+    if (!rolValido.includes(rol)) return res.status(400).json({ error: 'Rol inválido' });
+
+    // Validar unicidad de username
+    const [existe] = await pool.query('SELECT 1 FROM usuarios WHERE nombre_usuario = ? LIMIT 1', [username]);
+    if (existe.length) return res.status(400).json({ error: 'Usuario ya existe' });
+
+    // Si se enlaza a empleado, validar que exista
+    let idEmpleadoFinal = null;
+    if (idEmpleado != null && idEmpleado !== '') {
+      const [emp] = await pool.query('SELECT idEmpleado FROM empleados WHERE idEmpleado = ? LIMIT 1', [idEmpleado]);
+      if (!emp.length) return res.status(400).json({ error: 'Empleado no existe' });
+      idEmpleadoFinal = Number(idEmpleado);
+    }
+
+    const hash = await bcrypt.hash(password, 10);
+    const foto_url = req.file ? `/uploads/${req.file.filename}` : null;
+    let totp_secret = null;
+    if (String(enable2fa).toLowerCase() === 'true') {
+      const sec = speakeasy.generateSecret({ length: 20, name: `BuildSmarts (${username})` });
+      totp_secret = sec.base32;
+    }
+
+    const [r] = await pool.query(
+      'INSERT INTO usuarios (nombre_usuario, contraseña, rol, idEmpleado, foto_url, totp_secret) VALUES (?, ?, ?, ?, ?, ?)',
+      [username, hash, rol, idEmpleadoFinal, foto_url, totp_secret]
+    );
+    res.status(201).json({ idUsuario: r.insertId, username, rol, idEmpleado: idEmpleadoFinal, foto_url, has2fa: !!totp_secret });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // API de verificación facial (opcional Rekognition)
 app.post('/api/face/verify', subida.single('foto'), async (req, res) => {
   try {
