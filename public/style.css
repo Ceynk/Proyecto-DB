@@ -981,23 +981,7 @@ img, svg, video, canvas, iframe {
   pointer-events: none;
 }
 
-.scan-laser {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--accent-light), transparent);
-  box-shadow: 0 0 12px var(--accent-light);
-  animation: scanMove 2.2s linear infinite;
-}
-
-@keyframes scanMove {
-  0% { top: 8%; opacity: 0; }
-  10% { opacity: 1; }
-  50% { top: 50%; }
-  90% { opacity: 1; }
-  100% { top: 92%; opacity: 0; }
-}
+/* (Animación eliminada a solicitud: scan-laser) */
 
 .scan-borde {
   position: absolute;

@@ -66,6 +66,11 @@ if (btnAdminPanel) {
 const adminCreateWrap = document.getElementById('adminCreateWrap');
 const adminCreateForm = document.getElementById('adminCreateForm');
 const adminCreateMsg = document.getElementById('adminCreateMsg');
+// Admin users list/delete
+const adminUsersWrap = document.getElementById('adminUsersWrap');
+const adminUsersTable = document.getElementById('adminUsersTable');
+const adminUsersMsg = document.getElementById('adminUsersMsg');
+const btnRefreshAdmins = document.getElementById('btnRefreshAdmins');
 
 
 // en index.html o guarda una clave `API_BASE` en localStorage con la URL del backend en Railway.
@@ -272,6 +277,8 @@ function updateUIForAuth() {
     if (dataPanel) dataPanel.style.display = '';
     if (adminPanel) adminPanel.style.display = 'none';
     cargarDatos();
+    // Pre-cargar admins para tener la lista actualizada si abren el panel
+    cargarAdminsSafe();
   } else {
     // Empleado view
     loginArea.style.display = 'none';
@@ -824,9 +831,92 @@ if (adminCreateForm) {
       if (!res.ok) throw new Error(body.error || 'Error');
       adminCreateMsg.textContent = `Admin creado (id ${body.idUsuario})`;
       adminCreateForm.reset();
+      cargarAdminsSafe();
     } catch (e) {
       adminCreateMsg.style.color = 'salmon';
       adminCreateMsg.textContent = e.message;
     }
   });
+}
+
+// ===== Administradores: listar y eliminar =====
+async function cargarAdmins() {
+  if (!adminUsersTable) return;
+  adminUsersTable.innerHTML = '<div style="text-align:center; padding:1rem; color: var(--text-muted);">Cargando...</div>';
+  try {
+    const lista = await apiFetch('/api/admin/users');
+    if (!Array.isArray(lista) || lista.length === 0) {
+      adminUsersTable.innerHTML = '<div style="text-align:center; padding:1rem; color: var(--text-muted);">No hay administradores</div>';
+      return;
+    }
+    const tabla = document.createElement('table');
+    const thead = document.createElement('thead');
+    const trh = document.createElement('tr');
+    ['ID','Usuario','2FA','Foto','Acciones'].forEach(h => {
+      const th = document.createElement('th'); th.textContent = h; trh.appendChild(th);
+    });
+    thead.appendChild(trh);
+    const tbody = document.createElement('tbody');
+    lista.forEach(u => {
+      const tr = document.createElement('tr');
+      const tdId = document.createElement('td'); tdId.textContent = u.idUsuario; tr.appendChild(tdId);
+      const tdUser = document.createElement('td'); tdUser.textContent = u.nombre_usuario; tr.appendChild(tdUser);
+      const td2fa = document.createElement('td'); td2fa.textContent = u.has2fa ? 'Sí' : 'No'; tr.appendChild(td2fa);
+      const tdFoto = document.createElement('td');
+      if (u.foto_url) {
+        const img = document.createElement('img');
+        img.src = u.foto_url;
+        img.alt = 'foto';
+        img.style.maxWidth = '56px';
+        img.style.borderRadius = '6px';
+        img.style.border = '1px solid var(--border-light)';
+        tdFoto.appendChild(img);
+      } else {
+        tdFoto.textContent = '—';
+      }
+      tr.appendChild(tdFoto);
+
+      const tdAcc = document.createElement('td');
+      const btnDel = document.createElement('button');
+      btnDel.textContent = 'Eliminar';
+      btnDel.style.background = '#ef4444';
+      btnDel.addEventListener('click', async () => {
+        await eliminarAdmin(u.idUsuario);
+      });
+      tdAcc.appendChild(btnDel);
+      tr.appendChild(tdAcc);
+      tbody.appendChild(tr);
+    });
+    tabla.appendChild(thead);
+    tabla.appendChild(tbody);
+    adminUsersTable.innerHTML = '';
+    adminUsersTable.appendChild(tabla);
+  } catch (e) {
+    adminUsersTable.innerHTML = `<div style="color:salmon; padding:1rem;">Error: ${e.message}</div>`;
+  }
+}
+
+async function eliminarAdmin(id) {
+  adminUsersMsg.textContent = '';
+  if (!id) return;
+  if (!confirm('¿Eliminar administrador ' + id + '?')) return;
+  try {
+    const res = await apiFetch(`/api/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    adminUsersMsg.style.color = '';
+    adminUsersMsg.textContent = 'Administrador eliminado';
+    await cargarAdmins();
+  } catch (e) {
+    adminUsersMsg.style.color = 'salmon';
+    adminUsersMsg.textContent = e.message;
+  }
+}
+
+function cargarAdminsSafe() {
+  if (currentUser?.rol === 'Administrador' && adminUsersWrap && adminUsersTable) {
+    cargarAdmins();
+  }
+}
+
+if (btnRefreshAdmins) {
+  btnRefreshAdmins.addEventListener('click', () => cargarAdminsSafe());
 }

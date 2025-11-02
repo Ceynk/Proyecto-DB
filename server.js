@@ -571,6 +571,52 @@ app.post('/api/admin/create', requireAuth, requireAdmin, upload.single('foto'), 
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Listar administradores
+app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT idUsuario, nombre_usuario, rol, idEmpleado, foto_url, (totp_secret IS NOT NULL) AS has2fa FROM usuarios WHERE rol = ? ORDER BY idUsuario DESC',
+      ['Administrador']
+    );
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Eliminar administrador con validaciones
+app.delete('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    if (req.session?.user?.idUsuario === id) {
+      return res.status(400).json({ error: 'No puedes eliminar tu propia cuenta' });
+    }
+    const [countAdmins] = await pool.query('SELECT COUNT(*) AS n FROM usuarios WHERE rol = "Administrador"');
+    if (countAdmins[0]?.n <= 1) {
+      return res.status(400).json({ error: 'No se puede eliminar el último administrador' });
+    }
+    const [rows] = await pool.query('SELECT idUsuario, rol, foto_url FROM usuarios WHERE idUsuario = ?', [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const u = rows[0];
+    if (u.rol !== 'Administrador') return res.status(400).json({ error: 'El usuario no es Administrador' });
+
+    // Intentar borrar la imagen asociada si apunta a /uploads
+    if (u.foto_url) {
+      try {
+        let fpath = u.foto_url;
+        if (fpath.startsWith('/uploads/')) {
+          fpath = path.join(__dirname, fpath.replace(/^\//, ''));
+        } else if (!path.isAbsolute(fpath)) {
+          fpath = path.join(__dirname, fpath);
+        }
+        if (fs.existsSync(fpath)) fs.unlinkSync(fpath);
+      } catch (_) { /* ignorar errores de borrado de archivo */ }
+    }
+
+    const [del] = await pool.query('DELETE FROM usuarios WHERE idUsuario = ?', [id]);
+    res.json({ ok: true, affectedRows: del.affectedRows });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // API de verificación facial (opcional Rekognition)
 app.post('/api/face/verify', upload.single('foto'), async (req, res) => {
   try {
@@ -582,7 +628,7 @@ app.post('/api/face/verify', upload.single('foto'), async (req, res) => {
     const stored = rows[0].foto_url;
     if (!stored) return res.status(400).json({ error: 'Usuario sin foto registrada' });
     if (!req.file) return res.status(400).json({ error: 'Falta foto para verificar' });
-    if (!rekognitionClient) return res.status(501).json({ error: 'Proveedor facial no configurado' });
+  if (!rekognitionClient) return res.status(501).json({ error: 'Proveedor facial no configurado. Define FACE_PROVIDER=aws y credenciales AWS (AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) en .env' });
     // Resolver ruta de origen de forma robusta en Windows/Unix
     let sourcePath = stored;
     if (stored.startsWith('/uploads/')) {
@@ -608,7 +654,7 @@ app.post('/api/face/verify', upload.single('foto'), async (req, res) => {
 // Login facial (crea sesión; si el usuario tiene 2FA, deja pendiente verificación TOTP)
 app.post('/api/auth/login-facial', upload.single('foto'), async (req, res) => {
   try {
-    if (!rekognitionClient) return res.status(501).json({ error: 'Proveedor facial no configurado' });
+    if (!rekognitionClient) return res.status(501).json({ error: 'Proveedor facial no configurado. Define FACE_PROVIDER=aws y credenciales AWS (AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) en .env' });
     const { usuario, username } = req.body || {};
     const nombreUsuario = usuario || username;
     if (!nombreUsuario) return res.status(400).json({ error: 'usuario es requerido' });

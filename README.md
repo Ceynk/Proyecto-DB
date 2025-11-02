@@ -34,7 +34,7 @@ DB_NAME=BuildSmarts
 PORT=5175
 
 # Sesiones
-eSSION_SECRET=un_secreto_largo_seguro
+SESSION_SECRET=un_secreto_largo_seguro
 
 # Usuario admin por defecto (se crea si no hay ningún administrador)
 ADMIN_USER=admin
