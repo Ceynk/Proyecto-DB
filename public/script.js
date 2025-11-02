@@ -130,6 +130,7 @@ function renderizarBarraLateral() {
       buscarEl.value = '';
       cargarDatos();
       construirFormulario();
+      cargarOpcionesUpdate();
       if (dataPanel) dataPanel.style.display = '';
       if (adminPanel) adminPanel.style.display = 'none';
       if (btnAdminPanel) btnAdminPanel.classList.remove('active');
@@ -174,7 +175,20 @@ function renderizarTabla(filas) {
       const tdAcc = crear('td');
       const btnSetId = crear('button', '', 'Seleccionar ID');
       btnSetId.addEventListener('click', () => {
-        if (idKey) updateIdInput.value = r[idKey];
+        if (idKey) {
+          const idVal = String(r[idKey]);
+          // Ensure the ID exists in the dropdown
+          if (updateIdInput) {
+            let opt = Array.from(updateIdInput.options).find(o => o.value === idVal);
+            if (!opt) {
+              opt = document.createElement('option');
+              opt.value = idVal;
+              opt.textContent = `ID ${idVal}`;
+              updateIdInput.appendChild(opt);
+            }
+            updateIdInput.value = idVal;
+          }
+        }
         updateMsg.textContent = `ID seleccionado: ${r[idKey]}`;
       });
       tdAcc.appendChild(btnSetId);
@@ -241,6 +255,7 @@ function updateUIForAuth() {
     if (adminNav) adminNav.style.display = '';
     renderizarBarraLateral();
     construirFormulario();
+    cargarOpcionesUpdate();
     currentMode = 'entities';
     if (dataPanel) dataPanel.style.display = '';
     if (adminPanel) adminPanel.style.display = 'none';
@@ -262,6 +277,70 @@ function updateUIForAuth() {
     empleadoPanel.style.display = '';
     cargarMisDatos();
   }
+}
+
+// Map singular entity to plural route for /api/min/*
+const pluralMap = {
+  empleado: 'empleados',
+  cliente: 'clientes',
+  proyecto: 'proyectos',
+  apartamento: 'apartamentos',
+  piso: 'pisos',
+  material: 'materiales',
+  inventario: 'inventarios',
+  ingreso: 'ingresos',
+  gasto: 'gastos',
+  factura: 'facturas',
+  pago: 'pagos',
+  tarea: 'tareas',
+  turno: 'turnos'
+};
+
+function getPlural(name) {
+  return pluralMap[name] || `${name}s`;
+}
+
+function textForItemOption(item) {
+  const id = item.id ?? item.ID ?? item.Id ?? item.idEmpleado ?? item.idCliente ?? item.idProyecto ?? item.idMaterial ?? item.idFactura ?? item.idTurno ?? item.idTarea ?? item.idInventario ?? item.idIngreso ?? item.idGasto ?? item.idPago;
+  const candidates = [
+    item.nombre, item.Nombre, item.descripcion, item.Descripcion,
+    item.Correo, item.Telefono, item.tipo_movimiento,
+    item.Fecha, item.fecha, item.numero, item.num_apartamento, item.num_piso
+  ];
+  const label = candidates.find(v => v != null && v !== '') || '';
+  return `${id != null ? id : ''}${label ? ' - ' + label : ''}`.trim();
+}
+
+async function cargarOpcionesUpdate() {
+  if (!updateIdInput) return;
+  // Clear existing options
+  updateIdInput.innerHTML = '';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = '-- Selecciona --';
+  updateIdInput.appendChild(placeholder);
+  // Try min endpoint first
+  const plural = getPlural(actual);
+  let items = [];
+  try {
+    items = await apiFetch(`/api/min/${plural}`);
+  } catch (_) {
+    try {
+      items = await apiFetch(`/api/list/${actual}`);
+    } catch (_) {
+      items = [];
+    }
+  }
+  // Normalize to array of objects with id and nombre-ish
+  if (!Array.isArray(items)) items = [];
+  items.forEach((it) => {
+    const opt = document.createElement('option');
+    const id = it.id ?? it.ID ?? it.Id ?? it.idEmpleado ?? it.idCliente ?? it.idProyecto ?? it.idMaterial ?? it.idFactura ?? it.idTurno ?? it.idTarea ?? it.idInventario ?? it.idIngreso ?? it.idGasto ?? it.idPago;
+    if (id == null) return;
+    opt.value = String(id);
+    opt.textContent = textForItemOption(it) || `ID ${id}`;
+    updateIdInput.appendChild(opt);
+  });
 }
 
 async function cargarMisDatos() {
@@ -543,6 +622,7 @@ formularioDinamico.addEventListener('submit', async (ev) => {
     mensajeFormulario.textContent = 'Guardado con id ' + r.id;
     formularioDinamico.reset();
     cargarDatos();
+    cargarOpcionesUpdate();
   } catch (e) {
     mensajeFormulario.style.color = 'salmon';
     mensajeFormulario.textContent = 'Error: ' + e.message;
@@ -553,7 +633,7 @@ formularioDinamico.addEventListener('submit', async (ev) => {
 if (btnUpdate) {
   btnUpdate.addEventListener('click', async () => {
     updateMsg.textContent = '';
-    const id = updateIdInput.value.trim();
+  const id = (updateIdInput.value || '').trim();
     if (!id) { updateMsg.style.color = 'salmon'; updateMsg.textContent = 'Ingrese ID'; return; }
     const datos = {};
     Array.from(formularioDinamico.elements).forEach((el) => {
@@ -576,6 +656,7 @@ if (btnUpdate) {
       updateMsg.style.color = '';
       updateMsg.textContent = 'Actualizado correctamente';
       cargarDatos();
+      cargarOpcionesUpdate();
     } catch (e) {
       updateMsg.style.color = 'salmon';
       updateMsg.textContent = e.message;
@@ -587,7 +668,7 @@ if (btnUpdate) {
 if (btnDelete) {
   btnDelete.addEventListener('click', async () => {
     updateMsg.textContent = '';
-    const id = updateIdInput.value.trim();
+  const id = (updateIdInput.value || '').trim();
     if (!id) { updateMsg.style.color = 'salmon'; updateMsg.textContent = 'Ingrese ID'; return; }
     if (!confirm('¿Eliminar registro ' + id + '?')) return;
     try {
@@ -597,6 +678,7 @@ if (btnDelete) {
       formularioDinamico.reset();
       updateIdInput.value = '';
       cargarDatos();
+      cargarOpcionesUpdate();
     } catch (e) {
       updateMsg.style.color = 'salmon';
       updateMsg.textContent = e.message;
