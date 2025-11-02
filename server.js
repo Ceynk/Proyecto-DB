@@ -574,15 +574,22 @@ app.post('/api/admin/create', requireAuth, requireAdmin, upload.single('foto'), 
 // API de verificación facial (opcional Rekognition)
 app.post('/api/face/verify', upload.single('foto'), async (req, res) => {
   try {
-    const { username } = req.body || {};
-    if (!username) return res.status(400).json({ error: 'username es requerido' });
-    const [rows] = await pool.query('SELECT foto_url FROM usuarios WHERE nombre_usuario = ?', [username]);
+    const { username, usuario } = req.body || {};
+    const nombreUsuario = username || usuario;
+    if (!nombreUsuario) return res.status(400).json({ error: 'username/usuario es requerido' });
+    const [rows] = await pool.query('SELECT foto_url FROM usuarios WHERE nombre_usuario = ?', [nombreUsuario]);
     if (!rows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
     const stored = rows[0].foto_url;
     if (!stored) return res.status(400).json({ error: 'Usuario sin foto registrada' });
     if (!req.file) return res.status(400).json({ error: 'Falta foto para verificar' });
     if (!rekognitionClient) return res.status(501).json({ error: 'Proveedor facial no configurado' });
-    const sourcePath = stored.startsWith('/uploads/') ? path.join(__dirname, stored) : path.join(__dirname, stored);
+    // Resolver ruta de origen de forma robusta en Windows/Unix
+    let sourcePath = stored;
+    if (stored.startsWith('/uploads/')) {
+      sourcePath = path.join(__dirname, stored.replace(/^\//, ''));
+    } else if (!path.isAbsolute(stored)) {
+      sourcePath = path.join(__dirname, stored);
+    }
     const sourceBytes = fs.readFileSync(sourcePath);
     const targetBytes = fs.readFileSync(req.file.path);
     const cmd = new CompareFacesCommand({
@@ -596,6 +603,62 @@ app.post('/api/face/verify', upload.single('foto'), async (req, res) => {
     const match = confidence >= Number(process.env.FACE_SIMILARITY || 85);
     res.json({ match, confidence });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Login facial (crea sesión; si el usuario tiene 2FA, deja pendiente verificación TOTP)
+app.post('/api/auth/login-facial', upload.single('foto'), async (req, res) => {
+  try {
+    if (!rekognitionClient) return res.status(501).json({ error: 'Proveedor facial no configurado' });
+    const { usuario, username } = req.body || {};
+    const nombreUsuario = usuario || username;
+    if (!nombreUsuario) return res.status(400).json({ error: 'usuario es requerido' });
+
+    const [rows] = await pool.query(
+      'SELECT idUsuario, nombre_usuario, rol, idEmpleado, totp_secret, foto_url, contraseña FROM usuarios WHERE nombre_usuario = ? LIMIT 1',
+      [nombreUsuario]
+    );
+    if (!rows || rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const u = rows[0];
+    if (!u.foto_url) return res.status(400).json({ error: 'Usuario sin foto registrada' });
+    if (!req.file) return res.status(400).json({ error: 'Falta foto para verificar' });
+
+    // Resolver ruta de la foto guardada
+    let sourcePath = u.foto_url;
+    if (u.foto_url.startsWith('/uploads/')) {
+      sourcePath = path.join(__dirname, u.foto_url.replace(/^\//, ''));
+    } else if (!path.isAbsolute(u.foto_url)) {
+      sourcePath = path.join(__dirname, u.foto_url);
+    }
+    const sourceBytes = fs.readFileSync(sourcePath);
+    const targetBytes = fs.readFileSync(req.file.path);
+    const cmd = new CompareFacesCommand({
+      SourceImage: { Bytes: sourceBytes },
+      TargetImage: { Bytes: targetBytes },
+      SimilarityThreshold: Number(process.env.FACE_SIMILARITY || 85)
+    });
+    const out = await rekognitionClient.send(cmd);
+    const best = (out.FaceMatches || [])[0];
+    const confianza = best?.Similarity || 0;
+    const coincide = confianza >= Number(process.env.FACE_SIMILARITY || 85);
+    if (!coincide) return res.status(401).json({ error: 'Rostro no coincide', confianza });
+
+    // Si requiere 2FA, marcamos pendiente y NO creamos sesión completa aún
+    if (needs2FA(u)) {
+      req.session.pending2fa = { idUsuario: u.idUsuario };
+      return res.json({ ok: true, requires2fa: true, metodo: 'facial', confianza });
+    }
+
+    // Crear sesión
+    req.session.user = {
+      idUsuario: u.idUsuario,
+      nombre_usuario: u.nombre_usuario,
+      rol: u.rol,
+      idEmpleado: u.idEmpleado || null
+    };
+    res.json({ ok: true, user: req.session.user, requires2fa: false, metodo: 'facial', confianza });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Endpoints para empleado

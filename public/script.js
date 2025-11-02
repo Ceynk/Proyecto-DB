@@ -25,6 +25,18 @@ const totpForm = document.getElementById('totpForm');
 const totpMsg = document.getElementById('totpMsg');
 const logoutBtn = document.getElementById('logoutBtn');
 
+// Login facial elementos
+const btnLoginFacial = document.getElementById('btnLoginFacial');
+const modalFacial = document.getElementById('modalFacial');
+const btnCerrarModalFacial = document.getElementById('btnCerrarModalFacial');
+const videoFacial = document.getElementById('videoFacial');
+const lienzoFacial = document.getElementById('lienzoFacial');
+const btnAbrirCamara = document.getElementById('btnAbrirCamara');
+const btnEscanearRostro = document.getElementById('btnEscanearRostro');
+const btnCancelarFacial = document.getElementById('btnCancelarFacial');
+const facialMsg = document.getElementById('facialMsg');
+let flujoCamara = null;
+
 // Empleado-only panel
 const empleadoPanel = document.getElementById('empleadoPanel');
 const empleadoInfo = document.getElementById('empleadoInfo');
@@ -278,6 +290,115 @@ function updateUIForAuth() {
     cargarMisDatos();
   }
 }
+
+// ===== Login Facial =====
+function abrirModalFacial() {
+  if (!modalFacial) return;
+  modalFacial.style.display = '';
+}
+
+function cerrarModalFacial() {
+  if (!modalFacial) return;
+  modalFacial.style.display = 'none';
+  detenerCamara();
+  if (facialMsg) facialMsg.textContent = '';
+}
+
+async function iniciarCamara() {
+  try {
+    if (flujoCamara) return; // ya activa
+    facialMsg.textContent = 'Abriendo cámara...';
+    const dispositivos = await navigator.mediaDevices.enumerateDevices();
+    const tieneFrontal = dispositivos.some(d => d.kind === 'videoinput' && /front|frontal|user/i.test(d.label));
+    const constraints = {
+      video: {
+        facingMode: tieneFrontal ? 'user' : 'environment',
+        width: { ideal: 640 },
+        height: { ideal: 480 }
+      },
+      audio: false
+    };
+    flujoCamara = await navigator.mediaDevices.getUserMedia(constraints);
+    videoFacial.srcObject = flujoCamara;
+    await videoFacial.play();
+    facialMsg.textContent = '';
+  } catch (e) {
+    facialMsg.style.color = 'salmon';
+    facialMsg.textContent = 'No se pudo acceder a la cámara: ' + e.message;
+  }
+}
+
+function detenerCamara() {
+  try {
+    if (flujoCamara) {
+      flujoCamara.getTracks().forEach(t => t.stop());
+      flujoCamara = null;
+    }
+    if (videoFacial) {
+      videoFacial.pause();
+      videoFacial.srcObject = null;
+    }
+  } catch (_) {}
+}
+
+async function escanearRostroYLogin() {
+  try {
+    facialMsg.style.color = '';
+    facialMsg.textContent = 'Escaneando...';
+    if (!videoFacial || videoFacial.readyState < 2) {
+      facialMsg.textContent = 'La cámara no está lista.';
+      return;
+    }
+    const inputUsuario = loginForm?.querySelector('input[name="username"]');
+    const usuario = (inputUsuario?.value || '').trim();
+    if (!usuario) {
+      facialMsg.style.color = 'salmon';
+      facialMsg.textContent = 'Ingresa tu usuario antes de escanear.';
+      return;
+    }
+    // Capturar frame a canvas
+    const w = videoFacial.videoWidth || 640;
+    const h = videoFacial.videoHeight || 480;
+    lienzoFacial.width = w;
+    lienzoFacial.height = h;
+    const ctx = lienzoFacial.getContext('2d');
+    ctx.drawImage(videoFacial, 0, 0, w, h);
+    const blob = await new Promise(resolve => lienzoFacial.toBlob(resolve, 'image/jpeg', 0.9));
+    if (!blob) throw new Error('No se pudo capturar la imagen');
+    const fd = new FormData();
+    fd.append('usuario', usuario);
+    fd.append('foto', blob, 'captura.jpg');
+    const res = await fetch(`${apiBase}/api/auth/login-facial`, {
+      method: 'POST',
+      credentials: 'include',
+      body: fd
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || 'Error desconocido');
+    if (body.requires2fa) {
+      facialMsg.textContent = 'Rostro verificado. Ingresa tu código 2FA.';
+      // Mostrar formulario TOTP
+      totpForm.style.display = '';
+      loginForm.style.display = 'none';
+      cerrarModalFacial();
+      return;
+    }
+    // Sesión creada
+    currentUser = body.user;
+    cerrarModalFacial();
+    updateUIForAuth();
+  } catch (e) {
+    facialMsg.style.color = 'salmon';
+    facialMsg.textContent = e.message;
+  }
+}
+
+// Eventos modal facial
+if (btnLoginFacial) btnLoginFacial.addEventListener('click', () => abrirModalFacial());
+if (btnCerrarModalFacial) btnCerrarModalFacial.addEventListener('click', () => cerrarModalFacial());
+if (btnCancelarFacial) btnCancelarFacial.addEventListener('click', () => cerrarModalFacial());
+if (btnAbrirCamara) btnAbrirCamara.addEventListener('click', () => iniciarCamara());
+if (btnEscanearRostro) btnEscanearRostro.addEventListener('click', () => escanearRostroYLogin());
 
 // Map singular entity to plural route for /api/min/*
 const pluralMap = {
