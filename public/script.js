@@ -7,8 +7,14 @@ const formularioDinamico = document.getElementById('dynForm');
 const tituloFormulario = document.getElementById('formTitle');
 const mensajeFormulario = document.getElementById('formMsg');
 const botonMenuMovil = document.getElementById('mobileMenuBtn');
-const barraLateral = document.getElementById('sidebar');
 const botonActualizar = document.getElementById('refreshBtn');
+// Panels / admin nav
+const dataPanel = document.getElementById('dataPanel');
+const adminPanel = document.getElementById('adminPanel');
+const adminNav = document.getElementById('adminNav');
+const btnAdminPanel = document.getElementById('btnAdminPanel');
+const barraLateral = document.getElementById('sidebar');
+let currentMode = 'entities'; // 'entities' | 'admin'
 
 // Auth/UI elements
 const loginArea = document.getElementById('loginArea');
@@ -31,6 +37,18 @@ const updateIdInput = document.getElementById('updateIdInput');
 const btnUpdate = document.getElementById('btnUpdate');
 const btnDelete = document.getElementById('btnDelete');
 const updateMsg = document.getElementById('updateMsg');
+// Admin panel navigation
+if (btnAdminPanel) {
+  btnAdminPanel.addEventListener('click', () => {
+    if (currentUser?.rol !== 'Administrador') return;
+    currentMode = 'admin';
+    if (dataPanel) dataPanel.style.display = 'none';
+    if (adminPanel) adminPanel.style.display = '';
+    // Remove active class from entity buttons
+    Array.from(listaEntidadesEl.children).forEach((b) => b.classList.remove('active'));
+    btnAdminPanel.classList.add('active');
+  });
+}
 
 // Admin create form
 const adminCreateWrap = document.getElementById('adminCreateWrap');
@@ -42,7 +60,6 @@ const adminCreateMsg = document.getElementById('adminCreateMsg');
 const apiBase = (typeof window !== 'undefined' && (window.API_BASE || localStorage.getItem('API_BASE'))) || '';
 
 let currentUser = null;
-
 async function apiFetch(path, opts = {}) {
   const finalOpts = Object.assign({ credentials: 'include' }, opts);
   const res = await fetch(`${apiBase}${path}`, finalOpts);
@@ -56,14 +73,13 @@ async function apiFetch(path, opts = {}) {
 }
 
 const entidades = [
-  'empleado', 'cliente', 'proyecto', 'apartamento', 'material',
+  'empleado', 'cliente', 'proyecto', 'apartamento', 'piso', 'material',
   'inventario', 'ingreso', 'gasto', 'pago', 'tarea', 'turno', 'factura'
 ];
 
 let actual = 'empleado';
 let ultimoAbortCtrl = null;
 
-// Mobile menu toggle
 if (botonMenuMovil && barraLateral) {
   botonMenuMovil.addEventListener('click', () => {
     barraLateral.classList.toggle('mobile-open');
@@ -108,11 +124,15 @@ function renderizarBarraLateral() {
     const btn = crear('button', nombre === actual ? 'active' : '', nombre.charAt(0).toUpperCase() + nombre.slice(1));
     btn.addEventListener('click', () => {
       actual = nombre;
+      currentMode = 'entities';
       renderizarBarraLateral();
       tituloEl.textContent = nombre.charAt(0).toUpperCase() + nombre.slice(1);
       buscarEl.value = '';
       cargarDatos();
       construirFormulario();
+      if (dataPanel) dataPanel.style.display = '';
+      if (adminPanel) adminPanel.style.display = 'none';
+      if (btnAdminPanel) btnAdminPanel.classList.remove('active');
     });
     listaEntidadesEl.appendChild(btn);
   });
@@ -168,6 +188,7 @@ function renderizarTabla(filas) {
 }
 
 async function cargarDatos() {
+  if (currentMode !== 'entities') return;
   if (!currentUser || currentUser.rol !== 'Administrador') return; // solo admin lista
   const q = buscarEl.value.trim();
   const url = q ? `/api/list/${actual}?q=${encodeURIComponent(q)}` : `/api/list/${actual}`;
@@ -217,9 +238,12 @@ function updateUIForAuth() {
     document.querySelector('.toolbar').style.display = '';
     document.getElementById('formWrap').style.display = '';
     updateControls.style.display = '';
-    adminCreateWrap.style.display = '';
+    if (adminNav) adminNav.style.display = '';
     renderizarBarraLateral();
     construirFormulario();
+    currentMode = 'entities';
+    if (dataPanel) dataPanel.style.display = '';
+    if (adminPanel) adminPanel.style.display = 'none';
     cargarDatos();
   } else {
     // Empleado view
@@ -230,7 +254,9 @@ function updateUIForAuth() {
     barraLateral.style.display = 'none';
     document.querySelector('.toolbar').style.display = 'none';
     document.getElementById('formWrap').style.display = 'none';
-    adminCreateWrap.style.display = 'none';
+    if (adminNav) adminNav.style.display = 'none';
+    if (dataPanel) dataPanel.style.display = '';
+    if (adminPanel) adminPanel.style.display = 'none';
     contenedorTabla.innerHTML = '';
     tituloEl.textContent = 'Mi panel';
     empleadoPanel.style.display = '';

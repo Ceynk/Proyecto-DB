@@ -67,12 +67,15 @@
             Entidades
           </div>
         </div>
+        <div id="adminNav" class="sb-list" style="margin-bottom: .75rem; display:none;">
+          <button id="btnAdminPanel">Administración</button>
+        </div>
         <div id="entidades" class="sb-list">
           <!-- botones de entidades -->
         </div>
       </aside>
       <main class="main" role="main">
-        <div class="panel">
+        <div class="panel" id="dataPanel">
           <div class="panel-header">
             <h1 id="titulo">Empleado</h1>
             <div class="header-actions">
@@ -127,24 +130,31 @@
               </div>
               <div id="updateMsg" class="form-msg"></div>
             </div>
+          </div>
+        </div>
 
-              <!-- Crear admin (solo admin) -->
-              <div id="adminCreateWrap" class="form-wrap" style="margin-top: 1.5rem; display:none;">
-                <div class="form-header">
-                  <h3 class="form-heading">Crear Administrador</h3>
-                </div>
-                <form id="adminCreateForm" class="dyn-form" enctype="multipart/form-data" style="display:grid; gap: 12px;">
-                  <label>Usuario</label>
-                  <input name="username" type="text" required />
-                  <label>Contraseña</label>
-                  <input name="password" type="password" required />
-                  <label>Foto (para autenticación facial)</label>
-                  <input name="foto" type="file" accept="image/*" />
-                  <label><input type="checkbox" name="enable2fa" value="true" /> Habilitar 2FA automático</label>
-                  <button type="submit">Crear admin</button>
-                  <div id="adminCreateMsg" class="form-msg"></div>
-                </form>
+        <!-- Panel de Administración (separado) -->
+        <div class="panel" id="adminPanel" style="display:none;">
+          <div class="panel-header">
+            <h1>Administración</h1>
+          </div>
+          <div id="adminCreateWrap" class="form-wrap" style="margin-top: .5rem;">
+            <div class="form-header">
+              <h3 class="form-heading">Crear Administrador</h3>
+            </div>
+            <form id="adminCreateForm" class="dyn-form" enctype="multipart/form-data" style="display:grid; gap: 12px; max-width: 560px;">
+              <label>Usuario</label>
+              <input name="username" type="text" required />
+              <label>Contraseña</label>
+              <input name="password" type="password" required />
+              <label>Foto (Para Autenticación Facial)</label>
+              <input name="foto" type="file" accept="image/*" />
+              <label style="display:flex; align-items:center; gap:.5rem;"><input type="checkbox" name="enable2fa" value="true" /> Habilitar 2FA Automático</label>
+              <div style="display:flex; gap:.5rem;">
+                <button type="submit">Crear admin</button>
               </div>
+              <div id="adminCreateMsg" class="form-msg"></div>
+            </form>
           </div>
         </div>
       </main>
