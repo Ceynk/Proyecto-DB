@@ -508,7 +508,7 @@ async function cargarOpcionesActualizacion() {
 
 async function cargarMisDatos() {
   try {
-    const info = await apiFetch('/api/empleado/mis-datos');
+    const info = await solicitarAPI('/api/empleado/mis-datos');
     empleadoInfo.innerHTML = `
       <div><strong>Nombre:</strong> ${info.Nombre || ''}</div>
       <div><strong>Correo:</strong> ${info.Correo || ''}</div>
