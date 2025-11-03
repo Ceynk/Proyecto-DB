@@ -8,8 +8,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
-import speakeasy from 'speakeasy';
-import QRCode from 'qrcode';
+import nodemailer from 'nodemailer';
 
 dotenv.config();
 
@@ -62,20 +61,20 @@ const pool = mysql.createPool({
 // Ensure schema (extra columns) and seed admin user
 async function asegurarEsquemaYSemilla() {
   try {
-    const [c1] = await pool.query("SHOW COLUMNS FROM usuarios LIKE 'totp_secret'");
-    if (c1.length === 0) {
-      await pool.query("ALTER TABLE usuarios ADD COLUMN totp_secret VARCHAR(64) NULL");
-    }
-  } catch (e) {
-    console.warn('No se pudo verificar/agregar columna totp_secret:', e.message);
-  }
-  try {
     const [c2] = await pool.query("SHOW COLUMNS FROM usuarios LIKE 'foto_url'");
     if (c2.length === 0) {
       await pool.query("ALTER TABLE usuarios ADD COLUMN foto_url VARCHAR(255) NULL");
     }
   } catch (e) {
     console.warn('No se pudo verificar/agregar columna foto_url:', e.message);
+  }
+  try {
+    const [cu] = await pool.query("SHOW COLUMNS FROM usuarios LIKE 'Correo'");
+    if (cu.length === 0) {
+      await pool.query("ALTER TABLE usuarios ADD COLUMN Correo VARCHAR(120) NULL");
+    }
+  } catch (e) {
+    console.warn('No se pudo verificar/agregar columna usuarios.Correo:', e.message);
   }
   try {
     const [ce] = await pool.query("SHOW COLUMNS FROM empleados LIKE 'foto_url'");
@@ -98,12 +97,13 @@ async function asegurarEsquemaYSemilla() {
     if (rows[0].n === 0) {
       const username = process.env.ADMIN_USER || 'admin';
       const password = process.env.ADMIN_PASS || 'admin123';
+      const correo = process.env.ADMIN_EMAIL || 'admin@example.com';
       const hash = await bcrypt.hash(password, 10);
       await pool.query(
-        "INSERT INTO usuarios (nombre_usuario, contraseña, rol, idEmpleado) VALUES (?, ?, 'Administrador', NULL)",
-        [username, hash]
+        "INSERT INTO usuarios (nombre_usuario, contraseña, rol, idEmpleado, Correo) VALUES (?, ?, 'Administrador', NULL, ?)",
+        [username, hash, correo]
       );
-      console.log(`Usuario admin creado: ${username} (contraseña en .env o 'admin123')`);
+      console.log(`Usuario admin creado: ${username} (contraseña en .env o 'admin123', correo ${correo})`);
     }
   } catch (e) {
     console.warn('No se pudo crear admin por defecto:', e.message);
@@ -255,8 +255,13 @@ const subida = multer({
 
 // ---
 
-// 2FA helpers
-const requiere2FA = (u) => Boolean(u?.totp_secret);
+// Email transporter (SMTP)
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT || 587),
+  secure: String(process.env.SMTP_SECURE || 'false').toLowerCase() === 'true',
+  auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined
+});
 
 // --- Auth helpers ---
 const requerirAutenticacion = (req, res, next) => {
@@ -281,7 +286,7 @@ app.post('/api/auth/login', async (req, res) => {
   if (!username || !password) return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
   try {
     const [filas] = await pool.query(
-      'SELECT idUsuario, nombre_usuario, contraseña, rol, idEmpleado, totp_secret FROM usuarios WHERE nombre_usuario = ? LIMIT 1',
+      'SELECT idUsuario, nombre_usuario, contraseña, rol, idEmpleado, Correo FROM usuarios WHERE nombre_usuario = ? LIMIT 1',
       [username]
     );
     if (!filas || filas.length === 0) return res.status(401).json({ error: 'Credenciales inválidas' });
@@ -294,17 +299,31 @@ app.post('/api/auth/login', async (req, res) => {
       ok = password === hash; // fallback para contraseñas en texto plano
     }
     if (!ok) return res.status(401).json({ error: 'Credenciales inválidas' });
-    if (requiere2FA(u)) {
-      req.session.pending2fa = { idUsuario: u.idUsuario };
-      return res.json({ ok: true, requires2fa: true });
+    // Enviar código por correo
+    let correoDestino = u.Correo || null;
+    if (!correoDestino && u.idEmpleado) {
+      const [erows] = await pool.query('SELECT Correo FROM empleados WHERE idEmpleado = ? LIMIT 1', [u.idEmpleado]);
+      correoDestino = erows[0]?.Correo || null;
     }
-    req.session.user = {
-      idUsuario: u.idUsuario,
-      nombre_usuario: u.nombre_usuario,
-      rol: u.rol,
-      idEmpleado: u.idEmpleado || null
-    };
-    res.json({ ok: true, user: req.session.user, requires2fa: false });
+    if (!correoDestino) return res.status(400).json({ error: 'El usuario no tiene correo registrado' });
+
+    const code = String(Math.floor(100000 + Math.random() * 900000)); // 6 dígitos
+    const vence = Date.now() + 5 * 60 * 1000; // 5 minutos
+    req.session.pendingEmail = { idUsuario: u.idUsuario, code, vence };
+
+    try {
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@example.com',
+        to: correoDestino,
+        subject: 'Tu código de acceso',
+        text: `Tu código es: ${code} (vigente por 5 minutos)`,
+        html: `<p>Tu código es: <b>${code}</b></p><p>Vigente por 5 minutos.</p>`
+      });
+    } catch (e) {
+      return res.status(500).json({ error: 'No se pudo enviar el correo, verifica configuración SMTP' });
+    }
+
+    return res.json({ ok: true, requiresEmail: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -322,36 +341,20 @@ app.get('/api/auth/me', (req, res) => {
   res.json({ user: req.session?.user || null });
 });
 
-// 2FA setup and verify
-app.get('/api/2fa/setup', requerirAutenticacion, async (req, res) => {
+// Verificar código enviado por correo
+app.post('/api/auth/verify-email', async (req, res) => {
+  const { code } = req.body || {};
+  const pending = req.session?.pendingEmail;
+  if (!pending?.idUsuario) return res.status(400).json({ error: 'No hay verificación pendiente' });
+  if (!code) return res.status(400).json({ error: 'Código requerido' });
+  if (Date.now() > pending.vence) return res.status(400).json({ error: 'Código expirado' });
+  if (String(code).trim() !== String(pending.code)) return res.status(401).json({ error: 'Código incorrecto' });
   try {
-    const u = req.session.user;
-    const [filas] = await pool.query('SELECT idUsuario, nombre_usuario, totp_secret FROM usuarios WHERE idUsuario = ?', [u.idUsuario]);
-    if (!filas.length) return res.status(404).json({ error: 'Usuario no encontrado' });
-    let secret = filas[0].totp_secret;
-    if (!secret) {
-      const sec = speakeasy.generateSecret({ length: 20, name: `BuildSmarts (${filas[0].nombre_usuario})` });
-      secret = sec.base32;
-      await pool.query('UPDATE usuarios SET totp_secret = ? WHERE idUsuario = ?', [secret, u.idUsuario]);
-    }
-    const otpauth = `otpauth://totp/BuildSmarts:${filas[0].nombre_usuario}?secret=${secret}&issuer=BuildSmarts`;
-    const qr = await QRCode.toDataURL(otpauth);
-    res.json({ secret, otpauth, qr });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/2fa/verify', async (req, res) => {
-  const { token } = req.body || {};
-  const pending = req.session?.pending2fa;
-  if (!pending?.idUsuario) return res.status(400).json({ error: 'No hay 2FA pendiente' });
-  try {
-    const [filas] = await pool.query('SELECT idUsuario, nombre_usuario, rol, idEmpleado, totp_secret FROM usuarios WHERE idUsuario = ?', [pending.idUsuario]);
+    const [filas] = await pool.query('SELECT idUsuario, nombre_usuario, rol, idEmpleado FROM usuarios WHERE idUsuario = ?', [pending.idUsuario]);
     if (!filas.length) return res.status(404).json({ error: 'Usuario no encontrado' });
     const u = filas[0];
-    const ok = speakeasy.totp.verify({ secret: u.totp_secret, encoding: 'base32', token: String(token || '') });
-    if (!ok) return res.status(401).json({ error: 'Código 2FA inválido' });
     req.session.user = { idUsuario: u.idUsuario, nombre_usuario: u.nombre_usuario, rol: u.rol, idEmpleado: u.idEmpleado || null };
-    delete req.session.pending2fa;
+    delete req.session.pendingEmail;
     res.json({ ok: true, user: req.session.user });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -598,22 +601,17 @@ app.get('/api/min/facturas', requerirAutenticacion, requerirAdmin, async (req, r
 // Crear admin con foto (multipart)
 app.post('/api/admin/create', requerirAutenticacion, requerirAdmin, subida.single('foto'), async (req, res) => {
   try {
-    const { username, password, enable2fa } = req.body || {};
+    const { username, password, correo } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: 'username y password requeridos' });
     const [exist] = await pool.query('SELECT idUsuario FROM usuarios WHERE nombre_usuario = ?', [username]);
     if (exist.length) return res.status(400).json({ error: 'Usuario ya existe' });
     const hash = await bcrypt.hash(password, 10);
     const foto_url = req.file ? `/uploads/${req.file.filename}` : null;
-    let totp_secret = null;
-    if (String(enable2fa).toLowerCase() === 'true') {
-      const sec = speakeasy.generateSecret({ length: 20, name: `BuildSmarts (${username})` });
-      totp_secret = sec.base32;
-    }
     const [r] = await pool.query(
-      'INSERT INTO usuarios (nombre_usuario, contraseña, rol, idEmpleado, foto_url, totp_secret) VALUES (?, ?, "Administrador", NULL, ?, ?)',
-      [username, hash, foto_url, totp_secret]
+      'INSERT INTO usuarios (nombre_usuario, contraseña, rol, idEmpleado, foto_url, Correo) VALUES (?, ?, "Administrador", NULL, ?, ?)',
+      [username, hash, foto_url, correo || null]
     );
-    res.status(201).json({ idUsuario: r.insertId, username, foto_url, has2fa: !!totp_secret });
+    res.status(201).json({ idUsuario: r.insertId, username, foto_url, correo: correo || null });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -621,7 +619,7 @@ app.post('/api/admin/create', requerirAutenticacion, requerirAdmin, subida.singl
 app.get('/api/admin/users', requerirAutenticacion, requerirAdmin, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT idUsuario, nombre_usuario, rol, idEmpleado, foto_url, (totp_secret IS NOT NULL) AS has2fa FROM usuarios WHERE rol = ? ORDER BY idUsuario DESC',
+      'SELECT idUsuario, nombre_usuario, rol, idEmpleado, foto_url, Correo FROM usuarios WHERE rol = ? ORDER BY idUsuario DESC',
       ['Administrador']
     );
     res.json(rows);
@@ -666,7 +664,7 @@ app.delete('/api/admin/users/:id', requerirAutenticacion, requerirAdmin, async (
 app.get('/api/users', requerirAutenticacion, requerirAdmin, async (req, res) => {
   try {
     const [filas] = await pool.query(
-      'SELECT idUsuario, nombre_usuario, rol, idEmpleado, foto_url, (totp_secret IS NOT NULL) AS has2fa FROM usuarios ORDER BY idUsuario DESC'
+      'SELECT idUsuario, nombre_usuario, rol, idEmpleado, foto_url, Correo FROM usuarios ORDER BY idUsuario DESC'
     );
     res.json(filas);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -675,7 +673,7 @@ app.get('/api/users', requerirAutenticacion, requerirAdmin, async (req, res) => 
 // Crear usuario (Admin/Contador/Empleado) con foto opcional
 app.post('/api/users/create', requerirAutenticacion, requerirAdmin, subida.single('foto'), async (req, res) => {
   try {
-    const { username, password, rol = 'Empleado', idEmpleado, enable2fa } = req.body || {};
+    const { username, password, rol = 'Empleado', idEmpleado, correo } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: 'username y password requeridos' });
     const rolValido = ['Administrador','Contador','Empleado'];
     if (!rolValido.includes(rol)) return res.status(400).json({ error: 'Rol inválido' });
@@ -694,17 +692,11 @@ app.post('/api/users/create', requerirAutenticacion, requerirAdmin, subida.singl
 
     const hash = await bcrypt.hash(password, 10);
     const foto_url = req.file ? `/uploads/${req.file.filename}` : null;
-    let totp_secret = null;
-    if (String(enable2fa).toLowerCase() === 'true') {
-      const sec = speakeasy.generateSecret({ length: 20, name: `BuildSmarts (${username})` });
-      totp_secret = sec.base32;
-    }
-
     const [r] = await pool.query(
-      'INSERT INTO usuarios (nombre_usuario, contraseña, rol, idEmpleado, foto_url, totp_secret) VALUES (?, ?, ?, ?, ?, ?)',
-      [username, hash, rol, idEmpleadoFinal, foto_url, totp_secret]
+      'INSERT INTO usuarios (nombre_usuario, contraseña, rol, idEmpleado, foto_url, Correo) VALUES (?, ?, ?, ?, ?, ?)',
+      [username, hash, rol, idEmpleadoFinal, foto_url, correo || null]
     );
-    res.status(201).json({ idUsuario: r.insertId, username, rol, idEmpleado: idEmpleadoFinal, foto_url, has2fa: !!totp_secret });
+    res.status(201).json({ idUsuario: r.insertId, username, rol, idEmpleado: idEmpleadoFinal, foto_url, correo: correo || null });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

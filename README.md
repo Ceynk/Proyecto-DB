@@ -1,9 +1,9 @@
-# Sistema de Gestión (Node.js + Express + MySQL) con Login y 2FA
+# Sistema de Gestión (Node.js + Express + MySQL) con Login y Código por Correo
 
 Este proyecto provee:
 
 - Autenticación con sesiones y roles (Administrador y Empleado).
-- 2FA (TOTP) opcional por usuario (recomendado para Administradores).
+- Verificación por correo: tras usuario/contraseña, se envía un código de 6 dígitos al correo del usuario.
 - Carga de foto al crear Administradores (avatar/perfil).
 - UI web (vanilla JS) con vistas por rol:
   - Administrador: CRUD, búsqueda, creación, actualización/eliminación por ID, creación de admins con foto.
@@ -11,7 +11,7 @@ Este proyecto provee:
 
 Tabla `usuarios` extendida con columnas:
 
-- `totp_secret` VARCHAR(64) (se crea automáticamente si no existe)
+- `Correo` VARCHAR(120) (se crea automáticamente si no existe)
 - `foto_url` VARCHAR(255) (se crea automáticamente si no existe)
 
 Al iniciar el servidor se aplica un “bootstrap” que agrega estas columnas si faltan y crea un usuario Administrador por defecto si no existen admins.
@@ -46,6 +46,15 @@ SESSION_SECRET=un_secreto_largo_seguro
 # Usuario admin por defecto (se crea si no hay ningún administrador)
 ADMIN_USER=admin
 ADMIN_PASS=admin123
+ADMIN_EMAIL=admin@example.com
+
+# SMTP para envío de códigos por correo
+SMTP_HOST=tu_smtp
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=tu_usuario
+SMTP_PASS=tu_password
+SMTP_FROM=no-reply@tu-dominio.com
 
 ```
 
@@ -66,8 +75,8 @@ npm run dev
 
 En el primer arranque:
 
-- Si no hay administradores, se creará uno con `ADMIN_USER`/`ADMIN_PASS`.
-- Se intentará agregar columnas `totp_secret` y `foto_url` a `usuarios` si no existían.
+- Si no hay administradores, se creará uno con `ADMIN_USER`/`ADMIN_PASS` y correo `ADMIN_EMAIL`.
+- Se intentará agregar columnas `Correo` y `foto_url` a `usuarios` si no existían.
 
 ## Esquema base de datos
 
@@ -76,11 +85,11 @@ El archivo `esquema.sql` contiene las tablas (clientes, proyectos, empleados, us
 ## Flujo de autenticación y roles
 
 1. Login por usuario/contraseña: `POST /api/auth/login`
-   - Si el usuario tiene `totp_secret`, la respuesta será `{ ok: true, requires2fa: true }` y NO habrá sesión aún (queda en `pending2fa`).
-   - Si no tiene 2FA configurado, la sesión queda activa y el cuerpo responde `{ ok: true, user, requires2fa: false }`.
+  - Envía un código de 6 dígitos al correo del usuario (o al correo del empleado vinculado).
+  - Respuesta: `{ ok: true, requiresEmail: true }`.
 
-2. Verificación 2FA: `POST /api/2fa/verify` con `{ token: '123456' }`
-   - Verifica el código TOTP con `totp_secret` y activa la sesión del usuario si es correcto.
+2. Verificación de correo: `POST /api/auth/verify-email` con `{ code: '123456' }`
+  - Verifica el código y activa la sesión del usuario si es correcto.
 
 3. Estado de sesión: `GET /api/auth/me`
    - Devuelve `{ user: {...} }` o `{ user: null }`.
@@ -94,11 +103,10 @@ Roles:
 
 ## Endpoints principales (detalle)
 
-Autenticación y 2FA:
+Autenticación por correo:
 
 - `POST /api/auth/login` → Inicia login. Si requiere 2FA: `{ requires2fa: true }`.
-- `POST /api/2fa/verify` → Verifica TOTP y activa la sesión.
-- `GET /api/2fa/setup` (autenticado) → Genera o devuelve el `secret`, `otpauth` y `qr` (data-url) para configurar 2FA en apps como Google Authenticator.
+- `POST /api/auth/verify-email` → Verifica código de correo y activa la sesión.
 - `GET /api/auth/me` → Usuario de sesión activo o `null`.
 - `POST /api/auth/logout` → Cierra sesión.
 
@@ -111,8 +119,8 @@ Administración (solo Administrador):
 - `DELETE /api/delete/:entity/:id` → Elimina por ID.
 - `GET /api/min/*` → Listas mínimas para selects (clientes/proyectos/empleados/materiales/facturas).
 - `POST /api/admin/create` (multipart) → Crear administrador con foto.
-  - Campos: `username`, `password`, `enable2fa` (true/false), archivo `foto`.
-  - Guarda la imagen bajo `/uploads/` y el `foto_url` en usuarios. Si `enable2fa=true`, genera `totp_secret` automáticamente.
+  - Campos: `username`, `password`, `correo` (opcional), archivo `foto`.
+  - Guarda la imagen bajo `/uploads/` y el `foto_url` en usuarios. Guarda `Correo` cuando se especifica.
 
 Imágenes para Empleados y Materiales (solo Administrador):
 
@@ -129,8 +137,8 @@ Usuarios (cualquier rol)
 
 - `GET /api/users` (admin) → Lista todos los usuarios con su rol y si tienen 2FA.
 - `POST /api/users/create` (multipart, admin) → Crear usuario de rol `Administrador` | `Contador` | `Empleado`.
-  - Campos: `username`, `password`, `rol` (por defecto `Empleado`), `idEmpleado` (opcional, valida existencia), `enable2fa` (true/false), archivo `foto` (opcional).
-  - Persiste `foto_url` si envías imagen y (opcional) `totp_secret` cuando habilitas 2FA.
+  - Campos: `username`, `password`, `rol` (por defecto `Empleado`), `idEmpleado` (opcional, valida existencia), `correo` (opcional), archivo `foto` (opcional).
+  - Persiste `foto_url` si envías imagen y `Correo` si lo envías.
 
 Empleado:
 
@@ -150,13 +158,10 @@ El proyecto no incluye autenticación facial.
 - Vista Empleado:
   - Panel “Mi panel” con datos básicos y botón “Marcar asistencia”.
 
-## Cómo habilitar 2FA para un usuario
+## Notas sobre verificación por correo
 
-1. Ingresa con el usuario (sin 2FA) y visita `GET /api/2fa/setup` desde el navegador (o usa la UI si la incorporas). Devuelve `qr` como data URL.
-2. Escanea el QR con tu app de autenticación (Google Authenticator, Authy, etc.).
-3. A partir de entonces, cada login pedirá el código 2FA.
-
-Para el admin creado con `POST /api/admin/create?enable2fa=true`, el secreto se genera automáticamente y puedes obtener el QR con `GET /api/2fa/setup` tras iniciar sesión.
+- El correo se envía a `usuarios.Correo`. Si ese campo está vacío y el usuario está enlazado a un empleado, se usa `empleados.Correo`.
+- El código dura 5 minutos. Se almacena en la sesión del navegador.
 
 ## Notas sobre imágenes
 

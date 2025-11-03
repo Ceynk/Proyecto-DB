@@ -36,6 +36,8 @@ CREATE TABLE usuarios (
     contraseña VARCHAR(255) NOT NULL,
     rol ENUM('Administrador', 'Contador', 'Empleado') NOT NULL,
     idEmpleado INT,
+    foto_url VARCHAR(255),
+    Correo VARCHAR(120),
     FOREIGN KEY (idEmpleado) REFERENCES empleados(idEmpleado)
 );
 

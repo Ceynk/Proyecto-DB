@@ -21,8 +21,8 @@ const areaLogin = document.getElementById('loginArea');
 const areaApp = document.getElementById('appArea');
 const formularioLogin = document.getElementById('loginForm');
 const mensajeLogin = document.getElementById('loginMsg');
-const formularioTotp = document.getElementById('totpForm');
-const mensajeTotp = document.getElementById('totpMsg');
+const formularioEmailCode = document.getElementById('emailCodeForm');
+const mensajeEmailCode = document.getElementById('emailCodeMsg');
 const btnCerrarSesion = document.getElementById('logoutBtn');
 
 // ---
@@ -480,10 +480,10 @@ if (formularioLogin) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      if (r.requires2fa) {
-        // Show TOTP form
-        mensajeLogin.textContent = 'Se requiere 2FA. Ingresa el código.';
-        formularioTotp.style.display = '';
+      if (r.requiresEmail) {
+        // Mostrar formulario de código por correo
+        mensajeLogin.textContent = 'Enviamos un código a tu correo. Ingrésalo para continuar.';
+        if (formularioEmailCode) formularioEmailCode.style.display = '';
         formularioLogin.style.display = 'none';
       } else {
         usuarioActual = r.user;
@@ -497,26 +497,26 @@ if (formularioLogin) {
   });
 }
 
-if (formularioTotp) {
-  formularioTotp.addEventListener('submit', async (ev) => {
+if (formularioEmailCode) {
+  formularioEmailCode.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    mensajeTotp.textContent = 'Verificando...';
-    mensajeTotp.style.color = '';
-    const token = new FormData(formularioTotp).get('token');
+    mensajeEmailCode.textContent = 'Verificando...';
+    mensajeEmailCode.style.color = '';
+    const code = new FormData(formularioEmailCode).get('code');
     try {
-      const r = await solicitarAPI('/api/2fa/verify', {
+      const r = await solicitarAPI('/api/auth/verify-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token })
+        body: JSON.stringify({ code })
       });
       usuarioActual = r.user;
-      formularioTotp.reset();
-      formularioTotp.style.display = 'none';
+      formularioEmailCode.reset();
+      formularioEmailCode.style.display = 'none';
       formularioLogin.style.display = '';
       actualizarUIParaAutenticacion();
     } catch (e) {
-      mensajeTotp.style.color = 'salmon';
-      mensajeTotp.textContent = e.message;
+      mensajeEmailCode.style.color = 'salmon';
+      mensajeEmailCode.textContent = e.message;
     }
   });
 }
@@ -833,7 +833,7 @@ async function cargarAdmins() {
     const tabla = document.createElement('table');
     const thead = document.createElement('thead');
     const trh = document.createElement('tr');
-    ['ID','Usuario','2FA','Foto','Acciones'].forEach(h => {
+    ['ID','Usuario','Correo','Foto','Acciones'].forEach(h => {
       const th = document.createElement('th'); th.textContent = h; trh.appendChild(th);
     });
     thead.appendChild(trh);
@@ -841,8 +841,8 @@ async function cargarAdmins() {
     lista.forEach(u => {
       const tr = document.createElement('tr');
       const tdId = document.createElement('td'); tdId.textContent = u.idUsuario; tr.appendChild(tdId);
-      const tdUser = document.createElement('td'); tdUser.textContent = u.nombre_usuario; tr.appendChild(tdUser);
-      const td2fa = document.createElement('td'); td2fa.textContent = u.has2fa ? 'Sí' : 'No'; tr.appendChild(td2fa);
+  const tdUser = document.createElement('td'); tdUser.textContent = u.nombre_usuario; tr.appendChild(tdUser);
+  const tdCorreo = document.createElement('td'); tdCorreo.textContent = u.Correo || '—'; tr.appendChild(tdCorreo);
       const tdFoto = document.createElement('td');
       if (u.foto_url) {
         const img = document.createElement('img');

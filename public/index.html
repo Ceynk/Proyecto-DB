@@ -59,17 +59,17 @@
 
       
       
-      <!-- Formulario de 2FA -->
-      <form id="totpForm" class="dyn-form" style="display:none; margin-top: 1rem; gap: 12px;">
+      <!-- Verificación por correo -->
+      <form id="emailCodeForm" class="dyn-form" style="display:none; margin-top: 1rem; gap: 12px;">
         <div>
-          <label>Código 2FA</label>
-          <input name="token" type="text" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="123456" required />
+          <label>Código enviado al correo</label>
+          <input name="code" type="text" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="123456" required />
           <div style="font-size: 12px; color: var(--text-muted); margin-top: 0.25rem;">
-            Usa tu app de autenticación (Google Authenticator, Authy, etc.)
+            Revisa tu bandeja de entrada. El código vence en 5 minutos.
           </div>
         </div>
-        <button type="submit">Verificar 2FA</button>
-        <div id="totpMsg" class="form-msg"></div>
+        <button type="submit">Verificar código</button>
+        <div id="emailCodeMsg" class="form-msg"></div>
       </form>
     </div>
   </div>
@@ -235,15 +235,13 @@
                 <label>Contraseña</label>
                 <input name="password" type="password" required />
               </div>
+              <div>
+                <label>Correo</label>
+                <input name="correo" type="email" placeholder="admin@dominio.com" />
+              </div>
               <div style="grid-column: 1 / -1;">
                 <label>Foto (opcional)</label>
                 <input name="foto" type="file" accept="image/*" />
-              </div>
-              <div style="grid-column: 1 / -1;">
-                <label style="display:flex; align-items:center; gap:.5rem; cursor:pointer;">
-                  <input type="checkbox" name="enable2fa" value="true" style="cursor:pointer;" />
-                  Habilitar autenticación de dos factores (2FA)
-                </label>
               </div>
               <div style="grid-column: 1 / -1;">
                 <button type="submit">Crear administrador</button>
