@@ -255,6 +255,13 @@ const subida = multer({
 
 // ---
 
+// Email/2FA settings
+// If EMAIL_2FA_REQUIRED is set to 'true', email verification becomes mandatory.
+// When it's 'false' (default), the app will attempt email verification if possible,
+// but will allow login to proceed if no email is available or SMTP isn't configured.
+const EMAIL_2FA_REQUIRED = String(process.env.EMAIL_2FA_REQUIRED || 'false').toLowerCase() === 'true';
+const smtpConfigured = !!process.env.SMTP_HOST; // simple check is enough for our transport
+
 // Email transporter (SMTP)
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -305,6 +312,19 @@ app.post('/api/auth/login', async (req, res) => {
       const [erows] = await pool.query('SELECT Correo FROM empleados WHERE idEmpleado = ? LIMIT 1', [u.idEmpleado]);
       correoDestino = erows[0]?.Correo || null;
     }
+
+    // Si la verificación por correo no es obligatoria y no hay correo o SMTP,
+    // permitir el acceso directo (útil en desarrollo o entornos sin email configurado).
+    if (!EMAIL_2FA_REQUIRED && (!correoDestino || !smtpConfigured)) {
+      req.session.user = {
+        idUsuario: u.idUsuario,
+        nombre_usuario: u.nombre_usuario,
+        rol: u.rol,
+        idEmpleado: u.idEmpleado || null
+      };
+      return res.json({ ok: true, requiresEmail: false, user: req.session.user });
+    }
+
     if (!correoDestino) return res.status(400).json({ error: 'El usuario no tiene correo registrado' });
 
     const code = String(Math.floor(100000 + Math.random() * 900000)); // 6 dígitos
@@ -320,6 +340,16 @@ app.post('/api/auth/login', async (req, res) => {
         html: `<p>Tu código es: <b>${code}</b></p><p>Vigente por 5 minutos.</p>`
       });
     } catch (e) {
+      if (!EMAIL_2FA_REQUIRED) {
+        // Permitir acceso si no es obligatorio y el envío falla (p. ej., SMTP no disponible)
+        req.session.user = {
+          idUsuario: u.idUsuario,
+          nombre_usuario: u.nombre_usuario,
+          rol: u.rol,
+          idEmpleado: u.idEmpleado || null
+        };
+        return res.json({ ok: true, requiresEmail: false, user: req.session.user });
+      }
       return res.status(500).json({ error: 'No se pudo enviar el correo, verifica configuración SMTP' });
     }
 
