@@ -485,6 +485,8 @@ h1 {
    ======================================== */
 
 .table-wrap {
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
   overflow-y: auto;
   border-radius: var(--radius-lg);
@@ -492,7 +494,6 @@ h1 {
   margin-bottom: var(--spacing-xl);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
-  max-width: 100%;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -518,19 +519,20 @@ table {
   border-collapse: separate;
   border-spacing: 0;
   font-size: 0.875rem;
-  min-width: 600px;
+  min-width: 0; /* permitir que la tabla se adapte al contenedor */
+  table-layout: fixed; /* celdas de ancho uniforme y corte de texto */
 }
 
 @media (max-width: 767px) {
   table {
-    min-width: 500px;
+    min-width: 0;
     font-size: 0.8125rem;
   }
 }
 
 @media (max-width: 480px) {
   table {
-    min-width: 400px;
+    min-width: 0;
     font-size: 0.75rem;
   }
 }
@@ -551,7 +553,7 @@ th {
   letter-spacing: 0.05em;
   padding: var(--spacing-md);
   border-bottom: 2px solid var(--border-medium);
-  white-space: nowrap;
+  white-space: normal; /* permitir salto de línea en encabezados */
 }
 
 td {
@@ -559,6 +561,7 @@ td {
   border-bottom: 1px solid var(--border-light);
   color: var(--text-primary);
   word-wrap: break-word;
+  overflow-wrap: anywhere; /* forzar ajuste si hay cadenas largas */
   max-width: 250px;
 }
 
