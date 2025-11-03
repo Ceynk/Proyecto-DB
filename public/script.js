@@ -906,6 +906,52 @@ async function construirFormulario() {
   if (entradaIdActualizacion) entradaIdActualizacion.value = '';
   inicializarControlesFoto();
   actualizarVisibilidadControlesFoto();
+
+  // Bloque adicional para Empleado: crear cuenta de acceso
+  if (entidadActual === 'empleado') {
+    const bloque = document.createElement('div');
+    bloque.style.gridColumn = '1 / -1';
+    bloque.innerHTML = `
+      <div class="form-header" style="margin-top:1rem;">
+        <h3 class="form-heading">Cuenta de acceso</h3>
+      </div>
+      <div class="dyn-form" style="display:grid; grid-template-columns: repeat(2, 1fr); gap: var(--spacing-lg);">
+        <div style="grid-column: 1 / -1; display:flex; align-items:center; gap:.5rem;">
+          <input id="chkCrearUsuario" type="checkbox" name="crear_usuario" />
+          <label for="chkCrearUsuario" style="margin:0;">Crear usuario para este empleado</label>
+        </div>
+        <div>
+          <label>Usuario</label>
+          <input name="nombre_usuario" type="text" pattern="[A-Za-z0-9_.-]{3,30}" placeholder="usuario.ejemplo" disabled />
+        </div>
+        <div>
+          <label>Contraseña</label>
+          <input name="contraseña" type="password" minlength="6" placeholder="mínimo 6 caracteres" disabled />
+        </div>
+        <div>
+          <label>Rol</label>
+          <select name="rol_usuario" disabled>
+            <option value="Empleado">Empleado</option>
+            <option value="Contador">Contador</option>
+          </select>
+        </div>
+        <div>
+          <label>Correo (usuario)</label>
+          <input name="correo_usuario" type="email" placeholder="correo@dominio.com" disabled />
+        </div>
+      </div>
+    `;
+    formularioDinamico.appendChild(bloque);
+
+    const chk = bloque.querySelector('#chkCrearUsuario');
+    const dependientes = ['nombre_usuario','contraseña','rol_usuario','correo_usuario'].map(n => bloque.querySelector(`[name="${n}"]`));
+    const actualizar = () => { dependientes.forEach(el => { el.disabled = !chk.checked; }); };
+    chk.addEventListener('change', actualizar);
+    actualizar();
+    // Mover el botón Guardar al final del bloque extendido
+    const botonGuardar = Array.from(formularioDinamico.querySelectorAll('button')).find(b => b.type === 'submit');
+    if (botonGuardar) formularioDinamico.appendChild(botonGuardar);
+  }
 }
 
 formularioDinamico.addEventListener('submit', async (ev) => {
@@ -917,14 +963,41 @@ formularioDinamico.addEventListener('submit', async (ev) => {
     if (!el.name) return;
     if (el.type === 'submit') return;
     if (el.tagName === 'SELECT' || el.type !== 'checkbox') datos[el.name] = el.value === '' ? null : el.value;
+    if (el.type === 'checkbox') {
+      datos[el.name] = el.checked ? '1' : '0';
+    }
   });
   try {
-    const r = await solicitarAPI(`/api/create/${entidadActual}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(datos)
-    });
-    mensajeFormulario.textContent = 'Guardado con id ' + r.id;
+    let r;
+    if (entidadActual === 'empleado' && (datos.crear_usuario === '1' || datos.crear_usuario === 1 || datos.crear_usuario === true)) {
+      // Mapear datos para endpoint especial
+      const payload = {
+        Nombre: datos.Nombre || null,
+        Correo: datos.Correo || null,
+        Telefono: datos.Telefono || null,
+        Asistencia: datos.Asistencia || null,
+        Especialidad: datos.Especialidad || null,
+        idProyecto: datos.idProyecto || null,
+        crear_usuario: true,
+        nombre_usuario: datos.nombre_usuario,
+        contraseña: datos.contraseña,
+        rol_usuario: datos.rol_usuario || 'Empleado',
+        correo_usuario: datos.correo_usuario || null
+      };
+      r = await solicitarAPI('/api/empleados/crear-con-usuario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      mensajeFormulario.textContent = `Empleado creado (id ${r.idEmpleado})` + (r.idUsuario ? ` y usuario (id ${r.idUsuario})` : '');
+    } else {
+      r = await solicitarAPI(`/api/create/${entidadActual}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos)
+      });
+      mensajeFormulario.textContent = 'Guardado con id ' + r.id;
+    }
     formularioDinamico.reset();
     cargarDatos();
     cargarOpcionesActualizacion();

@@ -835,6 +835,53 @@ app.post('/api/empleado/asistencia', requerirAutenticacion, requerirEmpleado, as
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// Crear empleado y (opcional) su usuario de acceso
+app.post('/api/empleados/crear-con-usuario', requerirAutenticacion, requerirAdmin, async (req, res) => {
+  const {
+    Nombre, Correo, Telefono, Asistencia, Especialidad, idProyecto,
+    crear_usuario, nombre_usuario, contraseña, rol_usuario, correo_usuario
+  } = req.body || {};
+
+  if (!Nombre) return res.status(400).json({ error: 'Nombre es obligatorio' });
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [emp] = await conn.query(
+      'INSERT INTO empleados (Nombre, Correo, Telefono, Asistencia, Especialidad, idProyecto) VALUES (?, ?, ?, ?, ?, ?)',
+      [Nombre, Correo || null, Telefono || null, Asistencia || null, Especialidad || null, idProyecto || null]
+    );
+    const idEmpleado = emp.insertId;
+
+    let idUsuario = null;
+    const deberiaCrearUsuario = crear_usuario === true || crear_usuario === 'true' || crear_usuario === 1 || crear_usuario === '1' || crear_usuario === 'on';
+    if (deberiaCrearUsuario) {
+      if (!nombre_usuario || !contraseña) {
+        throw new Error('Para crear usuario, se requieren nombre_usuario y contraseña');
+      }
+      const rolFinal = ['Empleado','Contador'].includes(rol_usuario) ? rol_usuario : 'Empleado';
+      // Validar unicidad de nombre de usuario
+      const [ex] = await conn.query('SELECT 1 FROM usuarios WHERE nombre_usuario = ? LIMIT 1', [nombre_usuario]);
+      if (ex.length) throw new Error('El nombre de usuario ya existe');
+      const hash = await bcrypt.hash(String(contraseña), 10);
+      const idEmpleadoVincular = rolFinal === 'Empleado' ? idEmpleado : null;
+      const [u] = await conn.query(
+        'INSERT INTO usuarios (nombre_usuario, contraseña, rol, idEmpleado, Correo) VALUES (?, ?, ?, ?, ?)',
+        [nombre_usuario, hash, rolFinal, idEmpleadoVincular, correo_usuario || Correo || null]
+      );
+      idUsuario = u.insertId;
+    }
+
+    await conn.commit();
+    res.status(201).json({ idEmpleado, idUsuario });
+  } catch (e) {
+    try { await conn.rollback(); } catch (_) {}
+    res.status(500).json({ error: e.message });
+  } finally {
+    conn.release();
+  }
+});
+
 // Tareas del empleado autenticado
 app.get('/api/empleado/mis-tareas', requerirAutenticacion, requerirEmpleado, async (req, res) => {
   const idEmp = req.session.user?.idEmpleado;
