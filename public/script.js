@@ -21,8 +21,7 @@ const areaLogin = document.getElementById('loginArea');
 const areaApp = document.getElementById('appArea');
 const formularioLogin = document.getElementById('loginForm');
 const mensajeLogin = document.getElementById('loginMsg');
-const formularioEmailCode = document.getElementById('emailCodeForm');
-const mensajeEmailCode = document.getElementById('emailCodeMsg');
+// (Eliminado) formulario de verificación por email
 const btnCerrarSesion = document.getElementById('logoutBtn');
 
 // ---
@@ -677,43 +676,12 @@ if (formularioLogin) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      if (r.requiresEmail) {
-        // Mostrar formulario de código por correo
-        mensajeLogin.textContent = 'Enviamos un código a tu correo. Ingrésalo para continuar.';
-        if (formularioEmailCode) formularioEmailCode.style.display = '';
-        formularioLogin.style.display = 'none';
-      } else {
-        usuarioActual = r.user;
-        formularioLogin.reset();
-        actualizarUIParaAutenticacion();
-      }
+      usuarioActual = r.user;
+      formularioLogin.reset();
+      actualizarUIParaAutenticacion();
     } catch (e) {
       mensajeLogin.style.color = 'salmon';
       mensajeLogin.textContent = e.message;
-    }
-  });
-}
-
-if (formularioEmailCode) {
-  formularioEmailCode.addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    mensajeEmailCode.textContent = 'Verificando...';
-    mensajeEmailCode.style.color = '';
-    const code = new FormData(formularioEmailCode).get('code');
-    try {
-      const r = await solicitarAPI('/api/auth/verify-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code })
-      });
-  usuarioActual = r.user;
-  formularioEmailCode.reset();
-  formularioEmailCode.style.display = 'none';
-  formularioLogin.style.display = '';
-  actualizarUIParaAutenticacion();
-    } catch (e) {
-      mensajeEmailCode.style.color = 'salmon';
-      mensajeEmailCode.textContent = e.message;
     }
   });
 }

@@ -8,7 +8,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
-import nodemailer from 'nodemailer';
+// Eliminado: autenticación por correo/2FA
 import PDFDocument from 'pdfkit';
 
 dotenv.config();
@@ -271,23 +271,6 @@ const subida = multer({
   }
 });
 
-// ---
-
-// Email/2FA settings
-// If EMAIL_2FA_REQUIRED is set to 'true', email verification becomes mandatory.
-// When it's 'false' (default), the app will attempt email verification if possible,
-// but will allow login to proceed if no email is available or SMTP isn't configured.
-const EMAIL_2FA_REQUIRED = String(process.env.EMAIL_2FA_REQUIRED || 'false').toLowerCase() === 'true';
-const smtpConfigured = !!process.env.SMTP_HOST; // simple check is enough for our transport
-
-// Email transporter (SMTP)
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT || 587),
-  secure: String(process.env.SMTP_SECURE || 'false').toLowerCase() === 'true',
-  auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined
-});
-
 // --- Auth helpers ---
 const requerirAutenticacion = (req, res, next) => {
   if (req.session && req.session.user) return next();
@@ -330,54 +313,14 @@ app.post('/api/auth/login', async (req, res) => {
       ok = password === hash; // fallback para contraseñas en texto plano
     }
     if (!ok) return res.status(401).json({ error: 'Credenciales inválidas' });
-    // Enviar código por correo
-    let correoDestino = u.Correo || null;
-    if (!correoDestino && u.idEmpleado) {
-      const [erows] = await pool.query('SELECT Correo FROM empleados WHERE idEmpleado = ? LIMIT 1', [u.idEmpleado]);
-      correoDestino = erows[0]?.Correo || null;
-    }
-
-    // Si la verificación por correo no es obligatoria y no hay correo o SMTP,
-    // permitir el acceso directo (útil en desarrollo o entornos sin email configurado).
-    if (!EMAIL_2FA_REQUIRED && (!correoDestino || !smtpConfigured)) {
-      req.session.user = {
-        idUsuario: u.idUsuario,
-        nombre_usuario: u.nombre_usuario,
-        rol: u.rol,
-        idEmpleado: u.idEmpleado || null
-      };
-      return res.json({ ok: true, requiresEmail: false, user: req.session.user });
-    }
-
-    if (!correoDestino) return res.status(400).json({ error: 'El usuario no tiene correo registrado' });
-
-    const code = String(Math.floor(100000 + Math.random() * 900000)); // 6 dígitos
-    const vence = Date.now() + 5 * 60 * 1000; // 5 minutos
-    req.session.pendingEmail = { idUsuario: u.idUsuario, code, vence };
-
-    try {
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@example.com',
-        to: correoDestino,
-        subject: 'Tu código de acceso',
-        text: `Tu código es: ${code} (vigente por 5 minutos)`,
-        html: `<p>Tu código es: <b>${code}</b></p><p>Vigente por 5 minutos.</p>`
-      });
-    } catch (e) {
-      if (!EMAIL_2FA_REQUIRED) {
-        // Permitir acceso si no es obligatorio y el envío falla (p. ej., SMTP no disponible)
-        req.session.user = {
-          idUsuario: u.idUsuario,
-          nombre_usuario: u.nombre_usuario,
-          rol: u.rol,
-          idEmpleado: u.idEmpleado || null
-        };
-        return res.json({ ok: true, requiresEmail: false, user: req.session.user });
-      }
-      return res.status(500).json({ error: 'No se pudo enviar el correo, verifica configuración SMTP' });
-    }
-
-    return res.json({ ok: true, requiresEmail: true });
+    // Login sencillo: guardar usuario en sesión
+    req.session.user = {
+      idUsuario: u.idUsuario,
+      nombre_usuario: u.nombre_usuario,
+      rol: u.rol,
+      idEmpleado: u.idEmpleado || null
+    };
+    return res.json({ ok: true, user: req.session.user });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -395,23 +338,7 @@ app.get('/api/auth/me', (req, res) => {
   res.json({ user: req.session?.user || null });
 });
 
-// Verificar código enviado por correo
-app.post('/api/auth/verify-email', async (req, res) => {
-  const { code } = req.body || {};
-  const pending = req.session?.pendingEmail;
-  if (!pending?.idUsuario) return res.status(400).json({ error: 'No hay verificación pendiente' });
-  if (!code) return res.status(400).json({ error: 'Código requerido' });
-  if (Date.now() > pending.vence) return res.status(400).json({ error: 'Código expirado' });
-  if (String(code).trim() !== String(pending.code)) return res.status(401).json({ error: 'Código incorrecto' });
-  try {
-    const [filas] = await pool.query('SELECT idUsuario, nombre_usuario, rol, idEmpleado FROM usuarios WHERE idUsuario = ?', [pending.idUsuario]);
-    if (!filas.length) return res.status(404).json({ error: 'Usuario no encontrado' });
-    const u = filas[0];
-    req.session.user = { idUsuario: u.idUsuario, nombre_usuario: u.nombre_usuario, rol: u.rol, idEmpleado: u.idEmpleado || null };
-    delete req.session.pendingEmail;
-    res.json({ ok: true, user: req.session.user });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
+// Eliminado: endpoint de verificación por correo/2FA
 
 // List available entities (admin)
 app.get('/api/entities', requerirAutenticacion, requerirAdmin, (req, res) => {
