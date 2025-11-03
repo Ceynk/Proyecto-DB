@@ -93,6 +93,23 @@ async function asegurarEsquemaYSemilla() {
   } catch (e) {
     console.warn('No se pudo verificar/agregar materials.foto_url:', e.message);
   }
+  // Agregar fechas a tareas si faltan
+  try {
+    const [fi] = await pool.query("SHOW COLUMNS FROM tareas LIKE 'Fecha_inicio'");
+    if (fi.length === 0) {
+      await pool.query('ALTER TABLE tareas ADD COLUMN Fecha_inicio DATE NULL');
+    }
+  } catch (e) {
+    console.warn('No se pudo verificar/agregar tareas.Fecha_inicio:', e.message);
+  }
+  try {
+    const [ff] = await pool.query("SHOW COLUMNS FROM tareas LIKE 'Fecha_fin'");
+    if (ff.length === 0) {
+      await pool.query('ALTER TABLE tareas ADD COLUMN Fecha_fin DATE NULL');
+    }
+  } catch (e) {
+    console.warn('No se pudo verificar/agregar tareas.Fecha_fin:', e.message);
+  }
   try {
     const [rows] = await pool.query("SELECT COUNT(*) AS n FROM usuarios WHERE rol='Administrador'");
     if (rows[0].n === 0) {
@@ -436,7 +453,7 @@ const columnasCrear = {
   material: ['Nombre','costo_unitario','tipo'],
   empleado: ['Nombre','Correo','Telefono','Asistencia','Especialidad','idProyecto'],
   turno: ['Hora_inicio','Hora_fin','Tipo_jornada','idEmpleado'],
-  tarea: ['Descripcion','Estado','idProyecto','idEmpleado'],
+  tarea: ['Descripcion','Estado','Fecha_inicio','Fecha_fin','idProyecto','idEmpleado'],
   inventario: ['tipo_movimiento','cantidad','fecha','idMaterial','idProyecto'],
   ingreso: ['fecha','Valor','Descripcion','idProyecto'],
   gasto: ['Valor','Descripcion','fecha','idProyecto'],
@@ -811,7 +828,8 @@ app.get('/api/empleado/mis-datos', requerirAutenticacion, requerirEmpleado, asyn
   if (!idEmp) return res.status(400).json({ error: 'Usuario sin empleado asociado' });
   try {
     const [rows] = await pool.query(
-      `SELECT e.idEmpleado, e.Nombre, e.Correo, e.Telefono, e.Asistencia, e.Especialidad, p.idProyecto, p.Nombre AS Proyecto
+      `SELECT e.idEmpleado, e.Nombre, e.Correo, e.Telefono, e.Asistencia, e.Especialidad, e.foto_url AS foto_url,
+              p.idProyecto, p.Nombre AS Proyecto
        FROM empleados e
        LEFT JOIN proyectos p ON p.idProyecto = e.idProyecto
        WHERE e.idEmpleado = ?`,
@@ -888,7 +906,10 @@ app.get('/api/empleado/mis-tareas', requerirAutenticacion, requerirEmpleado, asy
   if (!idEmp) return res.status(400).json({ error: 'Usuario sin empleado asociado' });
   try {
     const [filas] = await pool.query(
-      `SELECT t.idTarea, t.Descripcion, t.Estado, p.Nombre AS Proyecto
+      `SELECT t.idTarea, t.Descripcion, t.Estado, p.Nombre AS Proyecto,
+              t.Fecha_inicio, t.Fecha_fin,
+              (SELECT COUNT(*) FROM pisos s WHERE s.idProyecto = t.idProyecto) AS Pisos,
+              (SELECT COUNT(*) FROM apartamentos a WHERE a.idProyecto = t.idProyecto) AS Apartamentos
        FROM tareas t
        LEFT JOIN proyectos p ON p.idProyecto = t.idProyecto
        WHERE t.idEmpleado = ?

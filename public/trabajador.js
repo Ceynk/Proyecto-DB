@@ -31,13 +31,19 @@ async function cargarInfo() {
   cont.innerHTML = '<div style="padding:1rem; color: var(--text-muted);">Cargando...</div>';
   try {
     const info = await api('/api/empleado/mis-datos');
+    const foto = info.foto_url || '/default-user.svg';
     cont.innerHTML = `
-      <div style="padding:.5rem 1rem;">
-        <div><strong>Nombre:</strong> ${info.Nombre || ''}</div>
-        <div><strong>Correo:</strong> ${info.Correo || ''}</div>
-        <div><strong>Teléfono:</strong> ${info.Telefono || ''}</div>
-        <div><strong>Proyecto:</strong> ${info.Proyecto || '—'}</div>
-        <div><strong>Asistencia:</strong> ${info.Asistencia || '—'}</div>
+      <div style="display:flex; gap:1rem; align-items:flex-start; padding:1rem;">
+        <div style="width:120px; min-width:120px; height:120px; border:1px solid var(--border-light); border-radius:10px; overflow:hidden; background:var(--bg-secondary); display:flex; align-items:center; justify-content:center;">
+          <img src="${foto}" onerror="this.src='/default-user.svg'" alt="Foto" style="width:100%; height:100%; object-fit:cover;" />
+        </div>
+        <div style="flex:1;">
+          <div><strong>Nombre:</strong> ${info.Nombre || ''}</div>
+          <div><strong>Correo:</strong> ${info.Correo || ''}</div>
+          <div><strong>Teléfono:</strong> ${info.Telefono || ''}</div>
+          <div><strong>Proyecto:</strong> ${info.Proyecto || '—'}</div>
+          <div><strong>Asistencia:</strong> ${info.Asistencia || '—'}</div>
+        </div>
       </div>`;
   } catch (e) {
     cont.innerHTML = `<div style="color:salmon; padding:1rem;">${e.message}</div>`;
@@ -56,12 +62,14 @@ async function cargarTareas() {
     const tabla = document.createElement('table');
     const thead = document.createElement('thead');
     const trh = document.createElement('tr');
-    ['ID','Descripción','Estado','Proyecto'].forEach(t => { const th = document.createElement('th'); th.textContent = t; trh.appendChild(th); });
+    ['ID','Descripción','Estado','Proyecto','Pisos','Apartamentos','Fecha inicio','Fecha fin'].forEach(t => { const th = document.createElement('th'); th.textContent = t; trh.appendChild(th); });
     thead.appendChild(trh);
     const tbody = document.createElement('tbody');
     tareas.forEach(t => {
       const tr = document.createElement('tr');
-      const c = [t.idTarea, t.Descripcion, t.Estado, t.Proyecto||'—'];
+      const fechaI = t.Fecha_inicio ? new Date(t.Fecha_inicio).toISOString().slice(0,10) : '—';
+      const fechaF = t.Fecha_fin ? new Date(t.Fecha_fin).toISOString().slice(0,10) : '—';
+      const c = [t.idTarea, t.Descripcion, t.Estado, t.Proyecto||'—', t.Pisos ?? 0, t.Apartamentos ?? 0, fechaI, fechaF];
       c.forEach(v => { const td = document.createElement('td'); td.textContent = v==null?'':String(v); tr.appendChild(td); });
       tbody.appendChild(tr);
     });

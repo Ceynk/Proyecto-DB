@@ -793,6 +793,8 @@ const camposFormulario = {
   tarea: [
     { name: 'Descripcion', type: 'text' },
     { name: 'Estado', type: 'text' },
+    { name: 'Fecha_inicio', type: 'date' },
+    { name: 'Fecha_fin', type: 'date' },
     { name: 'idProyecto', type: 'select', source: '/api/min/proyectos' },
     { name: 'idEmpleado', type: 'select', source: '/api/min/empleados' }
   ],
