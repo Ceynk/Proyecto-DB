@@ -27,6 +27,18 @@ const btnCerrarSesion = document.getElementById('logoutBtn');
 
 // ---
 
+// Forzar login al abrir una pestaña nueva:
+// Usamos sessionStorage (por pestaña). Si es la primera carga de esta pestaña,
+// invalidamos cualquier sesión previa en el servidor para que pida login.
+(async function initTabSession() {
+  try {
+    if (!sessionStorage.getItem('TAB_SESSION_INIT')) {
+      sessionStorage.setItem('TAB_SESSION_INIT', '1');
+      try { await solicitarAPI('/api/auth/logout', { method: 'POST' }); } catch (_) {}
+    }
+  } catch (_) { /* ignorar */ }
+})();
+
 // Empleado-only panel
 const empleadoPanel = document.getElementById('empleadoPanel');
 const empleadoInfo = document.getElementById('empleadoInfo');
