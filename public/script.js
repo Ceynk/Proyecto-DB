@@ -318,17 +318,9 @@ async function verificarEstadoFacial() {
     const st = await solicitarAPI('/api/face/status');
     estadoProveedorFacial = st;
     if (btnLoginFacial) {
-      if (!st.configured) {
-        btnLoginFacial.disabled = true;
-        btnLoginFacial.title = 'Reconocimiento facial no disponible en este entorno';
-        btnLoginFacial.style.opacity = '0.6';
-        btnLoginFacial.style.cursor = 'not-allowed';
-      } else {
-        btnLoginFacial.disabled = false;
-        btnLoginFacial.title = '';
-        btnLoginFacial.style.opacity = '';
-        btnLoginFacial.style.cursor = '';
-      }
+      // No deshabilitar el botón; solo informar
+      btnLoginFacial.title = st.configured ? '' : 'Reconocimiento facial no disponible en este entorno';
+      btnLoginFacial.style.opacity = st.configured ? '' : '0.95';
     }
   } catch (_) {
     // si falla, no bloquear el flujo
@@ -337,6 +329,11 @@ async function verificarEstadoFacial() {
 
 async function iniciarCamara() {
   try {
+    if (!estadoProveedorFacial.configured) {
+      facialMsg.style.color = 'salmon';
+      facialMsg.textContent = 'Proveedor facial no configurado. Configura FACE_PROVIDER=aws y credenciales AWS (o FACE_PROVIDER=mock en desarrollo).';
+      return;
+    }
     if (flujoCamara) return; // ya activa
     facialMsg.textContent = 'Abriendo cámara...';
     const dispositivos = await navigator.mediaDevices.enumerateDevices();
@@ -376,11 +373,16 @@ async function escanearRostroYLogin() {
   try {
     facialMsg.style.color = '';
     facialMsg.textContent = 'Escaneando...';
+    if (!estadoProveedorFacial.configured) {
+      facialMsg.style.color = 'salmon';
+      facialMsg.textContent = 'Proveedor facial no configurado. Configura FACE_PROVIDER=aws y credenciales AWS (o FACE_PROVIDER=mock en desarrollo).';
+      return;
+    }
     if (!videoFacial || videoFacial.readyState < 2) {
       facialMsg.textContent = 'La cámara no está lista.';
       return;
     }
-    const inputUsuario = loginForm?.querySelector('input[name="username"]');
+    const inputUsuario = formularioLogin?.querySelector('input[name="username"]');
     const usuario = (inputUsuario?.value || '').trim();
     if (!usuario) {
       facialMsg.style.color = 'salmon';
@@ -425,7 +427,16 @@ async function escanearRostroYLogin() {
 }
 
 // Eventos modal facial
-if (btnLoginFacial) btnLoginFacial.addEventListener('click', () => abrirModalFacial());
+if (btnLoginFacial) btnLoginFacial.addEventListener('click', async () => {
+  if (!estadoProveedorFacial || typeof estadoProveedorFacial.configured === 'undefined') {
+    await verificarEstadoFacial();
+  }
+  abrirModalFacial();
+  if (!estadoProveedorFacial.configured && facialMsg) {
+    facialMsg.style.color = 'salmon';
+    facialMsg.textContent = 'Reconocimiento facial no disponible. Configura FACE_PROVIDER=aws (y credenciales AWS) o usa FACE_PROVIDER=mock en desarrollo.';
+  }
+});
 if (btnCerrarModalFacial) btnCerrarModalFacial.addEventListener('click', () => cerrarModalFacial());
 if (btnCancelarFacial) btnCancelarFacial.addEventListener('click', () => cerrarModalFacial());
 if (btnAbrirCamara) btnAbrirCamara.addEventListener('click', () => iniciarCamara());
