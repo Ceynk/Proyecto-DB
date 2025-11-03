@@ -25,7 +25,7 @@ const formularioTotp = document.getElementById('totpForm');
 const mensajeTotp = document.getElementById('totpMsg');
 const btnCerrarSesion = document.getElementById('logoutBtn');
 
-// (Eliminado) Login facial
+// ---
 
 // Empleado-only panel
 const empleadoPanel = document.getElementById('empleadoPanel');
@@ -341,7 +341,7 @@ function actualizarUIParaAutenticacion() {
     areaLogin.style.display = '';
     areaApp.style.display = 'none';
     btnCerrarSesion.style.display = 'none';
-    // (Eliminado) estado proveedor facial
+  // ---
   } else if (usuarioActual.rol === 'Administrador') {
     // Show admin app
     areaLogin.style.display = 'none';
@@ -383,7 +383,7 @@ function actualizarUIParaAutenticacion() {
   }
 }
 
-// (Eliminado) Código y eventos de login facial
+// ---
 
 // Map singular entity to plural route for /api/min/*
 const mapaPlural = {

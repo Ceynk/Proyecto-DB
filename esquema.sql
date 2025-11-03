@@ -130,5 +130,3 @@ CREATE TABLE pagos (
     idFactura INT,
     FOREIGN KEY (idFactura) REFERENCES facturas(idFactura)
 );
-
-select * from usuarios;

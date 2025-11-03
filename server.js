@@ -10,7 +10,6 @@ import { fileURLToPath } from 'url';
 import multer from 'multer';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
-// (Eliminado) Autenticación facial con Rekognition
 
 dotenv.config();
 
@@ -254,7 +253,7 @@ const subida = multer({
   }
 });
 
-// (Eliminado) Proveedor de reconocimiento facial
+// ---
 
 // 2FA helpers
 const requiere2FA = (u) => Boolean(u?.totp_secret);
@@ -460,7 +459,7 @@ app.delete('/api/delete/:entity/:id', requerirAutenticacion, requerirAdmin, asyn
   }
 });
 
-// Version/info endpoints to help debug
+// Version/info endpoints
 app.get('/api/version', (req, res) => {
   res.json({
     ok: true,
@@ -620,16 +619,11 @@ app.delete('/api/admin/users/:id', requerirAutenticacion, requerirAdmin, async (
     if (u.rol !== 'Administrador') return res.status(400).json({ error: 'El usuario no es Administrador' });
 
     // Intentar borrar la imagen asociada si apunta a /uploads
-    if (u.foto_url) {
+    if (u.foto_url && u.foto_url.startsWith('/uploads/')) {
       try {
-        let fpath = u.foto_url;
-        if (fpath.startsWith('/uploads/')) {
-          fpath = path.join(__dirname, fpath.replace(/^\//, ''));
-        } else if (!path.isAbsolute(fpath)) {
-          fpath = path.join(__dirname, fpath);
-        }
-        if (fs.existsSync(fpath)) fs.unlinkSync(fpath);
-      } catch (_) { /* ignorar errores de borrado de archivo */ }
+        const fpath = resolverRutaArchivo(u.foto_url);
+        if (fpath && fs.existsSync(fpath)) fs.unlinkSync(fpath);
+      } catch (_) { /* ignorar */ }
     }
 
     const [del] = await pool.query('DELETE FROM usuarios WHERE idUsuario = ?', [id]);
@@ -753,7 +747,7 @@ app.post('/api/materiales/:id/foto', requerirAutenticacion, requerirAdmin, subid
   }
 });
 
-// (Eliminado) Verificación y login facial
+// ---
 
 // Endpoints para empleado
 app.get('/api/empleado/mis-datos', requerirAutenticacion, requerirEmpleado, async (req, res) => {
