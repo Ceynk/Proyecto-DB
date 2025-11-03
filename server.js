@@ -508,6 +508,40 @@ app.delete('/api/delete/:entity/:id', requerirAutenticacion, requerirAdmin, asyn
   if (!definicion) return res.status(400).json({ error: 'Entidad no valida' });
   if (!id) return res.status(400).json({ error: 'ID requerido' });
   try {
+    // Eliminación segura con limpieza de referencias para empleado
+    if (entidad === 'empleado') {
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+        // Obtener foto para intentar borrarla luego
+        const [info] = await conn.query('SELECT foto_url FROM empleados WHERE idEmpleado = ? LIMIT 1', [id]);
+        // Desvincular referencias
+        await conn.query('UPDATE tareas SET idEmpleado = NULL WHERE idEmpleado = ?', [id]);
+        await conn.query('UPDATE turnos SET idEmpleado = NULL WHERE idEmpleado = ?', [id]);
+        await conn.query('UPDATE usuarios SET idEmpleado = NULL WHERE idEmpleado = ?', [id]);
+        // Eliminar empleado
+        const [del] = await conn.query('DELETE FROM empleados WHERE idEmpleado = ?', [id]);
+        await conn.commit();
+
+        // Borrar imagen si aplica
+        try {
+          const anterior = info[0]?.foto_url;
+          if (anterior && anterior.startsWith('/uploads/')) {
+            const fpath = resolverRutaArchivo(anterior);
+            if (fpath && fs.existsSync(fpath)) fs.unlinkSync(fpath);
+          }
+        } catch (_) { /* ignorar */ }
+
+        conn.release();
+        return res.json({ ok: true, affectedRows: del.affectedRows });
+      } catch (e) {
+        try { await conn.rollback(); } catch (_) {}
+        conn.release();
+        return res.status(500).json({ error: e.message });
+      }
+    }
+
+    // Por defecto: borrado directo
     const sql = `DELETE FROM ${definicion.tabla} WHERE ${definicion.tabla}.${definicion.llavePrimaria} = ?`;
     const [resultado] = await pool.query(sql, [id]);
     res.json({ ok: true, affectedRows: resultado.affectedRows });
