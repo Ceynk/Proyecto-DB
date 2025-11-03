@@ -42,6 +42,11 @@ async function cargarInfo() {
           <div><strong>Correo:</strong> ${info.Correo || ''}</div>
           <div><strong>Teléfono:</strong> ${info.Telefono || ''}</div>
           <div><strong>Proyecto:</strong> ${info.Proyecto || '—'}</div>
+          <div><strong>Cliente:</strong> ${info.Cliente || '—'}</div>
+          <div style="display:flex; gap:1rem;">
+            <div><strong>Pisos:</strong> ${info.Pisos ?? 0}</div>
+            <div><strong>Apartamentos:</strong> ${info.Apartamentos ?? 0}</div>
+          </div>
           <div><strong>Asistencia:</strong> ${info.Asistencia || '—'}</div>
         </div>
       </div>`;

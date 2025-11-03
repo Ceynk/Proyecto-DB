@@ -829,9 +829,12 @@ app.get('/api/empleado/mis-datos', requerirAutenticacion, requerirEmpleado, asyn
   try {
     const [rows] = await pool.query(
       `SELECT e.idEmpleado, e.Nombre, e.Correo, e.Telefono, e.Asistencia, e.Especialidad, e.foto_url AS foto_url,
-              p.idProyecto, p.Nombre AS Proyecto
+              p.idProyecto, p.Nombre AS Proyecto, c.Nombre AS Cliente,
+              (SELECT COUNT(*) FROM pisos s WHERE s.idProyecto = p.idProyecto) AS Pisos,
+              (SELECT COUNT(*) FROM apartamentos a WHERE a.idProyecto = p.idProyecto) AS Apartamentos
        FROM empleados e
        LEFT JOIN proyectos p ON p.idProyecto = e.idProyecto
+       LEFT JOIN clientes c ON c.idCliente = p.idCliente
        WHERE e.idEmpleado = ?`,
       [idEmp]
     );
@@ -1068,6 +1071,22 @@ app.get('/api/contador/facturas/:id/pdf', requerirAutenticacion, requerirContado
 app.get('/api/contador/min/clientes', requerirAutenticacion, requerirContador, async (req, res) => {
   try {
     const [filas] = await pool.query('SELECT idCliente as id, Nombre as nombre FROM clientes ORDER BY idCliente DESC LIMIT 300');
+    res.json(filas);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Resumen de proyectos para Contador
+app.get('/api/contador/proyectos-resumen', requerirAutenticacion, requerirContador, async (req, res) => {
+  try {
+    const [filas] = await pool.query(`
+      SELECT p.idProyecto, p.Nombre AS Proyecto, c.Nombre AS Cliente,
+             (SELECT COUNT(*) FROM pisos s WHERE s.idProyecto = p.idProyecto) AS Pisos,
+             (SELECT COUNT(*) FROM apartamentos a WHERE a.idProyecto = p.idProyecto) AS Apartamentos
+      FROM proyectos p
+      LEFT JOIN clientes c ON c.idCliente = p.idCliente
+      ORDER BY p.idProyecto DESC
+      LIMIT 300
+    `);
     res.json(filas);
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
