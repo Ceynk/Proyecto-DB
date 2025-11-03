@@ -1,10 +1,10 @@
-# Sistema de Gestión (Node.js + Express + MySQL) con Login, 2FA y Autenticación Facial
+# Sistema de Gestión (Node.js + Express + MySQL) con Login y 2FA
 
 Este proyecto provee:
 
 - Autenticación con sesiones y roles (Administrador y Empleado).
 - 2FA (TOTP) opcional por usuario (recomendado para Administradores).
-- Carga de foto al crear Administradores y API de verificación facial (opcional via AWS Rekognition).
+- Carga de foto al crear Administradores (avatar/perfil).
 - UI web (vanilla JS) con vistas por rol:
   - Administrador: CRUD, búsqueda, creación, actualización/eliminación por ID, creación de admins con foto.
   - Empleado: panel con datos asignados y botón de “Marcar asistencia”.
@@ -47,22 +47,11 @@ SESSION_SECRET=un_secreto_largo_seguro
 ADMIN_USER=admin
 ADMIN_PASS=admin123
 
-# Autenticación facial (opcional, AWS Rekognition)
-FACE_PROVIDER=aws
-AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=xxxxxxxxxxxxxxxx
-AWS_SECRET_ACCESS_KEY=xxxxxxxxxxxxxxxx
-FACE_SIMILARITY=85
 ```
 
 Notas:
 
-- Si `FACE_PROVIDER` no es `aws`, la API de rostro responderá 501 (no configurada).
-- `FACE_SIMILARITY` define el umbral de similitud para considerar “match” (por defecto 85).
-
-Modo de pruebas (opcional y controlado):
-
-- Si deseas simular localmente sin AWS, puedes usar `FACE_PROVIDER=mock`. En ese caso, la verificación facial responderá éxito para facilitar pruebas controladas, pero NO lo uses en producción.
+- Ajusta `PORT` y credenciales de base de datos según tu entorno.
 
 ## Instalación y ejecución
 
@@ -148,14 +137,7 @@ Empleado:
 - `GET /api/empleado/mis-datos` → Datos del empleado logueado y su proyecto.
 - `POST /api/empleado/asistencia` → Marca asistencia (actualiza `empleados.Asistencia`).
 
-Verificación facial (opcional, requiere AWS):
-
-- `POST /api/face/verify` (multipart, público) → Compara el rostro enviado con la foto almacenada del `username`.
-  - Campos: `username`, archivo `foto`.
-  - Respuesta: `{ match: boolean, confidence: number }`.
-  - Requiere `FACE_PROVIDER=aws` y credenciales AWS válidas. Usa `CompareFaces` de Rekognition.
-
-Seguridad de la API facial: por simplicidad está como pública para facilitar pruebas de login por rostro; en producción se recomienda proteger con rate-limit, captcha, o solo permitirla tras un login parcial (p.ej. `pending2fa`).
+El proyecto no incluye autenticación facial.
 
 ## Interfaz web (public/)
 
@@ -176,36 +158,10 @@ Seguridad de la API facial: por simplicidad está como pública para facilitar p
 
 Para el admin creado con `POST /api/admin/create?enable2fa=true`, el secreto se genera automáticamente y puedes obtener el QR con `GET /api/2fa/setup` tras iniciar sesión.
 
-## Autenticación facial (AWS Rekognition)
-
-Consideraciones:
-
-- Este proyecto compara la foto guardada del usuario con la nueva captura enviada y usa `CompareFaces`.
-- No se envían imágenes a terceros si `FACE_PROVIDER` no es `aws`.
-- Almacena las fotos en disco en `/uploads` y guarda la ruta en `usuarios.foto_url`.
-
-Pasos:
-
-1. Configura credenciales AWS (IAM) con permisos para Rekognition (Cliente, no admin root).
-2. Exporta en `.env`: `FACE_PROVIDER=aws`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`.
-3. Sube una foto al crear admin (`POST /api/admin/create`) o agrega `foto_url` a un usuario existente.
-4. Verifica con `POST /api/face/verify` enviando `username` y `foto`.
-
-Estado del proveedor:
-
-- `GET /api/face/status` devuelve `{ provider, configured, similarity }` para que el frontend decida si habilitar el botón de inicio con rostro.
-
-Seguridad y privacidad:
-
-- Almacena imágenes en disco (puedes cambiar a S3 si lo prefieres).
-- Asegura acceso al directorio `/uploads` si es producción.
-- Considera políticas de retención y consentimiento de datos biométricos.
-
-Notas sobre imágenes guardadas:
+## Notas sobre imágenes
 
 - Las fotos subidas en la creación de usuarios/administradores se guardan físicamente en `./uploads` y su ruta relativa queda en la columna `usuarios.foto_url`.
 - El servidor expone `/uploads` como estático, por lo que `foto_url` es accesible desde el navegador (según permisos de tu despliegue).
-- Las capturas de “inicio con rostro” se usan sólo para comparar y no se almacenan por defecto; si deseas guardarlas como bitácora (con fines de auditoría), podemos agregar un registro de eventos con marca de tiempo y conservar las imágenes en una carpeta de logs o en S3.
 
 ## Desarrollo y estructura
 

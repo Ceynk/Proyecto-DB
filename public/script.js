@@ -25,18 +25,7 @@ const formularioTotp = document.getElementById('totpForm');
 const mensajeTotp = document.getElementById('totpMsg');
 const btnCerrarSesion = document.getElementById('logoutBtn');
 
-// Login facial elementos
-const btnLoginFacial = document.getElementById('btnLoginFacial');
-const modalFacial = document.getElementById('modalFacial');
-const btnCerrarModalFacial = document.getElementById('btnCerrarModalFacial');
-const videoFacial = document.getElementById('videoFacial');
-const lienzoFacial = document.getElementById('lienzoFacial');
-const btnAbrirCamara = document.getElementById('btnAbrirCamara');
-const btnEscanearRostro = document.getElementById('btnEscanearRostro');
-const btnCancelarFacial = document.getElementById('btnCancelarFacial');
-const facialMsg = document.getElementById('facialMsg');
-let flujoCamara = null;
-let estadoProveedorFacial = { provider: 'none', configured: false };
+// (Eliminado) Login facial
 
 // Empleado-only panel
 const empleadoPanel = document.getElementById('empleadoPanel');
@@ -352,7 +341,7 @@ function actualizarUIParaAutenticacion() {
     areaLogin.style.display = '';
     areaApp.style.display = 'none';
     btnCerrarSesion.style.display = 'none';
-    verificarEstadoFacial();
+    // (Eliminado) estado proveedor facial
   } else if (usuarioActual.rol === 'Administrador') {
     // Show admin app
     areaLogin.style.display = 'none';
@@ -394,147 +383,7 @@ function actualizarUIParaAutenticacion() {
   }
 }
 
-// ===== Login Facial =====
-function abrirModalFacial() {
-  if (!modalFacial) return;
-  modalFacial.style.display = '';
-}
-
-function cerrarModalFacial() {
-  if (!modalFacial) return;
-  modalFacial.style.display = 'none';
-  detenerCamara();
-  if (facialMsg) facialMsg.textContent = '';
-}
-
-async function verificarEstadoFacial() {
-  try {
-    const st = await solicitarAPI('/api/face/status');
-    estadoProveedorFacial = st;
-    if (btnLoginFacial) {
-      // No deshabilitar el botón; solo informar
-      btnLoginFacial.title = st.configured ? '' : 'Reconocimiento facial no disponible en este entorno';
-      btnLoginFacial.style.opacity = st.configured ? '' : '0.95';
-    }
-  } catch (_) {
-    // si falla, no bloquear el flujo
-  }
-}
-
-async function iniciarCamara() {
-  try {
-    if (!estadoProveedorFacial.configured) {
-      facialMsg.style.color = 'salmon';
-      facialMsg.textContent = 'Proveedor facial no configurado. Configura FACE_PROVIDER=aws y credenciales AWS (o FACE_PROVIDER=mock en desarrollo).';
-      return;
-    }
-    if (flujoCamara) return; // ya activa
-    facialMsg.textContent = 'Abriendo cámara...';
-    const dispositivos = await navigator.mediaDevices.enumerateDevices();
-    const tieneFrontal = dispositivos.some(d => d.kind === 'videoinput' && /front|frontal|user/i.test(d.label));
-    const constraints = {
-      video: {
-        facingMode: tieneFrontal ? 'user' : 'environment',
-        width: { ideal: 640 },
-        height: { ideal: 480 }
-      },
-      audio: false
-    };
-    flujoCamara = await navigator.mediaDevices.getUserMedia(constraints);
-    videoFacial.srcObject = flujoCamara;
-    await videoFacial.play();
-    facialMsg.textContent = '';
-  } catch (e) {
-    facialMsg.style.color = 'salmon';
-    facialMsg.textContent = 'No se pudo acceder a la cámara: ' + e.message;
-  }
-}
-
-function detenerCamara() {
-  try {
-    if (flujoCamara) {
-      flujoCamara.getTracks().forEach(t => t.stop());
-      flujoCamara = null;
-    }
-    if (videoFacial) {
-      videoFacial.pause();
-      videoFacial.srcObject = null;
-    }
-  } catch (_) {}
-}
-
-async function escanearRostroYLogin() {
-  try {
-    facialMsg.style.color = '';
-    facialMsg.textContent = 'Escaneando...';
-    if (!estadoProveedorFacial.configured) {
-      facialMsg.style.color = 'salmon';
-      facialMsg.textContent = 'Proveedor facial no configurado. Configura FACE_PROVIDER=aws y credenciales AWS (o FACE_PROVIDER=mock en desarrollo).';
-      return;
-    }
-    if (!videoFacial || videoFacial.readyState < 2) {
-      facialMsg.textContent = 'La cámara no está lista.';
-      return;
-    }
-    const inputUsuario = formularioLogin?.querySelector('input[name="username"]');
-    const usuario = (inputUsuario?.value || '').trim();
-    if (!usuario) {
-      facialMsg.style.color = 'salmon';
-      facialMsg.textContent = 'Ingresa tu usuario antes de escanear.';
-      return;
-    }
-    // Capturar frame a canvas
-    const w = videoFacial.videoWidth || 640;
-    const h = videoFacial.videoHeight || 480;
-    lienzoFacial.width = w;
-    lienzoFacial.height = h;
-    const ctx = lienzoFacial.getContext('2d');
-    ctx.drawImage(videoFacial, 0, 0, w, h);
-    const blob = await new Promise(resolve => lienzoFacial.toBlob(resolve, 'image/jpeg', 0.9));
-    if (!blob) throw new Error('No se pudo capturar la imagen');
-    const fd = new FormData();
-    fd.append('usuario', usuario);
-    fd.append('foto', blob, 'captura.jpg');
-  const res = await fetch(`${baseAPI}/api/auth/login-facial`, {
-      method: 'POST',
-      credentials: 'include',
-      body: fd
-    });
-    const body = await res.json();
-    if (!res.ok) throw new Error(body.error || 'Error desconocido');
-    if (body.requires2fa) {
-      facialMsg.textContent = 'Rostro verificado. Ingresa tu código 2FA.';
-      // Mostrar formulario TOTP
-  formularioTotp.style.display = '';
-  formularioLogin.style.display = 'none';
-      cerrarModalFacial();
-      return;
-    }
-    // Sesión creada
-  usuarioActual = body.user;
-    cerrarModalFacial();
-  actualizarUIParaAutenticacion();
-  } catch (e) {
-    facialMsg.style.color = 'salmon';
-    facialMsg.textContent = e.message;
-  }
-}
-
-// Eventos modal facial
-if (btnLoginFacial) btnLoginFacial.addEventListener('click', async () => {
-  if (!estadoProveedorFacial || typeof estadoProveedorFacial.configured === 'undefined') {
-    await verificarEstadoFacial();
-  }
-  abrirModalFacial();
-  if (!estadoProveedorFacial.configured && facialMsg) {
-    facialMsg.style.color = 'salmon';
-    facialMsg.textContent = 'Reconocimiento facial no disponible. Configura FACE_PROVIDER=aws (y credenciales AWS) o usa FACE_PROVIDER=mock en desarrollo.';
-  }
-});
-if (btnCerrarModalFacial) btnCerrarModalFacial.addEventListener('click', () => cerrarModalFacial());
-if (btnCancelarFacial) btnCancelarFacial.addEventListener('click', () => cerrarModalFacial());
-if (btnAbrirCamara) btnAbrirCamara.addEventListener('click', () => iniciarCamara());
-if (btnEscanearRostro) btnEscanearRostro.addEventListener('click', () => escanearRostroYLogin());
+// (Eliminado) Código y eventos de login facial
 
 // Map singular entity to plural route for /api/min/*
 const mapaPlural = {

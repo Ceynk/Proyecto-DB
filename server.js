@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url';
 import multer from 'multer';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
-import { RekognitionClient, CompareFacesCommand } from '@aws-sdk/client-rekognition';
+// (Eliminado) Autenticación facial con Rekognition
 
 dotenv.config();
 
@@ -254,16 +254,7 @@ const subida = multer({
   }
 });
 
-// Proveedor de reconocimiento facial (opcional AWS Rekognition)
-const FACE_PROVIDER = (process.env.FACE_PROVIDER || '').toLowerCase();
-let clienteRekognition = null;
-if (FACE_PROVIDER === 'aws') {
-  try {
-    clienteRekognition = new RekognitionClient({ region: process.env.AWS_REGION || 'us-east-1' });
-  } catch (e) {
-    console.warn('AWS Rekognition no inicializado:', e.message);
-  }
-}
+// (Eliminado) Proveedor de reconocimiento facial
 
 // 2FA helpers
 const requiere2FA = (u) => Boolean(u?.totp_secret);
@@ -315,117 +306,6 @@ app.post('/api/auth/login', async (req, res) => {
       idEmpleado: u.idEmpleado || null
     };
     res.json({ ok: true, user: req.session.user, requires2fa: false });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post('/api/auth/logout', (req, res) => {
-  req.session.destroy(() => {
-    res.json({ ok: true });
-  });
-});
-
-app.get('/api/auth/me', (req, res) => {
-  res.json({ user: req.session?.user || null });
-});
-
-// 2FA setup and verify
-app.get('/api/2fa/setup', requerirAutenticacion, async (req, res) => {
-  try {
-    const u = req.session.user;
-    const [filas] = await pool.query('SELECT idUsuario, nombre_usuario, totp_secret FROM usuarios WHERE idUsuario = ?', [u.idUsuario]);
-    if (!filas.length) return res.status(404).json({ error: 'Usuario no encontrado' });
-    let secret = filas[0].totp_secret;
-    if (!secret) {
-      const sec = speakeasy.generateSecret({ length: 20, name: `BuildSmarts (${filas[0].nombre_usuario})` });
-      secret = sec.base32;
-      await pool.query('UPDATE usuarios SET totp_secret = ? WHERE idUsuario = ?', [secret, u.idUsuario]);
-    }
-    const otpauth = `otpauth://totp/BuildSmarts:${filas[0].nombre_usuario}?secret=${secret}&issuer=BuildSmarts`;
-    const qr = await QRCode.toDataURL(otpauth);
-    res.json({ secret, otpauth, qr });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/2fa/verify', async (req, res) => {
-  const { token } = req.body || {};
-  const pending = req.session?.pending2fa;
-  if (!pending?.idUsuario) return res.status(400).json({ error: 'No hay 2FA pendiente' });
-  try {
-    const [filas] = await pool.query('SELECT idUsuario, nombre_usuario, rol, idEmpleado, totp_secret FROM usuarios WHERE idUsuario = ?', [pending.idUsuario]);
-    if (!filas.length) return res.status(404).json({ error: 'Usuario no encontrado' });
-    const u = filas[0];
-    const ok = speakeasy.totp.verify({ secret: u.totp_secret, encoding: 'base32', token: String(token || '') });
-    if (!ok) return res.status(401).json({ error: 'Código 2FA inválido' });
-    req.session.user = { idUsuario: u.idUsuario, nombre_usuario: u.nombre_usuario, rol: u.rol, idEmpleado: u.idEmpleado || null };
-    delete req.session.pending2fa;
-    res.json({ ok: true, user: req.session.user });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// List available entities (admin)
-app.get('/api/entities', requerirAutenticacion, requerirAdmin, (req, res) => {
-  res.json(Object.keys(entidades));
-});
-
-// Generic list with optional text search (?q=)
-app.get('/api/list/:entity', requerirAutenticacion, requerirAdmin, async (req, res) => {
-  const entidad = String(req.params.entity || '').toLowerCase();
-  const definicion = entidades[entidad];
-  if (!definicion) return res.status(400).json({ error: 'Entidad no valida' });
-  const busqueda = (req.query.q || '').toString().trim();
-
-  try {
-    const columnas = definicion.columnas.join(', ');
-    const desde = definicion.desde || definicion.tabla;
-    let sql = `SELECT ${columnas} FROM ${desde}`;
-    const parametros = [];
-    if (busqueda && definicion.busqueda && definicion.busqueda.length) {
-      const coincidencias = definicion.busqueda.map((c) => `${c} LIKE ?`).join(' OR ');
-      sql += ` WHERE ${coincidencias}`;
-      definicion.busqueda.forEach(() => parametros.push(`%${busqueda}%`));
-    }
-    // order by first id column if present
-    const ordenarPor = definicion.ordenarPor || '1';
-    sql += ` ORDER BY ${ordenarPor} DESC LIMIT 100`;
-    const [filas2] = await pool.query(sql, parametros);
-    res.json(filas2);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Mapa simple de columnas insertables por entidad (excluye la PK id)
-const columnasCrear = {
-  cliente: ['Nombre','Telefono','Correo'],
-  proyecto: ['Nombre','idCliente'],
-  apartamento: ['num_apartamento','num_piso','estado','idProyecto'],
-  piso: ['idProyecto','numero','idApartamento'],
-  material: ['Nombre','costo_unitario','tipo'],
-  empleado: ['Nombre','Correo','Telefono','Asistencia','Especialidad','idProyecto'],
-  turno: ['Hora_inicio','Hora_fin','Tipo_jornada','idEmpleado'],
-  tarea: ['Descripcion','Estado','idProyecto','idEmpleado'],
-  inventario: ['tipo_movimiento','cantidad','fecha','idMaterial','idProyecto'],
-  ingreso: ['fecha','Valor','Descripcion','idProyecto'],
-  gasto: ['Valor','Descripcion','fecha','idProyecto'],
-  factura: ['Fecha','Valor_total','idProyecto','idCliente'],
-  pago: ['Fecha','Monto','idFactura']
-};
-
-// Generic create
-app.post('/api/create/:entity', requerirAutenticacion, requerirAdmin, async (req, res) => {
-  const entidad = String(req.params.entity || '').toLowerCase();
-  const definicion = entidades[entidad];
-  const cols = columnasCrear[entidad];
-  if (!definicion || !cols) return res.status(400).json({ error: 'Entidad no valida' });
-  try {
-    console.log('[CREATE]', entidad, req.body);
-    const values = cols.map((c) => (req.body && Object.prototype.hasOwnProperty.call(req.body, c)) ? req.body[c] : null);
-    const placeholders = cols.map(() => '?').join(', ');
-    const sql = `INSERT INTO ${definicion.tabla} (${cols.join(', ')}) VALUES (${placeholders})`;
-    const [resultado] = await pool.query(sql, values);
-    res.status(201).json({ id: resultado.insertId });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -576,13 +456,6 @@ app.get('/api/min/facturas', requerirAutenticacion, requerirAdmin, async (req, r
     const [filas] = await pool.query('SELECT idFactura as id, CONCAT("Factura ", idFactura) as nombre FROM facturas ORDER BY idFactura DESC LIMIT 200');
     res.json(filas);
   } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-// Estado del proveedor facial
-app.get('/api/face/status', (req, res) => {
-  const provider = FACE_PROVIDER || 'none';
-  const configured = provider === 'aws' ? !!clienteRekognition : (provider === 'mock');
-  res.json({ provider, configured, similarity: Number(process.env.FACE_SIMILARITY || 85) });
 });
 
 // Crear admin con foto (multipart)
@@ -769,114 +642,7 @@ app.post('/api/materiales/:id/foto', requerirAutenticacion, requerirAdmin, subid
   }
 });
 
-// API de verificación facial (opcional Rekognition)
-app.post('/api/face/verify', subida.single('foto'), async (req, res) => {
-  try {
-    const { username, usuario } = req.body || {};
-    const nombreUsuario = username || usuario;
-    if (!nombreUsuario) return res.status(400).json({ error: 'username/usuario es requerido' });
-    const [rows] = await pool.query('SELECT foto_url FROM usuarios WHERE nombre_usuario = ?', [nombreUsuario]);
-    if (!rows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
-    const stored = rows[0].foto_url;
-    if (!stored) return res.status(400).json({ error: 'Usuario sin foto registrada' });
-    if (!req.file) return res.status(400).json({ error: 'Falta foto para verificar' });
-    // Modo MOCK (demo) solo si se especifica explícitamente
-    if (FACE_PROVIDER === 'mock') {
-      const confianza = Number(process.env.FACE_SIMILARITY || 85);
-      return res.json({ match: true, confidence: confianza, mock: true });
-    }
-    if (FACE_PROVIDER !== 'aws' || !clienteRekognition) {
-      return res.status(501).json({ error: 'Proveedor facial no configurado. Define FACE_PROVIDER=aws y credenciales AWS (AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) en .env' });
-    }
-    // Resolver ruta de origen de forma robusta en Windows/Unix
-    let sourcePath = stored;
-    if (stored.startsWith('/uploads/')) {
-      sourcePath = path.join(__dirname, stored.replace(/^\//, ''));
-    } else if (!path.isAbsolute(stored)) {
-      sourcePath = path.join(__dirname, stored);
-    }
-    const sourceBytes = fs.readFileSync(sourcePath);
-    const targetBytes = fs.readFileSync(req.file.path);
-    const cmd = new CompareFacesCommand({
-      SourceImage: { Bytes: sourceBytes },
-      TargetImage: { Bytes: targetBytes },
-      SimilarityThreshold: Number(process.env.FACE_SIMILARITY || 85)
-    });
-    const out = await clienteRekognition.send(cmd);
-    const best = (out.FaceMatches || [])[0];
-    const confidence = best?.Similarity || 0;
-    const match = confidence >= Number(process.env.FACE_SIMILARITY || 85);
-    res.json({ match, confidence });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// Login facial (crea sesión; si el usuario tiene 2FA, deja pendiente verificación TOTP)
-app.post('/api/auth/login-facial', subida.single('foto'), async (req, res) => {
-  try {
-    const { usuario, username } = req.body || {};
-    const nombreUsuario = usuario || username;
-    if (!nombreUsuario) return res.status(400).json({ error: 'usuario es requerido' });
-
-    const [rows] = await pool.query(
-      'SELECT idUsuario, nombre_usuario, rol, idEmpleado, totp_secret, foto_url, contraseña FROM usuarios WHERE nombre_usuario = ? LIMIT 1',
-      [nombreUsuario]
-    );
-    if (!rows || rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
-    const u = rows[0];
-    if (!u.foto_url) return res.status(400).json({ error: 'Usuario sin foto registrada' });
-    if (!req.file) return res.status(400).json({ error: 'Falta foto para verificar' });
-
-    // Modo MOCK (demo) solo si se especifica explícitamente
-    if (FACE_PROVIDER === 'mock') {
-      const confianza = Number(process.env.FACE_SIMILARITY || 85);
-      if (requiere2FA(u)) {
-        req.session.pending2fa = { idUsuario: u.idUsuario };
-        return res.json({ ok: true, requires2fa: true, metodo: 'facial', confianza, mock: true });
-      }
-      req.session.user = { idUsuario: u.idUsuario, nombre_usuario: u.nombre_usuario, rol: u.rol, idEmpleado: u.idEmpleado || null };
-      return res.json({ ok: true, user: req.session.user, requires2fa: false, metodo: 'facial', confianza, mock: true });
-    }
-
-    if (FACE_PROVIDER !== 'aws' || !clienteRekognition) return res.status(501).json({ error: 'Proveedor facial no configurado. Define FACE_PROVIDER=aws y credenciales AWS (AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) en .env' });
-
-    // Resolver ruta de la foto guardada
-    let sourcePath = u.foto_url;
-    if (u.foto_url.startsWith('/uploads/')) {
-      sourcePath = path.join(__dirname, u.foto_url.replace(/^\//, ''));
-    } else if (!path.isAbsolute(u.foto_url)) {
-      sourcePath = path.join(__dirname, u.foto_url);
-    }
-    const sourceBytes = fs.readFileSync(sourcePath);
-    const targetBytes = fs.readFileSync(req.file.path);
-    const cmd = new CompareFacesCommand({
-      SourceImage: { Bytes: sourceBytes },
-      TargetImage: { Bytes: targetBytes },
-      SimilarityThreshold: Number(process.env.FACE_SIMILARITY || 85)
-    });
-    const out = await clienteRekognition.send(cmd);
-    const best = (out.FaceMatches || [])[0];
-    const confianza = best?.Similarity || 0;
-    const coincide = confianza >= Number(process.env.FACE_SIMILARITY || 85);
-    if (!coincide) return res.status(401).json({ error: 'Rostro no coincide', confianza });
-
-    // Si requiere 2FA, marcamos pendiente y NO creamos sesión completa aún
-    if (requiere2FA(u)) {
-      req.session.pending2fa = { idUsuario: u.idUsuario };
-      return res.json({ ok: true, requires2fa: true, metodo: 'facial', confianza });
-    }
-
-    // Crear sesión
-    req.session.user = {
-      idUsuario: u.idUsuario,
-      nombre_usuario: u.nombre_usuario,
-      rol: u.rol,
-      idEmpleado: u.idEmpleado || null
-    };
-    res.json({ ok: true, user: req.session.user, requires2fa: false, metodo: 'facial', confianza });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+// (Eliminado) Verificación y login facial
 
 // Endpoints para empleado
 app.get('/api/empleado/mis-datos', requerirAutenticacion, requerirEmpleado, async (req, res) => {

@@ -57,15 +57,7 @@
         <div id="loginMsg" class="form-msg"></div>
       </form>
 
-      <!-- Separador / Login facial -->
-      <div style="display:flex; align-items:center; gap:.75rem; margin: 1rem 0; color: var(--text-muted);">
-        <div style="height:1px; background: var(--border-light); flex:1;"></div>
-        <span>o</span>
-        <div style="height:1px; background: var(--border-light); flex:1;"></div>
-      </div>
-      <div style="display:flex; justify-content:center;">
-        <button id="btnLoginFacial" type="button" style="max-width:260px; width:100%; background:transparent; border:1px solid var(--accent-primary); color:var(--accent-light); box-shadow: var(--shadow-glow);">Iniciar con rostro</button>
-      </div>
+      
       
       <!-- Formulario de 2FA -->
       <form id="totpForm" class="dyn-form" style="display:none; margin-top: 1rem; gap: 12px;">
@@ -244,7 +236,7 @@
                 <input name="password" type="password" required />
               </div>
               <div style="grid-column: 1 / -1;">
-                <label>Foto (Para Autenticación Facial)</label>
+                <label>Foto (opcional)</label>
                 <input name="foto" type="file" accept="image/*" />
               </div>
               <div style="grid-column: 1 / -1;">
@@ -279,33 +271,7 @@
     </div>
   </div>
 
-  <!-- Modal Login Facial -->
-  <div id="modalFacial" class="modal-facial" style="display:none;">
-    <div class="modal-contenido">
-      <div class="modal-encabezado">
-        <h3 style="margin:0;">Verificación Facial</h3>
-        <button id="btnCerrarModalFacial" class="btn-icon" aria-label="Cerrar">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        </button>
-      </div>
-      <div class="video-marco">
-        <video id="videoFacial" autoplay playsinline muted></video>
-        <div class="scan-overlay">
-          <div class="scan-borde"></div>
-        </div>
-      </div>
-      <canvas id="lienzoFacial" style="display:none;"></canvas>
-      <div class="acciones-faciales">
-        <button id="btnAbrirCamara" type="button">Activar cámara</button>
-        <button id="btnEscanearRostro" type="button">Escanear rostro</button>
-        <button id="btnCancelarFacial" type="button" style="background:#334155;">Cancelar</button>
-      </div>
-      <div id="facialMsg" class="form-msg" style="margin-top:.75rem;"></div>
-      <div style="color:var(--text-muted); font-size:.85rem; margin-top:.5rem;">
-        Consejos: buena iluminación, mira al frente y mantén el teléfono estable.
-      </div>
-    </div>
-  </div>
+  
   <script src="script.js"></script>
 </body>
 </html>
