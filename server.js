@@ -174,7 +174,7 @@ const entidades = {
     desde: 'inventarios i LEFT JOIN materials m ON m.idMaterial = i.idMaterial LEFT JOIN proyectos p ON p.idProyecto = i.idProyecto',
     tabla: 'inventarios',
     llavePrimaria: 'idInventario',
-    columnas: ['i.idInventario AS idInventario','i.tipo_movimiento AS tipo_movimiento','i.cantidad AS cantidad','i.fecha AS fecha','m.Nombre AS Material','p.Nombre AS Proyecto'],
+    columnas: ['i.idInventario AS idInventario','i.tipo_movimiento AS tipo_movimiento','i.cantidad AS cantidad','i.fecha AS fecha','i.idMaterial AS idMaterial','m.Nombre AS Material','p.Nombre AS Proyecto'],
     busqueda: ['i.tipo_movimiento','m.Nombre','p.Nombre'],
     ordenarPor: 'idInventario'
   },

@@ -213,8 +213,14 @@ function renderizarBarraLateral() {
       entidadActual = nombre;
       modoActual = 'entidades';
       renderizarBarraLateral();
-      tituloEl.textContent = nombre.charAt(0).toUpperCase() + nombre.slice(1);
+      // Título especial para inventario
+      if (nombre === 'inventario') {
+        tituloEl.textContent = 'Catálogo de Materiales';
+      } else {
+        tituloEl.textContent = nombre.charAt(0).toUpperCase() + nombre.slice(1);
+      }
       buscarEl.value = '';
+      window.terminoBusquedaInventario = null;
       cargarDatos();
       construirFormulario();
       cargarOpcionesActualizacion();
@@ -240,6 +246,13 @@ function renderizarTabla(filas) {
     contenedorTabla.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Sin datos para mostrar</div>';
     return;
   }
+
+  // Vista especial tipo catálogo para Inventario
+  if (entidadActual === 'inventario') {
+    renderizarInventarioCatalogo(filas);
+    return;
+  }
+
   const tabla = crear('table');
   const thead = crear('thead');
   const htr = crear('tr');
@@ -300,6 +313,180 @@ function renderizarTabla(filas) {
   contenedorTabla.appendChild(tabla);
 }
 
+// Renderizado especial para inventario tipo catálogo
+async function renderizarInventarioCatalogo(filas) {
+  contenedorTabla.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Cargando materiales...</div>';
+  
+  try {
+    // Obtener todos los materiales con sus fotos
+    const materiales = await solicitarAPI('/api/list/material');
+    
+    if (!materiales || materiales.length === 0) {
+      contenedorTabla.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">No hay materiales disponibles</div>';
+      return;
+    }
+
+    // Crear un mapa de materiales por ID
+    const materialMap = {};
+    materiales.forEach(m => {
+      materialMap[m.idMaterial] = m;
+    });
+
+    // Agrupar inventario por material
+    const inventarioPorMaterial = {};
+    
+    // Primero, agregar todos los materiales existentes
+    materiales.forEach(material => {
+      inventarioPorMaterial[material.idMaterial] = {
+        nombre: material.Nombre || 'Sin nombre',
+        idMaterial: material.idMaterial,
+        movimientos: [],
+        cantidadTotal: 0,
+        material: material
+      };
+    });
+    
+    // Luego agregar los movimientos de inventario
+    filas.forEach(item => {
+      const idMaterial = item.idMaterial;
+      
+      if (idMaterial && inventarioPorMaterial[idMaterial]) {
+        inventarioPorMaterial[idMaterial].movimientos.push(item);
+        // Calcular cantidad total (entradas - salidas)
+        const cantidad = parseInt(item.cantidad) || 0;
+        if (item.tipo_movimiento === 'Entrada') {
+          inventarioPorMaterial[idMaterial].cantidadTotal += cantidad;
+        } else if (item.tipo_movimiento === 'Salida') {
+          inventarioPorMaterial[idMaterial].cantidadTotal -= cantidad;
+        }
+      }
+    });
+
+    // Filtrar materiales según término de búsqueda
+    const terminoBusqueda = window.terminoBusquedaInventario;
+    const materialesFiltrados = Object.values(inventarioPorMaterial).filter(grupo => {
+      if (!terminoBusqueda) return true;
+      const material = grupo.material;
+      return (
+        grupo.nombre.toLowerCase().includes(terminoBusqueda) ||
+        (material.tipo && material.tipo.toLowerCase().includes(terminoBusqueda)) ||
+        (material.costo_unitario && material.costo_unitario.toString().includes(terminoBusqueda))
+      );
+    });
+
+    if (materialesFiltrados.length === 0) {
+      contenedorTabla.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">No se encontraron materiales con ese criterio</div>';
+      return;
+    }
+
+    // Crear contenedor principal con header
+    const mainContainer = document.createElement('div');
+    mainContainer.style.width = '100%';
+    
+    // Header informativo
+    const headerInfo = document.createElement('div');
+    headerInfo.className = 'catalogo-header';
+    headerInfo.innerHTML = `
+      <div class="catalogo-stats">
+        <div class="stat-item">
+          <span class="stat-number">${materialesFiltrados.length}</span>
+          <span class="stat-label">Materiales</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number">${materialesFiltrados.filter(g => g.cantidadTotal > 0).length}</span>
+          <span class="stat-label">Disponibles</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number">${materialesFiltrados.filter(g => g.cantidadTotal === 0).length}</span>
+          <span class="stat-label">Agotados</span>
+        </div>
+      </div>
+    `;
+    mainContainer.appendChild(headerInfo);
+
+    // Crear grid de tarjetas
+    const catalogoContainer = document.createElement('div');
+    catalogoContainer.className = 'catalogo-inventario';
+
+    materialesFiltrados.forEach(grupo => {
+      const card = document.createElement('div');
+      card.className = 'material-card';
+      
+      const material = grupo.material;
+      const fotoUrl = material.foto_url || '/default-material.svg';
+      
+      card.innerHTML = `
+        <div class="material-card-image">
+          <img src="${fotoUrl}" alt="${grupo.nombre}" onerror="this.src='/default-material.svg'">
+          <div class="material-badge ${grupo.cantidadTotal > 0 ? 'badge-success' : 'badge-warning'}">
+            ${grupo.cantidadTotal > 0 ? 'Disponible' : 'Agotado'}
+          </div>
+        </div>
+        <div class="material-card-content">
+          <h3 class="material-card-title">${grupo.nombre}</h3>
+          <div class="material-card-info">
+            <div class="info-item">
+              <span class="info-label">Cantidad:</span>
+              <span class="info-value">${grupo.cantidadTotal} unidades</span>
+            </div>
+            ${material.costo_unitario ? `
+            <div class="info-item">
+              <span class="info-label">Costo Unitario:</span>
+              <span class="info-value">$${parseFloat(material.costo_unitario).toLocaleString('es-CO', {minimumFractionDigits: 2})}</span>
+            </div>
+            ` : ''}
+            ${material.tipo ? `
+            <div class="info-item">
+              <span class="info-label">Tipo:</span>
+              <span class="info-value">${material.tipo}</span>
+            </div>
+            ` : ''}
+            <div class="info-item">
+              <span class="info-label">Movimientos:</span>
+              <span class="info-value">${grupo.movimientos.length} registros</span>
+            </div>
+          </div>
+          ${usuarioActual?.rol === 'Administrador' ? `
+          <div class="material-card-actions">
+            <button class="btn-card-action" onclick="seleccionarMaterialInventario('${grupo.idMaterial}')">
+              📋 Ver detalles
+            </button>
+          </div>
+          ` : ''}
+        </div>
+      `;
+      
+      catalogoContainer.appendChild(card);
+    });
+
+    mainContainer.appendChild(catalogoContainer);
+    contenedorTabla.innerHTML = '';
+    contenedorTabla.appendChild(mainContainer);
+
+  } catch (e) {
+    contenedorTabla.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--error);">Error al cargar inventario: ${e.message}</div>`;
+  }
+}
+
+// Función global para seleccionar material desde las tarjetas
+window.seleccionarMaterialInventario = function(idMaterial) {
+  if (entradaIdActualizacion) {
+    // Buscar el ID de inventario correspondiente
+    const select = entradaIdActualizacion;
+    for (let i = 0; i < select.options.length; i++) {
+      if (select.options[i].textContent.includes(`Material: ${idMaterial}`) || 
+          select.options[i].value.includes(idMaterial)) {
+        select.selectedIndex = i;
+        break;
+      }
+    }
+  }
+  // Scroll al formulario
+  document.getElementById('formWrap')?.scrollIntoView({ behavior: 'smooth' });
+  mensajeActualizacion.textContent = `Material ID ${idMaterial} seleccionado`;
+  mensajeActualizacion.style.color = '';
+};
+
 async function cargarDatos() {
   if (modoActual !== 'entidades') return;
   if (!usuarioActual || usuarioActual.rol !== 'Administrador') return; // solo admin lista
@@ -311,6 +498,14 @@ async function cargarDatos() {
     const ctrl = new AbortController();
     ultimoControlAbortar = ctrl;
     const datos = await solicitarAPI(url, { signal: ctrl.signal });
+    
+    // Aplicar filtrado local para inventario (búsqueda en catálogo)
+    if (entidadActual === 'inventario' && q) {
+      window.terminoBusquedaInventario = q.toLowerCase();
+    } else {
+      window.terminoBusquedaInventario = null;
+    }
+    
     renderizarTabla(datos);
   } catch (e) {
     if (e.name === 'AbortError') return; // ignore

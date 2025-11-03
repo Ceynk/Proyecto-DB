@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e293b;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0a0e27;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="url(#bgGrad)"/>
+  <g transform="translate(200,200)">
+    <!-- Icono de caja/paquete -->
+    <path d="M-60,-80 L0,-100 L60,-80 L60,40 L0,60 L-60,40 Z" 
+          fill="none" stroke="#6366f1" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M-60,-80 L0,-60 L60,-80" fill="none" stroke="#6366f1" stroke-width="3"/>
+    <path d="M0,-60 L0,60" stroke="#6366f1" stroke-width="3"/>
+    <path d="M-60,-80 L-60,40" stroke="#6366f1" stroke-width="2" opacity="0.6"/>
+    <path d="M60,-80 L60,40" stroke="#6366f1" stroke-width="2" opacity="0.6"/>
+    
+    <!-- Texto -->
+    <text x="0" y="100" font-family="Arial, sans-serif" font-size="18" fill="#94a3b8" 
+          text-anchor="middle" font-weight="600">SIN IMAGEN</text>
+  </g>
+</svg>
