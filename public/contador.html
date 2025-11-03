@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Panel del Contador</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand"><span class="brand-text">Panel del Contador</span></div>
+      <button class="btn-icon" id="btnSalir" title="Cerrar sesión" aria-label="Cerrar sesión">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M15 12H3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M11 8L15 12L11 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M9 3H17C18.1046 3 19 3.89543 19 5V19C19 20.1046 18.1046 21 17 21H9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="container" style="padding: 1.5rem 0;">
+    <main class="main">
+
+      <div class="panel">
+        <div class="panel-header">
+          <h1>Inventario</h1>
+          <div class="header-actions">
+            <input id="buscarInv" class="input" placeholder="Buscar material o proyecto" style="max-width:280px;" />
+          </div>
+        </div>
+        <div id="tablaInventario" class="table-wrap" style="padding:.5rem;"></div>
+
+        <div class="form-wrap">
+          <div class="form-header"><h3 class="form-heading">Nueva transacción</h3></div>
+          <form id="formTransaccion" class="dyn-form">
+            <div>
+              <label>Tipo de movimiento</label>
+              <select name="tipo_movimiento" required>
+                <option value="Entrada">Entrada</option>
+                <option value="Salida">Salida</option>
+              </select>
+            </div>
+            <div>
+              <label>Cantidad</label>
+              <input type="number" name="cantidad" required />
+            </div>
+            <div>
+              <label>Fecha</label>
+              <input type="date" name="fecha" required />
+            </div>
+            <div>
+              <label>Material</label>
+              <select name="idMaterial" id="selMaterial" required></select>
+            </div>
+            <div>
+              <label>Proyecto (opcional)</label>
+              <select name="idProyecto" id="selProyecto"></select>
+            </div>
+            <button type="submit">Guardar</button>
+          </form>
+          <div id="msgTransaccion" class="form-msg"></div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:1rem;">
+        <div class="panel-header">
+          <h1>Facturas</h1>
+        </div>
+        <div class="form-wrap">
+          <div class="form-header"><h3 class="form-heading">Crear factura</h3></div>
+          <form id="formFactura" class="dyn-form">
+            <div>
+              <label>Fecha</label>
+              <input type="date" name="Fecha" required />
+            </div>
+            <div>
+              <label>Valor total</label>
+              <input type="number" step="0.01" name="Valor_total" required />
+            </div>
+            <div>
+              <label>Cliente</label>
+              <select name="idCliente" id="selCliente" required></select>
+            </div>
+            <div>
+              <label>Proyecto (opcional)</label>
+              <select name="idProyecto" id="selProyectoFactura"></select>
+            </div>
+            <button type="submit">Crear factura</button>
+          </form>
+          <div id="msgFactura" class="form-msg"></div>
+        </div>
+
+        <div class="form-wrap">
+          <div class="form-header"><h3 class="form-heading">Últimas facturas</h3></div>
+          <div id="listaFacturas" class="table-wrap" style="padding:.5rem;"></div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="/contador.js"></script>
+</body>
+</html>

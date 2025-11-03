@@ -571,22 +571,12 @@ function actualizarUIParaAutenticacion() {
     cargarAdminsSeguro();
     inicializarControlesFoto();
     actualizarVisibilidadControlesFoto();
+  } else if (usuarioActual.rol === 'Contador') {
+    // Redirigir a página de Contador
+    window.location.href = '/contador.html';
   } else {
-    // Empleado view
-    areaLogin.style.display = 'none';
-    areaApp.style.display = '';
-    btnCerrarSesion.style.display = '';
-    // Hide admin-only sections
-    barraLateral.style.display = 'none';
-    document.querySelector('.toolbar').style.display = 'none';
-    document.getElementById('formWrap').style.display = 'none';
-    if (navAdmin) navAdmin.style.display = 'none';
-    if (panelDatos) panelDatos.style.display = '';
-    if (panelAdmin) panelAdmin.style.display = 'none';
-    contenedorTabla.innerHTML = '';
-    tituloEl.textContent = 'Mi panel';
-    empleadoPanel.style.display = '';
-    cargarMisDatos();
+    // Redirigir a página de Trabajador
+    window.location.href = '/trabajador.html';
   }
 }
 
@@ -716,11 +706,11 @@ if (formularioEmailCode) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code })
       });
-      usuarioActual = r.user;
-      formularioEmailCode.reset();
-      formularioEmailCode.style.display = 'none';
-      formularioLogin.style.display = '';
-      actualizarUIParaAutenticacion();
+  usuarioActual = r.user;
+  formularioEmailCode.reset();
+  formularioEmailCode.style.display = 'none';
+  formularioLogin.style.display = '';
+  actualizarUIParaAutenticacion();
     } catch (e) {
       mensajeEmailCode.style.color = 'salmon';
       mensajeEmailCode.textContent = e.message;

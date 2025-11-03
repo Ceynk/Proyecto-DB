@@ -9,6 +9,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import nodemailer from 'nodemailer';
+import PDFDocument from 'pdfkit';
 
 dotenv.config();
 
@@ -285,6 +286,12 @@ const requerirEmpleado = (req, res, next) => {
   const rol = req.session?.user?.rol;
   if (rol === 'Empleado' || rol === 'Administrador') return next();
   return res.status(403).json({ error: 'Requiere rol Empleado' });
+};
+
+const requerirContador = (req, res, next) => {
+  const rol = req.session?.user?.rol;
+  if (rol === 'Contador' || rol === 'Administrador') return next();
+  return res.status(403).json({ error: 'Requiere rol Contador' });
 };
 
 // Auth endpoints
@@ -825,6 +832,189 @@ app.post('/api/empleado/asistencia', requerirAutenticacion, requerirEmpleado, as
       [estado, idEmp]
     );
     res.json({ ok: true, estado, affectedRows: resultado.affectedRows });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Tareas del empleado autenticado
+app.get('/api/empleado/mis-tareas', requerirAutenticacion, requerirEmpleado, async (req, res) => {
+  const idEmp = req.session.user?.idEmpleado;
+  if (!idEmp) return res.status(400).json({ error: 'Usuario sin empleado asociado' });
+  try {
+    const [filas] = await pool.query(
+      `SELECT t.idTarea, t.Descripcion, t.Estado, p.Nombre AS Proyecto
+       FROM tareas t
+       LEFT JOIN proyectos p ON p.idProyecto = t.idProyecto
+       WHERE t.idEmpleado = ?
+       ORDER BY t.idTarea DESC
+       LIMIT 100`,
+      [idEmp]
+    );
+    res.json(filas);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// ==========================
+// Rutas para Contador
+// ==========================
+
+// Listado de inventario (con joins) accesible a Contador
+app.get('/api/contador/inventario', requerirAutenticacion, requerirContador, async (req, res) => {
+  const busqueda = (req.query.q || '').toString().trim();
+  try {
+    let sql = `SELECT i.idInventario AS idInventario, i.tipo_movimiento AS tipo_movimiento, i.cantidad AS cantidad, i.fecha AS fecha,
+                      i.idMaterial AS idMaterial, m.Nombre AS Material, p.Nombre AS Proyecto
+               FROM inventarios i
+               LEFT JOIN materials m ON m.idMaterial = i.idMaterial
+               LEFT JOIN proyectos p ON p.idProyecto = i.idProyecto`;
+    const params = [];
+    if (busqueda) {
+      sql += ` WHERE i.tipo_movimiento LIKE ? OR m.Nombre LIKE ? OR p.Nombre LIKE ?`;
+      params.push(`%${busqueda}%`, `%${busqueda}%`, `%${busqueda}%`);
+    }
+    sql += ' ORDER BY i.idInventario DESC LIMIT 200';
+    const [filas] = await pool.query(sql, params);
+    res.json(filas);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Crear transacción de inventario (Entrada/Salida)
+app.post('/api/contador/inventario', requerirAutenticacion, requerirContador, async (req, res) => {
+  const { tipo_movimiento, cantidad, fecha, idMaterial, idProyecto } = req.body || {};
+  if (!cantidad || !fecha || !idMaterial) return res.status(400).json({ error: 'cantidad, fecha e idMaterial son requeridos' });
+  try {
+    const [r] = await pool.query(
+      'INSERT INTO inventarios (tipo_movimiento, cantidad, fecha, idMaterial, idProyecto) VALUES (?, ?, ?, ?, ?)',
+      [tipo_movimiento || 'Entrada', Number(cantidad), fecha, idMaterial, idProyecto || null]
+    );
+    res.status(201).json({ idInventario: r.insertId });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Crear factura (Contador)
+app.post('/api/contador/facturas', requerirAutenticacion, requerirContador, async (req, res) => {
+  const { Fecha, Valor_total, idProyecto, idCliente } = req.body || {};
+  if (!Fecha || !Valor_total || !idCliente) return res.status(400).json({ error: 'Fecha, Valor_total e idCliente son requeridos' });
+  try {
+    const [r] = await pool.query(
+      'INSERT INTO facturas (Fecha, Valor_total, idProyecto, idCliente) VALUES (?, ?, ?, ?)',
+      [Fecha, Number(Valor_total), idProyecto || null, idCliente]
+    );
+    res.status(201).json({ idFactura: r.insertId });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Listar facturas básicas para Contador
+app.get('/api/contador/facturas', requerirAutenticacion, requerirContador, async (req, res) => {
+  try {
+    const [filas] = await pool.query(`
+      SELECT f.idFactura, f.Fecha, f.Valor_total, p.Nombre AS Proyecto, c.Nombre AS Cliente
+      FROM facturas f
+      LEFT JOIN proyectos p ON p.idProyecto = f.idProyecto
+      LEFT JOIN clientes c ON c.idCliente = f.idCliente
+      ORDER BY f.idFactura DESC
+      LIMIT 200
+    `);
+    res.json(filas);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Generar PDF de factura
+app.get('/api/contador/facturas/:id/pdf', requerirAutenticacion, requerirContador, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    const [rows] = await pool.query(`
+      SELECT f.idFactura, f.Fecha, f.Valor_total,
+             c.Nombre AS Cliente, c.Correo AS CorreoCliente, c.Telefono AS TelefonoCliente,
+             p.Nombre AS Proyecto
+      FROM facturas f
+      LEFT JOIN clientes c ON c.idCliente = f.idCliente
+      LEFT JOIN proyectos p ON p.idProyecto = f.idProyecto
+      WHERE f.idFactura = ?
+      LIMIT 1
+    `, [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Factura no encontrada' });
+    const factura = rows[0];
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="factura_${id}.pdf"`);
+
+    const doc = new PDFDocument({ margin: 50 });
+    doc.pipe(res);
+
+    // Encabezado
+    doc
+      .fontSize(20)
+      .text('Factura', { align: 'right' })
+      .moveDown(0.5);
+
+    // Datos empresa (simples)
+    doc
+      .fontSize(12)
+      .text('Empresa: BuildSmarts S.A.', { align: 'left' })
+      .text('NIT: 900.000.000-1')
+      .text('Dirección: Calle 1 # 2-3, Ciudad')
+      .text('Teléfono: +57 300 000 0000')
+      .moveDown();
+
+    // Datos factura
+    doc
+      .fontSize(12)
+      .text(`Factura N°: ${factura.idFactura}`)
+      .text(`Fecha: ${new Date(factura.Fecha).toISOString().slice(0,10)}`)
+      .text(`Proyecto: ${factura.Proyecto || '—'}`)
+      .moveDown();
+
+    // Datos cliente
+    doc
+      .fontSize(12)
+      .text('Cliente:', { underline: true })
+      .text(`Nombre: ${factura.Cliente || '—'}`)
+      .text(`Correo: ${factura.CorreoCliente || '—'}`)
+      .text(`Teléfono: ${factura.TelefonoCliente || '—'}`)
+      .moveDown();
+
+    // Concepto simple (no hay detalle en esquema)
+    doc
+      .fontSize(12)
+      .text('Concepto:', { underline: true })
+      .text('Servicios/Materiales facturados (detalle no disponible en el esquema actual)')
+      .moveDown();
+
+    // Total
+    doc
+      .fontSize(14)
+      .text(`Valor Total: $ ${Number(factura.Valor_total).toLocaleString('es-CO', { minimumFractionDigits: 2 })}`, { align: 'right' })
+      .moveDown(2);
+
+    doc
+      .fontSize(10)
+      .fillColor('#666')
+      .text('Gracias por su compra.', { align: 'center' });
+
+    doc.end();
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Listas mínimas accesibles a Contador
+app.get('/api/contador/min/clientes', requerirAutenticacion, requerirContador, async (req, res) => {
+  try {
+    const [filas] = await pool.query('SELECT idCliente as id, Nombre as nombre FROM clientes ORDER BY idCliente DESC LIMIT 300');
+    res.json(filas);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.get('/api/contador/min/proyectos', requerirAutenticacion, requerirContador, async (req, res) => {
+  try {
+    const [filas] = await pool.query('SELECT idProyecto as id, Nombre as nombre FROM proyectos ORDER BY idProyecto DESC LIMIT 300');
+    res.json(filas);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.get('/api/contador/min/materiales', requerirAutenticacion, requerirContador, async (req, res) => {
+  try {
+    const [filas] = await pool.query('SELECT idMaterial as id, Nombre as nombre FROM materials ORDER BY idMaterial DESC LIMIT 300');
+    res.json(filas);
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
