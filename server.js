@@ -311,6 +311,117 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// Logout
+app.post('/api/auth/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.json({ ok: true });
+  });
+});
+
+// Session info
+app.get('/api/auth/me', (req, res) => {
+  res.json({ user: req.session?.user || null });
+});
+
+// 2FA setup and verify
+app.get('/api/2fa/setup', requerirAutenticacion, async (req, res) => {
+  try {
+    const u = req.session.user;
+    const [filas] = await pool.query('SELECT idUsuario, nombre_usuario, totp_secret FROM usuarios WHERE idUsuario = ?', [u.idUsuario]);
+    if (!filas.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+    let secret = filas[0].totp_secret;
+    if (!secret) {
+      const sec = speakeasy.generateSecret({ length: 20, name: `BuildSmarts (${filas[0].nombre_usuario})` });
+      secret = sec.base32;
+      await pool.query('UPDATE usuarios SET totp_secret = ? WHERE idUsuario = ?', [secret, u.idUsuario]);
+    }
+    const otpauth = `otpauth://totp/BuildSmarts:${filas[0].nombre_usuario}?secret=${secret}&issuer=BuildSmarts`;
+    const qr = await QRCode.toDataURL(otpauth);
+    res.json({ secret, otpauth, qr });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/2fa/verify', async (req, res) => {
+  const { token } = req.body || {};
+  const pending = req.session?.pending2fa;
+  if (!pending?.idUsuario) return res.status(400).json({ error: 'No hay 2FA pendiente' });
+  try {
+    const [filas] = await pool.query('SELECT idUsuario, nombre_usuario, rol, idEmpleado, totp_secret FROM usuarios WHERE idUsuario = ?', [pending.idUsuario]);
+    if (!filas.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const u = filas[0];
+    const ok = speakeasy.totp.verify({ secret: u.totp_secret, encoding: 'base32', token: String(token || '') });
+    if (!ok) return res.status(401).json({ error: 'Código 2FA inválido' });
+    req.session.user = { idUsuario: u.idUsuario, nombre_usuario: u.nombre_usuario, rol: u.rol, idEmpleado: u.idEmpleado || null };
+    delete req.session.pending2fa;
+    res.json({ ok: true, user: req.session.user });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// List available entities (admin)
+app.get('/api/entities', requerirAutenticacion, requerirAdmin, (req, res) => {
+  res.json(Object.keys(entidades));
+});
+
+// Generic list with optional text search (?q=)
+app.get('/api/list/:entity', requerirAutenticacion, requerirAdmin, async (req, res) => {
+  const entidad = String(req.params.entity || '').toLowerCase();
+  const definicion = entidades[entidad];
+  if (!definicion) return res.status(400).json({ error: 'Entidad no valida' });
+  const busqueda = (req.query.q || '').toString().trim();
+
+  try {
+    const columnas = definicion.columnas.join(', ');
+    const desde = definicion.desde || definicion.tabla;
+    let sql = `SELECT ${columnas} FROM ${desde}`;
+    const parametros = [];
+    if (busqueda && definicion.busqueda && definicion.busqueda.length) {
+      const coincidencias = definicion.busqueda.map((c) => `${c} LIKE ?`).join(' OR ');
+      sql += ` WHERE ${coincidencias}`;
+      definicion.busqueda.forEach(() => parametros.push(`%${busqueda}%`));
+    }
+    const ordenarPor = definicion.ordenarPor || '1';
+    sql += ` ORDER BY ${ordenarPor} DESC LIMIT 100`;
+    const [filas2] = await pool.query(sql, parametros);
+    res.json(filas2);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Mapa de columnas permitidas para crear registros
+const columnasCrear = {
+  cliente: ['Nombre','Telefono','Correo'],
+  proyecto: ['Nombre','idCliente'],
+  apartamento: ['num_apartamento','num_piso','estado','idProyecto'],
+  piso: ['idProyecto','numero','idApartamento'],
+  material: ['Nombre','costo_unitario','tipo'],
+  empleado: ['Nombre','Correo','Telefono','Asistencia','Especialidad','idProyecto'],
+  turno: ['Hora_inicio','Hora_fin','Tipo_jornada','idEmpleado'],
+  tarea: ['Descripcion','Estado','idProyecto','idEmpleado'],
+  inventario: ['tipo_movimiento','cantidad','fecha','idMaterial','idProyecto'],
+  ingreso: ['fecha','Valor','Descripcion','idProyecto'],
+  gasto: ['Valor','Descripcion','fecha','idProyecto'],
+  factura: ['Fecha','Valor_total','idProyecto','idCliente'],
+  pago: ['Fecha','Monto','idFactura']
+};
+
+// Generic create
+app.post('/api/create/:entity', requerirAutenticacion, requerirAdmin, async (req, res) => {
+  const entidad = String(req.params.entity || '').toLowerCase();
+  const definicion = entidades[entidad];
+  const cols = columnasCrear[entidad];
+  if (!definicion || !cols) return res.status(400).json({ error: 'Entidad no valida' });
+  try {
+    const values = cols.map((c) => (req.body && Object.prototype.hasOwnProperty.call(req.body, c)) ? req.body[c] : null);
+    const placeholders = cols.map(() => '?').join(', ');
+    const sql = `INSERT INTO ${definicion.tabla} (${cols.join(', ')}) VALUES (${placeholders})`;
+    const [resultado] = await pool.query(sql, values);
+    res.status(201).json({ id: resultado.insertId });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Update (admin)
 app.put('/api/update/:entity/:id', requerirAutenticacion, requerirAdmin, async (req, res) => {
   const entidad = String(req.params.entity || '').toLowerCase();
