@@ -25,6 +25,7 @@ CREATE TABLE empleados (
     Telefono VARCHAR(50),
     Asistencia VARCHAR(20),
     Especialidad VARCHAR(120),
+    foto_url VARCHAR(255),
     idProyecto INT,
     FOREIGN KEY (idProyecto) REFERENCES proyectos(idProyecto)
 );
@@ -60,7 +61,8 @@ CREATE TABLE materials (
     idMaterial INT AUTO_INCREMENT PRIMARY KEY,
     Nombre VARCHAR(120) NOT NULL,
     costo_unitario DECIMAL(12,2) NOT NULL,
-    tipo VARCHAR(60)
+    tipo VARCHAR(60),
+    foto_url VARCHAR(255)
 );
 
 CREATE TABLE turnos (

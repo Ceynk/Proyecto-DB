@@ -16,6 +16,13 @@ Tabla `usuarios` extendida con columnas:
 
 Al iniciar el servidor se aplica un “bootstrap” que agrega estas columnas si faltan y crea un usuario Administrador por defecto si no existen admins.
 
+Además, se soporta foto para empleados y materiales:
+
+- `empleados.foto_url` VARCHAR(255)
+- `materials.foto_url` VARCHAR(255)
+
+Si no existen, el servidor intentará agregarlas al iniciar.
+
 ## Requisitos
 
 - Node.js 18+
@@ -118,6 +125,17 @@ Administración (solo Administrador):
   - Campos: `username`, `password`, `enable2fa` (true/false), archivo `foto`.
   - Guarda la imagen bajo `/uploads/` y el `foto_url` en usuarios. Si `enable2fa=true`, genera `totp_secret` automáticamente.
 
+Imágenes para Empleados y Materiales (solo Administrador):
+
+- `POST /api/empleados/:id/foto` (multipart) → Sube/actualiza la imagen del empleado.
+  - Campo: archivo `foto` (JPG/PNG/WEBP hasta 5 MB).
+  - Guarda el archivo en `/uploads` y persiste la ruta en `empleados.foto_url`.
+  - Elimina el archivo anterior si existía.
+- `POST /api/materiales/:id/foto` (multipart) → Sube/actualiza la imagen del material.
+  - Campo: archivo `foto` (JPG/PNG/WEBP hasta 5 MB).
+  - Guarda el archivo en `/uploads` y persiste la ruta en `materials.foto_url`.
+  - Elimina el archivo anterior si existía.
+
 Usuarios (cualquier rol)
 
 - `GET /api/users` (admin) → Lista todos los usuarios con su rol y si tienen 2FA.
@@ -146,6 +164,7 @@ Seguridad de la API facial: por simplicidad está como pública para facilitar p
   - Menú de entidades, búsqueda, tabla con acciones, formulario de creación.
   - Controles “Actualizar por ID” y “Eliminar por ID”.
   - Sección “Crear Administrador” con foto (sube a `/uploads`).
+  - Para entidades Empleado y Material, en la sección de “Actualizar/Eliminar” verás un control extra para subir la imagen del registro seleccionado.
 - Vista Empleado:
   - Panel “Mi panel” con datos básicos y botón “Marcar asistencia”.
 

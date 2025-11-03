@@ -50,6 +50,86 @@ const entradaIdActualizacion = document.getElementById('updateIdInput');
 const btnActualizar = document.getElementById('btnUpdate');
 const btnEliminar = document.getElementById('btnDelete');
 const mensajeActualizacion = document.getElementById('updateMsg');
+
+// Controles de subida de foto para empleado/material
+let contenedorSubidaFoto = null;
+let inputSubidaFoto = null;
+let btnSubirFoto = null;
+let mensajeFoto = null;
+function inicializarControlesFoto() {
+  if (!controlesActualizacion || contenedorSubidaFoto) return;
+  contenedorSubidaFoto = document.createElement('div');
+  contenedorSubidaFoto.style.gridColumn = '1 / -1';
+  contenedorSubidaFoto.style.display = 'none';
+  contenedorSubidaFoto.style.gap = '.5rem';
+  contenedorSubidaFoto.style.alignItems = 'center';
+
+  const label = document.createElement('label');
+  label.textContent = 'Imagen (solo Empleado o Material)';
+  label.style.display = 'block';
+  label.style.marginBottom = '.25rem';
+
+  inputSubidaFoto = document.createElement('input');
+  inputSubidaFoto.type = 'file';
+  inputSubidaFoto.accept = 'image/*';
+  inputSubidaFoto.style.maxWidth = '100%';
+
+  btnSubirFoto = document.createElement('button');
+  btnSubirFoto.type = 'button';
+  btnSubirFoto.textContent = 'Subir imagen';
+  btnSubirFoto.style.marginLeft = '.5rem';
+
+  mensajeFoto = document.createElement('div');
+  mensajeFoto.className = 'form-msg';
+  mensajeFoto.style.marginTop = '.25rem';
+
+  const fila = document.createElement('div');
+  fila.style.display = 'flex';
+  fila.style.gap = '.5rem';
+  fila.style.flexWrap = 'wrap';
+  fila.appendChild(inputSubidaFoto);
+  fila.appendChild(btnSubirFoto);
+
+  contenedorSubidaFoto.appendChild(label);
+  contenedorSubidaFoto.appendChild(fila);
+  contenedorSubidaFoto.appendChild(mensajeFoto);
+  controlesActualizacion.appendChild(contenedorSubidaFoto);
+
+  btnSubirFoto.addEventListener('click', subirImagenEntidadActual);
+}
+
+function actualizarVisibilidadControlesFoto() {
+  if (!contenedorSubidaFoto) return;
+  const esEntidadConFoto = entidadActual === 'empleado' || entidadActual === 'material';
+  const esAdmin = usuarioActual?.rol === 'Administrador';
+  contenedorSubidaFoto.style.display = esEntidadConFoto && esAdmin ? '' : 'none';
+  if (!esEntidadConFoto && inputSubidaFoto) inputSubidaFoto.value = '';
+  if (mensajeFoto) { mensajeFoto.textContent = ''; mensajeFoto.style.color = ''; }
+}
+
+async function subirImagenEntidadActual() {
+  if (!inputSubidaFoto || !inputSubidaFoto.files || inputSubidaFoto.files.length === 0) {
+    if (mensajeFoto) { mensajeFoto.style.color = 'salmon'; mensajeFoto.textContent = 'Selecciona una imagen'; }
+    return;
+  }
+  const id = (entradaIdActualizacion?.value || '').trim();
+  if (!id) { if (mensajeFoto) { mensajeFoto.style.color = 'salmon'; mensajeFoto.textContent = 'Selecciona un ID'; } return; }
+  const archivo = inputSubidaFoto.files[0];
+  const fd = new FormData();
+  fd.append('foto', archivo);
+  const ruta = entidadActual === 'empleado' ? `/api/empleados/${encodeURIComponent(id)}/foto` : `/api/materiales/${encodeURIComponent(id)}/foto`;
+  try {
+    if (mensajeFoto) { mensajeFoto.style.color = ''; mensajeFoto.textContent = 'Subiendo...'; }
+    const res = await fetch(`${baseAPI}${ruta}`, { method: 'POST', credentials: 'include', body: fd });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || 'Error al subir');
+    if (mensajeFoto) { mensajeFoto.style.color = ''; mensajeFoto.textContent = 'Imagen actualizada'; }
+    inputSubidaFoto.value = '';
+    cargarDatos();
+  } catch (e) {
+    if (mensajeFoto) { mensajeFoto.style.color = 'salmon'; mensajeFoto.textContent = e.message; }
+  }
+}
 // Admin panel navigation
 if (btnPanelAdmin) {
   btnPanelAdmin.addEventListener('click', () => {
@@ -186,7 +266,19 @@ function renderizarTabla(filas) {
     const tr = crear('tr');
     encabezados.forEach((h) => {
       const td = crear('td');
-      td.textContent = r[h] == null ? '' : String(r[h]);
+      const val = r[h];
+      if (val && typeof val === 'string' && /foto/i.test(h)) {
+        const img = document.createElement('img');
+        img.src = val;
+        img.alt = 'img';
+        img.style.maxWidth = '64px';
+        img.style.maxHeight = '64px';
+        img.style.borderRadius = '6px';
+        img.style.border = '1px solid var(--border-light)';
+        td.appendChild(img);
+      } else {
+        td.textContent = val == null ? '' : String(val);
+      }
       tr.appendChild(td);
     });
   if (usuarioActual?.rol === 'Administrador') {
@@ -281,6 +373,8 @@ function actualizarUIParaAutenticacion() {
     cargarDatos();
     // Pre-cargar admins para tener la lista actualizada si abren el panel
     cargarAdminsSeguro();
+    inicializarControlesFoto();
+    actualizarVisibilidadControlesFoto();
   } else {
     // Empleado view
     areaLogin.style.display = 'none';
@@ -764,6 +858,8 @@ async function construirFormulario() {
   formularioDinamico.appendChild(boton);
   // Reset update ID when changing entity
   if (entradaIdActualizacion) entradaIdActualizacion.value = '';
+  inicializarControlesFoto();
+  actualizarVisibilidadControlesFoto();
 }
 
 formularioDinamico.addEventListener('submit', async (ev) => {
@@ -842,6 +938,7 @@ if (btnEliminar) {
       entradaIdActualizacion.value = '';
       cargarDatos();
       cargarOpcionesActualizacion();
+      actualizarVisibilidadControlesFoto();
     } catch (e) {
       mensajeActualizacion.style.color = 'salmon';
       mensajeActualizacion.textContent = e.message;
@@ -955,3 +1052,6 @@ function cargarAdminsSeguro() {
 if (btnRefrescarAdmins) {
   btnRefrescarAdmins.addEventListener('click', () => cargarAdminsSeguro());
 }
+
+// Inicializar controles de foto al cargar
+inicializarControlesFoto();

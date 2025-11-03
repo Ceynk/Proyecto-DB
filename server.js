@@ -79,6 +79,22 @@ async function asegurarEsquemaYSemilla() {
     console.warn('No se pudo verificar/agregar columna foto_url:', e.message);
   }
   try {
+    const [ce] = await pool.query("SHOW COLUMNS FROM empleados LIKE 'foto_url'");
+    if (ce.length === 0) {
+      await pool.query("ALTER TABLE empleados ADD COLUMN foto_url VARCHAR(255) NULL");
+    }
+  } catch (e) {
+    console.warn('No se pudo verificar/agregar empleados.foto_url:', e.message);
+  }
+  try {
+    const [cm] = await pool.query("SHOW COLUMNS FROM materials LIKE 'foto_url'");
+    if (cm.length === 0) {
+      await pool.query("ALTER TABLE materials ADD COLUMN foto_url VARCHAR(255) NULL");
+    }
+  } catch (e) {
+    console.warn('No se pudo verificar/agregar materials.foto_url:', e.message);
+  }
+  try {
     const [rows] = await pool.query("SELECT COUNT(*) AS n FROM usuarios WHERE rol='Administrador'");
     if (rows[0].n === 0) {
       const username = process.env.ADMIN_USER || 'admin';
@@ -109,6 +125,7 @@ const entidades = {
       'e.Telefono AS Telefono',
       'e.Asistencia AS Asistencia',
       'e.Especialidad AS Especialidad',
+      'e.foto_url AS foto_url',
       'p.Nombre AS Proyecto'
     ],
     busqueda: ['e.Nombre','e.Correo','e.Telefono','e.Especialidad','p.Nombre'],
@@ -150,7 +167,7 @@ const entidades = {
     desde: 'materials m',
     tabla: 'materials',
     llavePrimaria: 'idMaterial',
-    columnas: ['m.idMaterial AS idMaterial','m.Nombre AS Nombre','m.costo_unitario AS costo_unitario','m.tipo AS tipo'],
+    columnas: ['m.idMaterial AS idMaterial','m.Nombre AS Nombre','m.costo_unitario AS costo_unitario','m.tipo AS tipo','m.foto_url AS foto_url'],
     busqueda: ['m.Nombre','m.tipo'],
     ordenarPor: 'idMaterial'
   },
@@ -224,7 +241,18 @@ const almacenamiento = multer.diskStorage({
     cb(null, fname);
   }
 });
-const subida = multer({ storage: almacenamiento });
+const tiposPermitidos = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+const subida = multer({
+  storage: almacenamiento,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (req, file, cb) => {
+    const ext = (path.extname(file.originalname || '').toLowerCase()) || '';
+    if (!tiposPermitidos.has(ext)) {
+      return cb(new Error('Tipo de archivo no permitido. Usa JPG, PNG o WEBP.'));
+    }
+    cb(null, true);
+  }
+});
 
 // Proveedor de reconocimiento facial (opcional AWS Rekognition)
 const FACE_PROVIDER = (process.env.FACE_PROVIDER || '').toLowerCase();
@@ -673,6 +701,72 @@ app.post('/api/users/create', requerirAutenticacion, requerirAdmin, subida.singl
     );
     res.status(201).json({ idUsuario: r.insertId, username, rol, idEmpleado: idEmpleadoFinal, foto_url, has2fa: !!totp_secret });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ==============================
+// Fotos para Empleados y Materiales
+// ==============================
+
+function resolverRutaArchivo(posibleUrl) {
+  if (!posibleUrl) return null;
+  let fpath = posibleUrl;
+  if (fpath.startsWith('/')) fpath = fpath.slice(1);
+  if (!path.isAbsolute(fpath)) {
+    fpath = path.join(__dirname, fpath);
+  }
+  return fpath;
+}
+
+// Subir/actualizar foto de un empleado
+app.post('/api/empleados/:id/foto', requerirAutenticacion, requerirAdmin, subida.single('foto'), async (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ error: 'ID de empleado inválido' });
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Falta archivo de imagen (campo "foto")' });
+    const [rows] = await pool.query('SELECT foto_url FROM empleados WHERE idEmpleado = ? LIMIT 1', [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Empleado no encontrado' });
+    const anterior = rows[0].foto_url;
+    const foto_url = `/uploads/${req.file.filename}`;
+    await pool.query('UPDATE empleados SET foto_url = ? WHERE idEmpleado = ?', [foto_url, id]);
+
+    // Borrar archivo anterior si existía y apunta a uploads
+    try {
+      if (anterior && anterior.startsWith('/uploads/')) {
+        const fpath = resolverRutaArchivo(anterior);
+        if (fpath && fs.existsSync(fpath)) fs.unlinkSync(fpath);
+      }
+    } catch (_) { /* ignorar */ }
+
+    res.json({ ok: true, idEmpleado: id, foto_url });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Subir/actualizar foto de un material
+app.post('/api/materiales/:id/foto', requerirAutenticacion, requerirAdmin, subida.single('foto'), async (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ error: 'ID de material inválido' });
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Falta archivo de imagen (campo "foto")' });
+    const [rows] = await pool.query('SELECT foto_url FROM materials WHERE idMaterial = ? LIMIT 1', [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Material no encontrado' });
+    const anterior = rows[0].foto_url;
+    const foto_url = `/uploads/${req.file.filename}`;
+    await pool.query('UPDATE materials SET foto_url = ? WHERE idMaterial = ?', [foto_url, id]);
+
+    // Borrar archivo anterior si existía y apunta a uploads
+    try {
+      if (anterior && anterior.startsWith('/uploads/')) {
+        const fpath = resolverRutaArchivo(anterior);
+        if (fpath && fs.existsSync(fpath)) fs.unlinkSync(fpath);
+      }
+    } catch (_) { /* ignorar */ }
+
+    res.json({ ok: true, idMaterial: id, foto_url });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // API de verificación facial (opcional Rekognition)
