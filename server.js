@@ -479,6 +479,33 @@ app.get('/api/check/:entity', (req, res) => {
   });
 });
 
+// Diagnóstico simple para imágenes: verifica si existen columnas foto_url
+app.get('/api/diag/images', async (req, res) => {
+  const resultado = { usuarios: false, empleados: false, materials: false, detalles: {} };
+  try {
+    const [u] = await pool.query("SHOW COLUMNS FROM usuarios LIKE 'foto_url'");
+    resultado.usuarios = u.length > 0;
+    resultado.detalles.usuarios = u;
+  } catch (e) {
+    resultado.detalles.usuarios = { error: e.message };
+  }
+  try {
+    const [e] = await pool.query("SHOW COLUMNS FROM empleados LIKE 'foto_url'");
+    resultado.empleados = e.length > 0;
+    resultado.detalles.empleados = e;
+  } catch (e2) {
+    resultado.detalles.empleados = { error: e2.message };
+  }
+  try {
+    const [m] = await pool.query("SHOW COLUMNS FROM materials LIKE 'foto_url'");
+    resultado.materials = m.length > 0;
+    resultado.detalles.materials = m;
+  } catch (e3) {
+    resultado.detalles.materials = { error: e3.message };
+  }
+  res.json(resultado);
+});
+
 // Simple health endpoint
 app.get('/api/health', async (req, res) => {
   try {
