@@ -93,11 +93,27 @@ async function asegurarEsquemaYSemilla() {
   } catch (e) {
     console.warn('No se pudo verificar/agregar materials.foto_url:', e.message);
   }
+  // Asegurar enum de rol incluye 'Cliente'
+  try {
+    const [rolCol] = await pool.query(`
+      SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios' AND COLUMN_NAME = 'rol'
+    `);
+    const tipo = rolCol?.[0]?.COLUMN_TYPE || '';
+    if (!/Cliente'\)/i.test(tipo) && !/Cliente'[,)]/i.test(tipo)) {
+      await pool.query("ALTER TABLE usuarios MODIFY rol ENUM('Administrador','Contador','Empleado','Cliente') NOT NULL");
+    }
+  } catch (e) {
+    console.warn('No se pudo asegurar enum usuarios.rol incluye Cliente:', e.message);
+  }
   // Vinculación de usuarios con clientes
   try {
     const [cc] = await pool.query("SHOW COLUMNS FROM usuarios LIKE 'idCliente'");
     if (cc.length === 0) {
       await pool.query('ALTER TABLE usuarios ADD COLUMN idCliente INT NULL');
+      try {
+        await pool.query('ALTER TABLE usuarios ADD CONSTRAINT fk_usuarios_clientes FOREIGN KEY (idCliente) REFERENCES clientes(idCliente)');
+      } catch (_) { /* puede fallar si ya existe o por motor */ }
     }
   } catch (e) {
     console.warn('No se pudo verificar/agregar usuarios.idCliente:', e.message);
