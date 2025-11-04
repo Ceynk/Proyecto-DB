@@ -571,6 +571,9 @@ function actualizarUIParaAutenticacion() {
   } else if (usuarioActual.rol === 'Contador') {
     // Redirigir a página de Contador
     window.location.href = '/contador.html';
+  } else if (usuarioActual.rol === 'Cliente') {
+    // Redirigir a portal de Cliente
+    window.location.href = '/cliente.html';
   } else {
     // Redirigir a página de Trabajador
     window.location.href = '/trabajador.html';
@@ -920,6 +923,39 @@ async function construirFormulario() {
     const botonGuardar = Array.from(formularioDinamico.querySelectorAll('button')).find(b => b.type === 'submit');
     if (botonGuardar) formularioDinamico.appendChild(botonGuardar);
   }
+
+  // Bloque adicional para Cliente: crear cuenta de acceso
+  if (entidadActual === 'cliente') {
+    const bloque = document.createElement('div');
+    bloque.style.gridColumn = '1 / -1';
+    bloque.innerHTML = `
+      <div class="form-header" style="margin-top:1rem;">
+        <h3 class="form-heading">Cuenta de acceso (opcional)</h3>
+      </div>
+      <div class="dyn-form" style="display:grid; grid-template-columns: repeat(2, 1fr); gap: var(--spacing-lg);">
+        <div style="grid-column: 1 / -1; display:flex; align-items:center; gap:.5rem;">
+          <input id="chkCrearUsuarioCli" type="checkbox" name="crear_usuario" />
+          <label for="chkCrearUsuarioCli" style="margin:0;">Crear usuario para este cliente</label>
+        </div>
+        <div>
+          <label>Usuario</label>
+          <input name="nombre_usuario" type="text" pattern="[A-Za-z0-9_.-]{3,30}" placeholder="cliente.ejemplo" disabled />
+        </div>
+        <div>
+          <label>Contraseña</label>
+          <input name="contraseña" type="password" minlength="6" placeholder="mínimo 6 caracteres" disabled />
+        </div>
+      </div>
+    `;
+    formularioDinamico.appendChild(bloque);
+    const chk = bloque.querySelector('#chkCrearUsuarioCli');
+    const dependientes = ['nombre_usuario','contraseña'].map(n => bloque.querySelector(`[name="${n}"]`));
+    const actualizar = () => { dependientes.forEach(el => { el.disabled = !chk.checked; }); };
+    chk.addEventListener('change', actualizar);
+    actualizar();
+    const botonGuardar = Array.from(formularioDinamico.querySelectorAll('button')).find(b => b.type === 'submit');
+    if (botonGuardar) formularioDinamico.appendChild(botonGuardar);
+  }
 }
 
 formularioDinamico.addEventListener('submit', async (ev) => {
@@ -958,6 +994,21 @@ formularioDinamico.addEventListener('submit', async (ev) => {
         body: JSON.stringify(payload)
       });
       mensajeFormulario.textContent = `Empleado creado (id ${r.idEmpleado})` + (r.idUsuario ? ` y usuario (id ${r.idUsuario})` : '');
+    } else if (entidadActual === 'cliente' && (datos.crear_usuario === '1' || datos.crear_usuario === 1 || datos.crear_usuario === true)) {
+      const payload = {
+        Nombre: datos.Nombre || null,
+        Telefono: datos.Telefono || null,
+        Correo: datos.Correo || null,
+        crear_usuario: true,
+        nombre_usuario: datos.nombre_usuario,
+        contraseña: datos.contraseña
+      };
+      r = await solicitarAPI('/api/clientes/crear-con-usuario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      mensajeFormulario.textContent = `Cliente creado (id ${r.idCliente})` + (r.idUsuario ? ` y usuario (id ${r.idUsuario})` : '');
     } else {
       r = await solicitarAPI(`/api/create/${entidadActual}`, {
         method: 'POST',

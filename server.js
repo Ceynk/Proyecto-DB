@@ -93,6 +93,15 @@ async function asegurarEsquemaYSemilla() {
   } catch (e) {
     console.warn('No se pudo verificar/agregar materials.foto_url:', e.message);
   }
+  // Vinculación de usuarios con clientes
+  try {
+    const [cc] = await pool.query("SHOW COLUMNS FROM usuarios LIKE 'idCliente'");
+    if (cc.length === 0) {
+      await pool.query('ALTER TABLE usuarios ADD COLUMN idCliente INT NULL');
+    }
+  } catch (e) {
+    console.warn('No se pudo verificar/agregar usuarios.idCliente:', e.message);
+  }
   // Agregar fechas a tareas si faltan
   try {
     const [fi] = await pool.query("SHOW COLUMNS FROM tareas LIKE 'Fecha_inicio'");
@@ -295,13 +304,19 @@ const requerirContador = (req, res, next) => {
   return res.status(403).json({ error: 'Requiere rol Contador' });
 };
 
+const requerirCliente = (req, res, next) => {
+  const rol = req.session?.user?.rol;
+  if (rol === 'Cliente') return next();
+  return res.status(403).json({ error: 'Requiere rol Cliente' });
+};
+
 // Auth endpoints
 app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
   try {
     const [filas] = await pool.query(
-      'SELECT idUsuario, nombre_usuario, contraseña, rol, idEmpleado, Correo FROM usuarios WHERE nombre_usuario = ? LIMIT 1',
+      'SELECT idUsuario, nombre_usuario, contraseña, rol, idEmpleado, idCliente, Correo FROM usuarios WHERE nombre_usuario = ? LIMIT 1',
       [username]
     );
     if (!filas || filas.length === 0) return res.status(401).json({ error: 'Credenciales inválidas' });
@@ -319,7 +334,8 @@ app.post('/api/auth/login', async (req, res) => {
       idUsuario: u.idUsuario,
       nombre_usuario: u.nombre_usuario,
       rol: u.rol,
-      idEmpleado: u.idEmpleado || null
+      idEmpleado: u.idEmpleado || null,
+      idCliente: u.idCliente || null
     };
     return res.json({ ok: true, user: req.session.user });
   } catch (error) {
@@ -696,9 +712,9 @@ app.get('/api/users', requerirAutenticacion, requerirAdmin, async (req, res) => 
 // Crear usuario (Admin/Contador/Empleado) con foto opcional
 app.post('/api/users/create', requerirAutenticacion, requerirAdmin, subida.single('foto'), async (req, res) => {
   try {
-    const { username, password, rol = 'Empleado', idEmpleado, correo } = req.body || {};
+    const { username, password, rol = 'Empleado', idEmpleado, idCliente, correo } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: 'username y password requeridos' });
-    const rolValido = ['Administrador','Contador','Empleado'];
+    const rolValido = ['Administrador','Contador','Empleado','Cliente'];
     if (!rolValido.includes(rol)) return res.status(400).json({ error: 'Rol inválido' });
 
     // Validar unicidad de username
@@ -707,19 +723,25 @@ app.post('/api/users/create', requerirAutenticacion, requerirAdmin, subida.singl
 
     // Si se enlaza a empleado, validar que exista
     let idEmpleadoFinal = null;
+    let idClienteFinal = null;
     if (idEmpleado != null && idEmpleado !== '') {
       const [emp] = await pool.query('SELECT idEmpleado FROM empleados WHERE idEmpleado = ? LIMIT 1', [idEmpleado]);
       if (!emp.length) return res.status(400).json({ error: 'Empleado no existe' });
       idEmpleadoFinal = Number(idEmpleado);
     }
+    if (idCliente != null && idCliente !== '') {
+      const [cli] = await pool.query('SELECT idCliente FROM clientes WHERE idCliente = ? LIMIT 1', [idCliente]);
+      if (!cli.length) return res.status(400).json({ error: 'Cliente no existe' });
+      idClienteFinal = Number(idCliente);
+    }
 
     const hash = await bcrypt.hash(password, 10);
     const foto_url = req.file ? `/uploads/${req.file.filename}` : null;
     const [r] = await pool.query(
-      'INSERT INTO usuarios (nombre_usuario, contraseña, rol, idEmpleado, foto_url, Correo) VALUES (?, ?, ?, ?, ?, ?)',
-      [username, hash, rol, idEmpleadoFinal, foto_url, correo || null]
+      'INSERT INTO usuarios (nombre_usuario, contraseña, rol, idEmpleado, idCliente, foto_url, Correo) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [username, hash, rol, idEmpleadoFinal, idClienteFinal, foto_url, correo || null]
     );
-    res.status(201).json({ idUsuario: r.insertId, username, rol, idEmpleado: idEmpleadoFinal, foto_url, correo: correo || null });
+    res.status(201).json({ idUsuario: r.insertId, username, rol, idEmpleado: idEmpleadoFinal, idCliente: idClienteFinal, foto_url, correo: correo || null });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1072,6 +1094,169 @@ app.get('/api/contador/min/materiales', requerirAutenticacion, requerirContador,
     const [filas] = await pool.query('SELECT idMaterial as id, Nombre as nombre FROM materials ORDER BY idMaterial DESC LIMIT 300');
     res.json(filas);
   } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// ==========================
+// Rutas para Cliente
+// ==========================
+
+// Resumen de proyectos del cliente autenticado
+app.get('/api/cliente/proyectos', requerirAutenticacion, requerirCliente, async (req, res) => {
+  const idCliente = req.session?.user?.idCliente;
+  if (!idCliente) return res.status(400).json({ error: 'Usuario sin cliente asociado' });
+  try {
+    const [filas] = await pool.query(`
+      SELECT p.idProyecto, p.Nombre AS Proyecto,
+             (SELECT COUNT(*) FROM empleados e WHERE e.idProyecto = p.idProyecto) AS Empleados,
+             (SELECT COUNT(*) FROM tareas t WHERE t.idProyecto = p.idProyecto) AS Tareas,
+             (SELECT COUNT(*) FROM facturas f WHERE f.idProyecto = p.idProyecto AND f.idCliente = ?) AS Facturas
+      FROM proyectos p
+      WHERE p.idCliente = ?
+      ORDER BY p.idProyecto DESC
+    `, [idCliente, idCliente]);
+    res.json(filas);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Empleados de un proyecto (nombre, foto, especialidad, asistencia) y tareas asignadas
+app.get('/api/cliente/proyectos/:id/empleados', requerirAutenticacion, requerirCliente, async (req, res) => {
+  const idCliente = req.session?.user?.idCliente;
+  const idProyecto = Number(req.params.id);
+  if (!idProyecto) return res.status(400).json({ error: 'ID de proyecto inválido' });
+  try {
+    // Validar que el proyecto pertenece al cliente
+    const [pp] = await pool.query('SELECT 1 FROM proyectos WHERE idProyecto = ? AND idCliente = ? LIMIT 1', [idProyecto, idCliente]);
+    if (!pp.length) return res.status(404).json({ error: 'Proyecto no encontrado' });
+
+    const [empleados] = await pool.query(`
+      SELECT e.idEmpleado, e.Nombre, e.Especialidad, e.Asistencia, e.foto_url
+      FROM empleados e
+      WHERE e.idProyecto = ?
+      ORDER BY e.idEmpleado DESC
+    `, [idProyecto]);
+
+    const [tareas] = await pool.query(`
+      SELECT t.idTarea, t.Descripcion, t.Estado, t.idEmpleado
+      FROM tareas t
+      WHERE t.idProyecto = ?
+      ORDER BY t.idTarea DESC
+    `, [idProyecto]);
+
+    res.json({ empleados, tareas });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Facturas del cliente
+app.get('/api/cliente/facturas', requerirAutenticacion, requerirCliente, async (req, res) => {
+  const idCliente = req.session?.user?.idCliente;
+  try {
+    const [filas] = await pool.query(`
+      SELECT f.idFactura, f.Fecha, f.Valor_total, p.Nombre AS Proyecto
+      FROM facturas f
+      LEFT JOIN proyectos p ON p.idProyecto = f.idProyecto
+      WHERE f.idCliente = ?
+      ORDER BY f.idFactura DESC
+      LIMIT 300
+    `, [idCliente]);
+    res.json(filas);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Pagos del cliente (por sus facturas)
+app.get('/api/cliente/pagos', requerirAutenticacion, requerirCliente, async (req, res) => {
+  const idCliente = req.session?.user?.idCliente;
+  try {
+    const [filas] = await pool.query(`
+      SELECT y.idPago, y.Fecha, y.Monto, y.idFactura
+      FROM pagos y
+      INNER JOIN facturas f ON f.idFactura = y.idFactura
+      WHERE f.idCliente = ?
+      ORDER BY y.idPago DESC
+      LIMIT 300
+    `, [idCliente]);
+    res.json(filas);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PDF de factura para cliente (si la factura es suya)
+app.get('/api/cliente/facturas/:id/pdf', requerirAutenticacion, requerirCliente, async (req, res) => {
+  const id = Number(req.params.id);
+  const idCliente = req.session?.user?.idCliente;
+  if (!id) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    const [rows] = await pool.query(`
+      SELECT f.idFactura, f.Fecha, f.Valor_total,
+             c.Nombre AS Cliente, c.Correo AS CorreoCliente, c.Telefono AS TelefonoCliente,
+             p.Nombre AS Proyecto
+      FROM facturas f
+      LEFT JOIN clientes c ON c.idCliente = f.idCliente
+      LEFT JOIN proyectos p ON p.idProyecto = f.idProyecto
+      WHERE f.idFactura = ? AND f.idCliente = ?
+      LIMIT 1
+    `, [id, idCliente]);
+    if (!rows.length) return res.status(404).json({ error: 'Factura no encontrada' });
+    const factura = rows[0];
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="factura_${id}.pdf"`);
+    const doc = new PDFDocument({ margin: 50 });
+    doc.pipe(res);
+    doc.fontSize(20).text('Factura', { align: 'right' }).moveDown(0.5);
+    doc.fontSize(12)
+      .text('Empresa: BuildSmarts S.A.')
+      .text('NIT: 900.000.000-1')
+      .text('Dirección: Calle 1 # 2-3, Ciudad')
+      .text('Teléfono: +57 300 000 0000').moveDown();
+    doc.fontSize(12)
+      .text(`Factura N°: ${factura.idFactura}`)
+      .text(`Fecha: ${new Date(factura.Fecha).toISOString().slice(0,10)}`)
+      .text(`Proyecto: ${factura.Proyecto || '—'}`).moveDown();
+    doc.fontSize(12)
+      .text('Cliente:', { underline: true })
+      .text(`Nombre: ${factura.Cliente || '—'}`)
+      .text(`Correo: ${factura.CorreoCliente || '—'}`)
+      .text(`Teléfono: ${factura.TelefonoCliente || '—'}`).moveDown();
+    doc.fontSize(12)
+      .text('Concepto:', { underline: true })
+      .text('Servicios/Materiales facturados').moveDown();
+    doc.fontSize(14)
+      .text(`Valor Total: $ ${Number(factura.Valor_total).toLocaleString('es-CO', { minimumFractionDigits: 2 })}`, { align: 'right' })
+      .moveDown(2);
+    doc.fontSize(10).fillColor('#666').text('Gracias por su confianza.', { align: 'center' });
+    doc.end();
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Crear cliente y usuario (opcional)
+app.post('/api/clientes/crear-con-usuario', requerirAutenticacion, requerirAdmin, async (req, res) => {
+  const { Nombre, Telefono, Correo, crear_usuario, nombre_usuario, contraseña } = req.body || {};
+  if (!Nombre) return res.status(400).json({ error: 'Nombre es obligatorio' });
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [cli] = await conn.query('INSERT INTO clientes (Nombre, Telefono, Correo) VALUES (?, ?, ?)', [Nombre, Telefono || null, Correo || null]);
+    const idCliente = cli.insertId;
+    let idUsuario = null;
+    const deberiaCrearUsuario = crear_usuario === true || crear_usuario === 'true' || crear_usuario === '1' || crear_usuario === 1 || crear_usuario === 'on';
+    if (deberiaCrearUsuario) {
+      if (!nombre_usuario || !contraseña) throw new Error('Para crear usuario se requieren nombre_usuario y contraseña');
+      const [ex] = await conn.query('SELECT 1 FROM usuarios WHERE nombre_usuario = ? LIMIT 1', [nombre_usuario]);
+      if (ex.length) throw new Error('El nombre de usuario ya existe');
+      const hash = await bcrypt.hash(String(contraseña), 10);
+      const [u] = await conn.query(
+        'INSERT INTO usuarios (nombre_usuario, contraseña, rol, idEmpleado, idCliente, Correo) VALUES (?, ?, "Cliente", NULL, ?, ?)',
+        [nombre_usuario, hash, idCliente, Correo || null]
+      );
+      idUsuario = u.insertId;
+    }
+    await conn.commit();
+    res.status(201).json({ idCliente, idUsuario });
+  } catch (e) {
+    try { await conn.rollback(); } catch (_) {}
+    res.status(500).json({ error: e.message });
+  } finally {
+    conn.release();
+  }
 });
 
 // Ensure unknown /api routes return JSON instead of HTML

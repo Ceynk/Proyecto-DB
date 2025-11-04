@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Portal del Cliente</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand"><span class="brand-text">Portal del Cliente</span></div>
+      <button class="btn-icon" id="btnSalirCli" title="Cerrar sesión" aria-label="Cerrar sesión">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M15 12H3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M11 8L15 12L11 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M9 3H17C18.1046 3 19 3.89543 19 5V19C19 20.1046 18.1046 21 17 21H9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="container" style="padding: 1.5rem 0;">
+    <main class="main">
+      <div class="panel">
+        <div class="panel-header">
+          <h1>Mis Proyectos</h1>
+        </div>
+        <div id="listaProyectos" class="table-wrap" style="padding:.75rem;"></div>
+      </div>
+
+      <div class="panel" id="panelProyecto" style="display:none; margin-top:1rem;">
+        <div class="panel-header">
+          <h1 id="tituloProyecto">Proyecto</h1>
+        </div>
+        <div class="form-wrap">
+          <div class="form-header"><h3 class="form-heading">Equipo</h3></div>
+          <div id="listaEmpleados" class="table-wrap" style="padding:.75rem;"></div>
+        </div>
+        <div class="form-wrap">
+          <div class="form-header"><h3 class="form-heading">Tareas</h3></div>
+          <div id="listaTareas" class="table-wrap" style="padding:.75rem;"></div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:1rem;">
+        <div class="panel-header"><h1>Facturas</h1></div>
+        <div id="listaFacturasCli" class="table-wrap" style="padding:.75rem;"></div>
+      </div>
+
+      <div class="panel" style="margin-top:1rem;">
+        <div class="panel-header"><h1>Pagos</h1></div>
+        <div id="listaPagosCli" class="table-wrap" style="padding:.75rem;"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/cliente.js"></script>
+</body>
+</html>
