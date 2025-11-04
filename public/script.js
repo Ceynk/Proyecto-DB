@@ -170,9 +170,11 @@ async function solicitarAPI(ruta, opciones = {}) {
   return cuerpo;
 }
 
+// Menú de entidades para Administrador (excluye módulos del Contador)
 const entidades = [
   'empleado', 'cliente', 'proyecto', 'apartamento', 'piso', 'material',
-  'inventario', 'ingreso', 'gasto', 'pago', 'tarea', 'turno', 'factura'
+  // Exclusivo del Contador: 'inventario', 'ingreso', 'gasto', 'pago', 'factura'
+  'tarea', 'turno'
 ];
 
 let entidadActual = 'empleado';
@@ -258,11 +260,7 @@ function renderizarTabla(filas) {
     return;
   }
 
-  // Vista especial tipo catálogo para Inventario
-  if (entidadActual === 'inventario') {
-    renderizarInventarioCatalogo(filas);
-    return;
-  }
+  // Inventario es exclusivo del Contador; no se renderiza catálogo aquí
 
   const tabla = crear('table');
   const thead = crear('thead');

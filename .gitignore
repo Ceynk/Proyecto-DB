@@ -26,3 +26,7 @@ Thumbs.db
 # Uploads and generated files
 uploads/
 *.sqlite
+docs/diagrama-componentes.puml
+docs/diagrama-er.puml
+docs/diagrama.puml
+docs/diagrama-secuencia-auth.puml

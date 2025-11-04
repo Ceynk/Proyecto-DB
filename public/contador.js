@@ -14,7 +14,8 @@ async function verificarSesion() {
     const me = await api('/api/auth/me');
     usuarioActual = me.user;
     if (!usuarioActual) throw new Error('No autenticado');
-    if (usuarioActual.rol !== 'Contador' && usuarioActual.rol !== 'Administrador') {
+    // Acceso exclusivo del Contador
+    if (usuarioActual.rol !== 'Contador') {
       window.location.href = '/';
       return;
     }

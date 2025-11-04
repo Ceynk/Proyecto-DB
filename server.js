@@ -290,7 +290,8 @@ const requerirEmpleado = (req, res, next) => {
 
 const requerirContador = (req, res, next) => {
   const rol = req.session?.user?.rol;
-  if (rol === 'Contador' || rol === 'Administrador') return next();
+  // Exclusivo del rol Contador (el Administrador ya tiene su propio panel y rutas)
+  if (rol === 'Contador') return next();
   return res.status(403).json({ error: 'Requiere rol Contador' });
 };
 
@@ -346,10 +347,14 @@ app.get('/api/entities', requerirAutenticacion, requerirAdmin, (req, res) => {
 });
 
 // Generic list with optional text search (?q=)
+// Entidades exclusivas del contador: no deben estar disponibles en CRUD genérico del admin
+const entidadesExclusivasContador = new Set(['ingreso', 'gasto', 'pago', 'factura', 'inventario']);
+
 app.get('/api/list/:entity', requerirAutenticacion, requerirAdmin, async (req, res) => {
   const entidad = String(req.params.entity || '').toLowerCase();
   const definicion = entidades[entidad];
   if (!definicion) return res.status(400).json({ error: 'Entidad no valida' });
+  if (entidadesExclusivasContador.has(entidad)) return res.status(403).json({ error: 'Entidad exclusiva del Contador' });
   const busqueda = (req.query.q || '').toString().trim();
 
   try {
@@ -394,6 +399,7 @@ app.post('/api/create/:entity', requerirAutenticacion, requerirAdmin, async (req
   const definicion = entidades[entidad];
   const cols = columnasCrear[entidad];
   if (!definicion || !cols) return res.status(400).json({ error: 'Entidad no valida' });
+  if (entidadesExclusivasContador.has(entidad)) return res.status(403).json({ error: 'Entidad exclusiva del Contador' });
   try {
     const values = cols.map((c) => (req.body && Object.prototype.hasOwnProperty.call(req.body, c)) ? req.body[c] : null);
     const placeholders = cols.map(() => '?').join(', ');
@@ -412,6 +418,7 @@ app.put('/api/update/:entity/:id', requerirAutenticacion, requerirAdmin, async (
   const cols = columnasCrear[entidad];
   const id = req.params.id;
   if (!definicion || !cols) return res.status(400).json({ error: 'Entidad no valida' });
+  if (entidadesExclusivasContador.has(entidad)) return res.status(403).json({ error: 'Entidad exclusiva del Contador' });
   if (!id) return res.status(400).json({ error: 'ID requerido' });
   try {
     const toUpdate = Object.keys(req.body || {}).filter((k) => cols.includes(k));
@@ -433,6 +440,7 @@ app.delete('/api/delete/:entity/:id', requerirAutenticacion, requerirAdmin, asyn
   const definicion = entidades[entidad];
   const id = req.params.id;
   if (!definicion) return res.status(400).json({ error: 'Entidad no valida' });
+  if (entidadesExclusivasContador.has(entidad)) return res.status(403).json({ error: 'Entidad exclusiva del Contador' });
   if (!id) return res.status(400).json({ error: 'ID requerido' });
   try {
     // Eliminación segura con limpieza de referencias para empleado
