@@ -1276,10 +1276,7 @@ app.post('/api/clientes/crear-con-usuario', requerirAutenticacion, requerirAdmin
 app.use('/api', (req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada', path: req.originalUrl });
 });
-
-// ---- INVENTARIO: endpoints agregados para resumen y tarjetas ----
-// Calcula el stock por material en base a los movimientos del inventario
-// por convención: entradas (+): 'entrada','ingreso','compra' | salidas (-): 'salida','consumo','uso'
+// Función para calcular stock usando CASE
 function stockCaseExpr(prefix = 'i') {
   return `SUM(CASE 
     WHEN LOWER(${prefix}.tipo_movimiento) IN ('entrada','ingreso','compra') THEN ${prefix}.cantidad
