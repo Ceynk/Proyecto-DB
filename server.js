@@ -18,7 +18,6 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(cors());
-// Handle CORS preflight for all routes (needed for POST with application/json)
 app.options('*', cors());
 app.use(express.json());
 
@@ -46,8 +45,6 @@ if (!fs.existsSync(dirSubidas)) {
 }
 app.use('/uploads', express.static(dirSubidas));
 
-// Create a MySQL connection pool
-// Support both custom DB_* env vars and Railway defaults (MYSQLHOST, MYSQLPORT, MYSQLUSER, MYSQLPASSWORD, MYSQLDATABASE)
 const pool = mysql.createPool({
   host: process.env.DB_HOST || process.env.MYSQLHOST || process.env.MYSQL_HOST,
   port: Number(process.env.DB_PORT || process.env.MYSQLPORT || process.env.MYSQL_PORT || 3306),
@@ -1278,6 +1275,97 @@ app.post('/api/clientes/crear-con-usuario', requerirAutenticacion, requerirAdmin
 // Ensure unknown /api routes return JSON instead of HTML
 app.use('/api', (req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada', path: req.originalUrl });
+});
+
+// ---- INVENTARIO: endpoints agregados para resumen y tarjetas ----
+// Calcula el stock por material en base a los movimientos del inventario
+// por convención: entradas (+): 'entrada','ingreso','compra' | salidas (-): 'salida','consumo','uso'
+function stockCaseExpr(prefix = 'i') {
+  return `SUM(CASE 
+    WHEN LOWER(${prefix}.tipo_movimiento) IN ('entrada','ingreso','compra') THEN ${prefix}.cantidad
+    WHEN LOWER(${prefix}.tipo_movimiento) IN ('salida','consumo','uso') THEN -${prefix}.cantidad
+    ELSE 0 END)`;
+}
+
+// Resumen general
+app.get('/api/inventory/overview', async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT 
+        COUNT(*) AS materiales,
+        SUM(CASE WHEN IFNULL(stock, 0) > 0 THEN 1 ELSE 0 END) AS disponibles,
+        SUM(CASE WHEN IFNULL(stock, 0) <= 0 THEN 1 ELSE 0 END) AS agotados
+      FROM (
+        SELECT m.idMaterial,
+               ${stockCaseExpr('i')} AS stock
+        FROM materials m
+        LEFT JOIN inventarios i ON i.idMaterial = m.idMaterial
+        GROUP BY m.idMaterial
+      ) t;
+    `);
+    res.json(rows[0] || { materiales: 0, disponibles: 0, agotados: 0 });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Tarjetas por material (agregado + filtro por nombre)
+app.get('/api/inventory/cards', async (req, res) => {
+  const q = (req.query.q || '').toString().trim();
+  try {
+    const params = [];
+    let where = '';
+    if (q) { where = 'WHERE m.Nombre LIKE ?'; params.push(`%${q}%`); }
+    const sql = `
+      SELECT 
+        m.idMaterial,
+        m.Nombre,
+        m.costo_unitario,
+        m.tipo,
+        ${stockCaseExpr('i')} AS stock,
+        COUNT(i.idInventario) AS movimientos
+      FROM materials m
+      LEFT JOIN inventarios i ON i.idMaterial = m.idMaterial
+      ${where}
+      GROUP BY m.idMaterial, m.Nombre, m.costo_unitario, m.tipo
+      ORDER BY m.idMaterial DESC
+      LIMIT 200
+    `;
+    const [rows] = await pool.query(sql, params);
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Detalle de un material: info + movimientos
+app.get('/api/inventory/material/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });
+  try {
+    const [infoRows] = await pool.query(
+      `SELECT m.idMaterial, m.Nombre, m.costo_unitario, m.tipo,
+              ${stockCaseExpr('i')} AS stock,
+              COUNT(i.idInventario) AS movimientos
+       FROM materials m
+       LEFT JOIN inventarios i ON i.idMaterial = m.idMaterial
+       WHERE m.idMaterial = ?
+       GROUP BY m.idMaterial, m.Nombre, m.costo_unitario, m.tipo`,
+      [id]
+    );
+    const [movRows] = await pool.query(
+      `SELECT i.idInventario, i.tipo_movimiento, i.cantidad, i.fecha, p.Nombre AS Proyecto
+       FROM inventarios i
+       LEFT JOIN proyectos p ON p.idProyecto = i.idProyecto
+       WHERE i.idMaterial = ?
+       ORDER BY i.fecha DESC, i.idInventario DESC
+       LIMIT 500`,
+      [id]
+    );
+    res.json({ material: infoRows[0] || null, movimientos: movRows });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 const PORT = Number(process.env.PORT || 8080);

@@ -143,7 +143,6 @@ if (btnPanelAdmin) {
   });
 }
 
-// Admin create form
 const envoltorioCrearAdmin = document.getElementById('adminCreateWrap');
 const formularioCrearAdmin = document.getElementById('adminCreateForm');
 const mensajeCrearAdmin = document.getElementById('adminCreateMsg');
@@ -185,7 +184,6 @@ if (botonMenuMovil && barraLateral) {
     barraLateral.classList.toggle('mobile-open');
   });
   
-  // Close sidebar when clicking a menu item on mobile
   barraLateral.addEventListener('click', (e) => {
     if (e.target.tagName === 'BUTTON' && window.innerWidth < 768) {
       barraLateral.classList.remove('mobile-open');
@@ -193,7 +191,6 @@ if (botonMenuMovil && barraLateral) {
   });
 }
 
-// Refresh button
 if (botonActualizar) {
   botonActualizar.addEventListener('click', () => {
     cargarDatos();
@@ -207,14 +204,11 @@ function crear(etiqueta, clase, texto) {
   return el;
 }
 
-// Helpers para sanitizar entradas según el tipo deseado
 function sanitizarLetrasYEspacios(value) {
-  // Permite letras (incluye acentos) y espacios
   return value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '');
 }
 
 function sanitizarDigitos(value) {
-  // Solo dígitos (el teléfono no admite letras ni signos)
   return value.replace(/\D/g, '');
 }
 
@@ -523,7 +517,6 @@ async function cargarDatos() {
 }
 
 buscarEl.addEventListener('input', () => {
-  // simple debounce
   if (buscarEl._t) clearTimeout(buscarEl._t);
   buscarEl._t = setTimeout(cargarDatos, 300);
 });
@@ -718,7 +711,135 @@ if (btnMarcarAsistencia) {
 
 verificarAutenticacion();
 
-// Define form fields for each entity 
+// ====== Inventario (dashboard) ======
+
+function formateaMoneda(valor) {
+  if (valor == null || isNaN(Number(valor))) return '$0';
+  try {
+    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(Number(valor));
+  } catch {
+    return '$' + Number(valor).toFixed(2);
+  }
+}
+
+function formateaNumero(n) {
+  try { return new Intl.NumberFormat('es-CO').format(Number(n || 0)); } catch { return String(n || 0); }
+}
+
+async function cargarInventario() {
+  const q = buscarEl.value.trim();
+  contenedorTabla.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)">Cargando inventario...</div>';
+  try {
+    const [ovwResp, cardsResp] = await Promise.all([
+      fetch(`${baseAPI}/api/inventory/overview`, { credentials: 'include' }),
+      fetch(`${baseAPI}/api/inventory/cards${q ? `?q=${encodeURIComponent(q)}` : ''}`, { credentials: 'include' })
+    ]);
+    const overview = await ovwResp.json();
+    const cards = await cardsResp.json();
+    renderInventario(overview, cards);
+  } catch (e) {
+    contenedorTabla.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--error)">Error: ${e.message}</div>`;
+  }
+}
+
+function renderInventario(overview, items) {
+  const wrap = document.createElement('div');
+  wrap.className = 'inv-wrap';
+
+  // Resumen superior
+  const resumen = document.createElement('div');
+  resumen.className = 'inv-summary';
+  resumen.innerHTML = `
+    <div class="inv-kpi"><div class="inv-kpi-num">${formateaNumero(overview?.materiales || 0)}</div><div class="inv-kpi-label">Materiales</div></div>
+    <div class="inv-kpi"><div class="inv-kpi-num">${formateaNumero(overview?.disponibles || 0)}</div><div class="inv-kpi-label">Disponibles</div></div>
+    <div class="inv-kpi"><div class="inv-kpi-num">${formateaNumero(overview?.agotados || 0)}</div><div class="inv-kpi-label">Agotados</div></div>
+  `;
+  wrap.appendChild(resumen);
+
+  // Grid de tarjetas
+  const grid = document.createElement('div');
+  grid.className = 'inv-grid';
+  (items || []).forEach((it) => {
+    const agotado = Number(it.stock || 0) <= 0;
+    const card = document.createElement('div');
+    card.className = 'inv-card';
+    card.innerHTML = `
+      <div class="inv-card-img">
+        <img src="https://images.unsplash.com/photo-1556735979-89b03e0b5b51?auto=format&fit=crop&w=900&q=60" alt="${it.Nombre}">
+        ${agotado ? '<span class="inv-badge inv-badge-warn">Agotado</span>' : '<span class="inv-badge inv-badge-ok">Disponible</span>'}
+      </div>
+      <div class="inv-card-body">
+        <h3 class="inv-card-title">${it.Nombre}</h3>
+        <ul class="inv-meta">
+          <li><span>Cantidad:</span><b>${formateaNumero(it.stock || 0)} unidades</b></li>
+          <li><span>Costo Unitario:</span><b>${formateaMoneda(it.costo_unitario)}</b></li>
+          <li><span>Tipo:</span><b>${it.tipo || '-'}</b></li>
+          <li><span>Movimientos:</span><b>${formateaNumero(it.movimientos)} registros</b></li>
+        </ul>
+        <button class="inv-btn-detalles" data-id="${it.idMaterial}">Ver detalles</button>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+  wrap.appendChild(grid);
+
+  // Sección de detalle
+  const detail = document.createElement('div');
+  detail.className = 'inv-detail';
+  detail.id = 'invDetail';
+  wrap.appendChild(detail);
+
+  contenedorTabla.innerHTML = '';
+  contenedorTabla.appendChild(wrap);
+
+  // Delegación para botón "Ver detalles"
+  contenedorTabla.querySelectorAll('.inv-btn-detalles').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-id');
+      await cargarDetalleMaterial(id);
+      // scroll al detalle
+      document.getElementById('invDetail')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+}
+
+async function cargarDetalleMaterial(id) {
+  const cont = document.getElementById('invDetail');
+  if (!cont) return;
+  cont.innerHTML = '<div class="inv-detail-loading">Cargando detalle...</div>';
+  try {
+  const resp = await fetch(`${baseAPI}/api/inventory/material/${id}`, { credentials: 'include' });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Error');
+    const m = data.material || {};
+    const movs = data.movimientos || [];
+    let html = `
+      <div class="inv-detail-head">
+        <div>
+          <h3>${m.Nombre || 'Material'}</h3>
+          <div class="inv-detail-sub">Stock actual: <b>${formateaNumero(m.stock || 0)}</b> — Costo unitario: <b>${formateaMoneda(m.costo_unitario)}</b> — Tipo: <b>${m.tipo || '-'}</b></div>
+        </div>
+        <button class="inv-btn-cerrar" id="cerrarDetalle">Cerrar</button>
+      </div>
+    `;
+    if (!movs.length) {
+      html += '<div class="inv-detail-empty">No hay movimientos para este material.</div>';
+    } else {
+      html += '<div class="table-wrap">';
+      html += '<table><thead><tr><th>ID</th><th>Movimiento</th><th>Cantidad</th><th>Fecha</th><th>Proyecto</th></tr></thead><tbody>';
+      movs.forEach((r) => {
+        html += `<tr><td>${r.idInventario}</td><td>${r.tipo_movimiento}</td><td>${formateaNumero(r.cantidad)}</td><td>${r.fecha || ''}</td><td>${r.Proyecto || ''}</td></tr>`;
+      });
+      html += '</tbody></table></div>';
+    }
+    cont.innerHTML = html;
+    const cerrar = document.getElementById('cerrarDetalle');
+    if (cerrar) cerrar.addEventListener('click', () => { cont.innerHTML = ''; });
+  } catch (e) {
+    cont.innerHTML = `<div class="inv-detail-error">Error: ${e.message}</div>`;
+  }
+}
+
 const camposFormulario = {
   cliente: [
     { name: 'Nombre', type: 'text', req: true, pattern: '[A-Za-zÁÉÍÓÚáéíóúÑñ\\s]+' },
@@ -768,7 +889,7 @@ const camposFormulario = {
     { name: 'idEmpleado', type: 'select', source: '/api/min/empleados' }
   ],
   inventario: [
-    { name: 'tipo_movimiento', type: 'text' },
+    { name: 'tipo_movimiento', type: 'select', options: ['Entrada','Salida'] },
     { name: 'cantidad', type: 'number', req: true },
     { name: 'fecha', type: 'date', req: true },
     { name: 'idMaterial', type: 'select', source: '/api/min/materiales' },
@@ -829,7 +950,7 @@ async function construirFormulario() {
             op.value = item.id;
             selectEl.appendChild(op);
           });
-        } catch (e) { /* ignorar en simple */ }
+        } catch (e) {  }
       }
       formularioDinamico.appendChild(selectEl);
     } else {
@@ -839,12 +960,9 @@ async function construirFormulario() {
       if (f.step) inputEl.step = f.step;
       if (f.req) inputEl.required = true;
 
-      // Reglas de validación en vivo según tipo
       const nombreEnMinusculas = (f.name || '').toLowerCase();
       if (inputEl.type === 'email') {
-        // Sin sanitización adicional para email
       } else if (inputEl.type === 'tel' || nombreEnMinusculas.includes('telefono')) {
-        // Solo dígitos en teléfono, exactamente 10
         inputEl.setAttribute('pattern', '\\d{10}');
         inputEl.setAttribute('inputmode', 'numeric');
         inputEl.setAttribute('maxlength', '10');
@@ -856,7 +974,6 @@ async function construirFormulario() {
           if (inputEl.value !== limpio) inputEl.value = limpio;
         });
       } else if (inputEl.type === 'text') {
-        // Si no hay un patrón específico, aceptar solo letras y espacios
         if (f.pattern) {
           inputEl.setAttribute('pattern', f.pattern);
         } else {
