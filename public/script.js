@@ -120,11 +120,18 @@ function inicializarControlesFoto() {
   inputSubidaFoto = document.createElement('input');
   inputSubidaFoto.type = 'file';
   inputSubidaFoto.accept = 'image/*';
+  inputSubidaFoto.className = 'file-input';
   inputSubidaFoto.style.maxWidth = '100%';
 
   btnSubirFoto = document.createElement('button');
   btnSubirFoto.type = 'button';
-  btnSubirFoto.textContent = 'Subir imagen';
+  btnSubirFoto.className = 'btn-primary';
+  btnSubirFoto.innerHTML = `
+    <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Subir imagen
+  `;
   btnSubirFoto.style.marginLeft = '.5rem';
 
   mensajeFoto = document.createElement('div');
@@ -295,6 +302,58 @@ function detectarClaveId(filas) {
   return idLike || keys[0];
 }
 
+// Función para formatear nombres de columnas correctamente
+function formatearNombreColumna(nombre) {
+  if (!nombre) return '';
+  
+  // Diccionario de nombres específicos
+  const nombresEspeciales = {
+    'idEmpleado': 'ID Empleado',
+    'idCliente': 'ID Cliente',
+    'idProyecto': 'ID Proyecto',
+    'idMaterial': 'ID Material',
+    'idAsistencia': 'ID Asistencia',
+    'idUsuario': 'ID Usuario',
+    'nombreCompleto': 'Nombre Completo',
+    'correo': 'Correo',
+    'telefono': 'Teléfono',
+    'especialidad': 'Especialidad',
+    'fotoUrl': 'Foto',
+    'foto_url': 'Foto',
+    'fechaInicio': 'Fecha Inicio',
+    'fechaFin': 'Fecha Fin',
+    'nombreProyecto': 'Nombre Proyecto',
+    'nombreMaterial': 'Nombre Material',
+    'costoTotal': 'Costo Total',
+    'estadoProyecto': 'Estado',
+    'fechaRegistro': 'Fecha Registro',
+    'horaEntrada': 'Hora Entrada',
+    'horaSalida': 'Hora Salida',
+    'usuario': 'Usuario',
+    'rol': 'Rol',
+    'fechaCreacion': 'Fecha Creación'
+  };
+  
+  // Si existe en el diccionario, usar ese nombre
+  if (nombresEspeciales[nombre]) {
+    return nombresEspeciales[nombre];
+  }
+  
+  // Si empieza con 'id', formatear como "ID Palabra"
+  if (/^id[A-Z]/.test(nombre)) {
+    const resto = nombre.substring(2);
+    return 'ID ' + resto.replace(/([A-Z])/g, ' $1').trim();
+  }
+  
+  // Convertir camelCase a texto con espacios
+  let resultado = nombre.replace(/([A-Z])/g, ' $1').trim();
+  
+  // Capitalizar primera letra
+  resultado = resultado.charAt(0).toUpperCase() + resultado.slice(1);
+  
+  return resultado;
+}
+
 function renderizarTabla(filas) {
   contenedorTabla.innerHTML = '';
   if (!filas || filas.length === 0) {
@@ -308,7 +367,7 @@ function renderizarTabla(filas) {
   const thead = crear('thead');
   const htr = crear('tr');
   const encabezados = Object.keys(filas[0]);
-  encabezados.forEach((h) => htr.appendChild(crear('th', '', h)));
+  encabezados.forEach((h) => htr.appendChild(crear('th', '', formatearNombreColumna(h))));
   if (usuarioActual?.rol === 'Administrador') {
     htr.appendChild(crear('th', '', 'Acciones'));
   }
@@ -336,7 +395,9 @@ function renderizarTabla(filas) {
     });
   if (usuarioActual?.rol === 'Administrador') {
       const tdAcciones = crear('td');
-      const btnSeleccionarId = crear('button', '', 'Seleccionar ID');
+      tdAcciones.style.whiteSpace = 'nowrap';
+      const btnSeleccionarId = crear('button', '', 'Seleccionar');
+      btnSeleccionarId.className = 'btn-table-action';
       btnSeleccionarId.addEventListener('click', () => {
         if (claveId) {
           const idVal = String(r[claveId]);
@@ -351,7 +412,11 @@ function renderizarTabla(filas) {
             entradaIdActualizacion.value = idVal;
           }
         }
-        mensajeActualizacion.textContent = `ID seleccionado: ${r[claveId]}`;
+        mensajeActualizacion.style.color = 'var(--success)';
+        mensajeActualizacion.textContent = `✓ ID ${r[claveId]} seleccionado`;
+        setTimeout(() => {
+          mensajeActualizacion.style.color = '';
+        }, 3000);
       });
       tdAcciones.appendChild(btnSeleccionarId);
       tr.appendChild(tdAcciones);
