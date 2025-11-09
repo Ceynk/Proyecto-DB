@@ -1,3 +1,51 @@
+// ========================================
+// Funcionalidad de Tema (Modo Oscuro/Claro)
+// ========================================
+const themeToggle = document.getElementById('themeToggle');
+const iconLight = document.getElementById('iconLight');
+const iconDark = document.getElementById('iconDark');
+
+// Cargar tema guardado o usar el del sistema
+function initTheme() {
+  const savedTheme = localStorage.getItem('theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  
+  if (savedTheme === 'light' || (!savedTheme && !prefersDark)) {
+    setTheme('light');
+  } else {
+    setTheme('dark');
+  }
+}
+
+function setTheme(theme) {
+  if (theme === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+    iconLight.style.display = 'none';
+    iconDark.style.display = 'block';
+    localStorage.setItem('theme', 'light');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+    iconLight.style.display = 'block';
+    iconDark.style.display = 'none';
+    localStorage.setItem('theme', 'dark');
+  }
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  setTheme(currentTheme === 'light' ? 'dark' : 'light');
+}
+
+if (themeToggle) {
+  themeToggle.addEventListener('click', toggleTheme);
+}
+
+// Inicializar tema al cargar
+initTheme();
+
+// ========================================
+// Variables de elementos del DOM
+// ========================================
 const listaEntidadesEl = document.getElementById('entidades');
 const tituloEl = document.getElementById('titulo');
 const buscarEl = document.getElementById('buscar');
@@ -292,7 +340,6 @@ function renderizarTabla(filas) {
       btnSeleccionarId.addEventListener('click', () => {
         if (claveId) {
           const idVal = String(r[claveId]);
-          // Ensure the ID exists in the dropdown
           if (entradaIdActualizacion) {
             let opt = Array.from(entradaIdActualizacion.options).find(o => o.value === idVal);
             if (!opt) {
