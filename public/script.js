@@ -770,6 +770,18 @@ function obtenerPlural(nombre) {
   return mapaPlural[nombre] || `${nombre}s`;
 }
 
+// No todos los recursos tienen endpoint /api/min/* en el backend.
+// Para evitar 404 innecesarios en la consola, solo usaremos /api/min
+// para las entidades que sabemos que están soportadas.
+const entidadesConMin = new Set([
+  'empleado',
+  'cliente',
+  'proyecto',
+  'material',
+  'factura' // usado para seleccionar pagos
+  // Nota: apartamentos, pisos, tareas, turnos generalmente no tienen /min
+]);
+
 function textoParaOpcionItem(item) {
   const id = item.id ?? item.ID ?? item.Id ?? item.idEmpleado ?? item.idCliente ?? item.idProyecto ?? item.idMaterial ?? item.idFactura ?? item.idTurno ?? item.idTarea ?? item.idInventario ?? item.idIngreso ?? item.idGasto ?? item.idPago;
   const candidates = [
@@ -793,13 +805,15 @@ async function cargarOpcionesActualizacion() {
   const plural = obtenerPlural(entidadActual);
   let elementos = [];
   try {
-    elementos = await solicitarAPI(`/api/min/${plural}`);
-  } catch (_) {
-    try {
+    if (entidadesConMin.has(entidadActual)) {
+      elementos = await solicitarAPI(`/api/min/${plural}`);
+    } else {
       elementos = await solicitarAPI(`/api/list/${entidadActual}`);
-    } catch (_) {
-      elementos = [];
     }
+  } catch (_) {
+    // Fallback por si el backend cambia
+    try { elementos = await solicitarAPI(`/api/list/${entidadActual}`); }
+    catch (_) { elementos = []; }
   }
   // Normalize to array of objects with id and nombre-ish
   if (!Array.isArray(elementos)) elementos = [];
