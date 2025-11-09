@@ -37,14 +37,16 @@ async function cargarResumenProyectos() {
     const lista = await api('/api/contador/proyectos-resumen');
     if (!lista.length) { cont.innerHTML = '<div style="padding:1rem;color:var(--text-muted);">Sin proyectos</div>'; return; }
     const tabla = document.createElement('table');
+    tabla.className = 'data-table';
     const thead = document.createElement('thead');
     const trh = document.createElement('tr');
-    ['ID','Proyecto','Cliente','Pisos','Apartamentos'].forEach(h => { const th=document.createElement('th'); th.textContent=h; trh.appendChild(th); });
+    const headers = ['ID','Proyecto','Cliente','Pisos','Apartamentos'];
+    headers.forEach(h => { const th=document.createElement('th'); th.textContent=h; th.scope='col'; trh.appendChild(th); });
     thead.appendChild(trh);
     const tbody = document.createElement('tbody');
     lista.forEach(p => {
       const tr = document.createElement('tr');
-      [p.idProyecto, p.Proyecto, p.Cliente, p.Pisos, p.Apartamentos].forEach(v => { const td=document.createElement('td'); td.textContent = v==null?'':String(v); tr.appendChild(td); });
+      [p.idProyecto, p.Proyecto, p.Cliente, p.Pisos, p.Apartamentos].forEach((v,i) => { const td=document.createElement('td'); td.setAttribute('data-label', headers[i]); td.textContent = v==null?'':String(v); tr.appendChild(td); });
       tbody.appendChild(tr);
     });
     tabla.appendChild(thead); tabla.appendChild(tbody);
@@ -81,14 +83,16 @@ async function cargarInventario() {
     const lista = await api(`/api/contador/inventario${q ? `?q=${encodeURIComponent(q)}` : ''}`);
     if (!lista.length) { cont.innerHTML = '<div style="padding:1rem;color:var(--text-muted);">Sin registros</div>'; return; }
     const tabla = document.createElement('table');
+    tabla.className = 'data-table';
     const thead = document.createElement('thead');
     const trh = document.createElement('tr');
-    ['ID','Tipo','Cantidad','Fecha','Material','Proyecto'].forEach(h => { const th=document.createElement('th'); th.textContent=h; trh.appendChild(th); });
+    const headers = ['ID','Tipo','Cantidad','Fecha','Material','Proyecto'];
+    headers.forEach(h => { const th=document.createElement('th'); th.textContent=h; th.scope='col'; trh.appendChild(th); });
     thead.appendChild(trh);
     const tbody = document.createElement('tbody');
     lista.forEach(r => {
       const tr = document.createElement('tr');
-      [r.idInventario, r.tipo_movimiento, r.cantidad, r.fecha, r.Material, r.Proyecto].forEach((v,i) => { const td=document.createElement('td'); td.textContent = v==null?'':String(v); tr.appendChild(td); });
+      [r.idInventario, r.tipo_movimiento, r.cantidad, r.fecha, r.Material, r.Proyecto].forEach((v,i) => { const td=document.createElement('td'); td.setAttribute('data-label', headers[i]); td.textContent = v==null?'':String(v); tr.appendChild(td); });
       tbody.appendChild(tr);
     });
     tabla.appendChild(thead); tabla.appendChild(tbody);
@@ -103,19 +107,21 @@ async function cargarFacturas() {
     const lista = await api('/api/contador/facturas');
     if (!lista.length) { cont.innerHTML = '<div style="padding:1rem;color:var(--text-muted);">Sin facturas</div>'; return; }
     const tabla = document.createElement('table');
+    tabla.className = 'data-table';
     const thead = document.createElement('thead');
     const trh = document.createElement('tr');
-    ['ID','Fecha','Cliente','Proyecto','Total','PDF'].forEach(h => { const th=document.createElement('th'); th.textContent=h; trh.appendChild(th); });
+    const headers = ['ID','Fecha','Cliente','Proyecto','Total','PDF'];
+    headers.forEach(h => { const th=document.createElement('th'); th.textContent=h; th.scope='col'; trh.appendChild(th); });
     thead.appendChild(trh);
     const tbody = document.createElement('tbody');
     lista.forEach(f => {
       const tr = document.createElement('tr');
-      const tdId = document.createElement('td'); tdId.textContent = f.idFactura; tr.appendChild(tdId);
-      const tdFecha = document.createElement('td'); tdFecha.textContent = f.Fecha; tr.appendChild(tdFecha);
-      const tdCliente = document.createElement('td'); tdCliente.textContent = f.Cliente || '—'; tr.appendChild(tdCliente);
-      const tdProyecto = document.createElement('td'); tdProyecto.textContent = f.Proyecto || '—'; tr.appendChild(tdProyecto);
-      const tdTotal = document.createElement('td'); tdTotal.textContent = `$ ${Number(f.Valor_total).toLocaleString('es-CO',{minimumFractionDigits:2})}`; tr.appendChild(tdTotal);
-      const tdPdf = document.createElement('td');
+      const tdId = document.createElement('td'); tdId.setAttribute('data-label', headers[0]); tdId.textContent = f.idFactura; tr.appendChild(tdId);
+      const tdFecha = document.createElement('td'); tdFecha.setAttribute('data-label', headers[1]); tdFecha.textContent = f.Fecha; tr.appendChild(tdFecha);
+      const tdCliente = document.createElement('td'); tdCliente.setAttribute('data-label', headers[2]); tdCliente.textContent = f.Cliente || '—'; tr.appendChild(tdCliente);
+      const tdProyecto = document.createElement('td'); tdProyecto.setAttribute('data-label', headers[3]); tdProyecto.textContent = f.Proyecto || '—'; tr.appendChild(tdProyecto);
+      const tdTotal = document.createElement('td'); tdTotal.setAttribute('data-label', headers[4]); tdTotal.textContent = `$ ${Number(f.Valor_total).toLocaleString('es-CO',{minimumFractionDigits:2})}`; tr.appendChild(tdTotal);
+      const tdPdf = document.createElement('td'); tdPdf.setAttribute('data-label', headers[5]); tdPdf.className = 'actions-cell';
       const btn = document.createElement('button'); btn.textContent='Descargar PDF'; btn.addEventListener('click', () => descargarPDF(f.idFactura));
       tdPdf.appendChild(btn); tr.appendChild(tdPdf);
       tbody.appendChild(tr);

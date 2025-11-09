@@ -395,7 +395,7 @@ function inferirTipoColumna(nombreClave) {
 
 const configuracionTablas = {
   empleado: [
-    { claves: ['idEmpleado'], titulo: 'ID Empleado', esId: true },
+    { claves: ['idEmpleado','id_empleado','idempleado','empleado_id','id','ID','Id'], titulo: 'ID Empleado', esId: true },
     { claves: ['Nombre'], titulo: 'Nombre' },
     { claves: ['Correo'], titulo: 'Correo' },
     { claves: ['Telefono', 'Teléfono'], titulo: 'Teléfono' },
@@ -550,6 +550,7 @@ function renderizarTabla(filas) {
   const { columnas, claveId } = obtenerColumnasDisponibles(filasNorm);
 
   const tabla = crear('table');
+  tabla.className = 'data-table';
   const cabecera = crear('thead');
   const filaCabecera = crear('tr');
   columnas.forEach((columna) => {
@@ -558,7 +559,9 @@ function renderizarTabla(filas) {
     filaCabecera.appendChild(th);
   });
   if (usuarioActual?.rol === 'Administrador') {
-    filaCabecera.appendChild(crear('th', '', 'Acciones'));
+    const thAcc = crear('th', '', 'Acciones');
+    thAcc.setAttribute('scope', 'col');
+    filaCabecera.appendChild(thAcc);
   }
   cabecera.appendChild(filaCabecera);
   tabla.appendChild(cabecera);
@@ -568,6 +571,7 @@ function renderizarTabla(filas) {
     const filaTabla = crear('tr');
     columnas.forEach((columna) => {
       const celda = crear('td');
+      celda.setAttribute('data-label', columna.titulo);
       const valor = registro[columna.clave];
       if (columna.tipo === 'imagen') {
         const imagen = document.createElement('img');
@@ -592,6 +596,8 @@ function renderizarTabla(filas) {
     });
     if (usuarioActual?.rol === 'Administrador') {
       const celdaAcciones = crear('td');
+      celdaAcciones.className = 'actions-cell';
+      celdaAcciones.setAttribute('data-label', 'Acciones');
       celdaAcciones.style.whiteSpace = 'nowrap';
       const botonSeleccionar = crear('button', 'btn-table-action', 'Seleccionar');
       botonSeleccionar.addEventListener('click', () => {
@@ -809,6 +815,9 @@ async function cargarDatos() {
     const ctrl = new AbortController();
     ultimoControlAbortar = ctrl;
     const datos = await solicitarAPI(url, { signal: ctrl.signal });
+    if (Array.isArray(datos) && datos[0]) {
+      console.log(`[DEBUG ${entidadActual}] Claves primera fila:`, Object.keys(datos[0]));
+    }
     
     // Aplicar filtrado local para inventario (búsqueda en catálogo)
     if (entidadActual === 'inventario' && q) {

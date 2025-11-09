@@ -64,15 +64,17 @@ async function cargarTareas() {
     const tareas = await api('/api/empleado/mis-tareas');
     if (!tareas.length) { cont.innerHTML = '<div style="padding:1rem;color:var(--text-muted);">Sin tareas</div>'; return; }
     const tabla = document.createElement('table');
+    tabla.className = 'data-table';
     const thead = document.createElement('thead');
     const trh = document.createElement('tr');
-    ['ID','Descripción','Estado','Proyecto','Pisos','Apartamentos','Fecha inicio','Fecha fin'].forEach(h => { const th=document.createElement('th'); th.textContent=h; trh.appendChild(th); });
+    const headers = ['ID','Descripción','Estado','Proyecto','Pisos','Apartamentos','Fecha inicio','Fecha fin'];
+    headers.forEach(h => { const th=document.createElement('th'); th.textContent=h; th.scope='col'; trh.appendChild(th); });
     thead.appendChild(trh);
     const tbody = document.createElement('tbody');
     tareas.forEach(t => {
       const tr = document.createElement('tr');
       [t.idTarea, t.Descripcion, t.Estado, t.Proyecto || '—', t.Pisos ?? 0, t.Apartamentos ?? 0, t.Fecha_inicio ? String(t.Fecha_inicio).slice(0,10) : '—', t.Fecha_fin ? String(t.Fecha_fin).slice(0,10) : '—']
-        .forEach(v => { const td=document.createElement('td'); td.textContent = v==null?'':String(v); tr.appendChild(td); });
+        .forEach((v,i) => { const td=document.createElement('td'); td.setAttribute('data-label', headers[i]); td.textContent = v==null?'':String(v); tr.appendChild(td); });
       tbody.appendChild(tr);
     });
     tabla.appendChild(thead); tabla.appendChild(tbody);

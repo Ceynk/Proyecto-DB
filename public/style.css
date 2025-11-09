@@ -498,6 +498,16 @@ body {
 }
 
 h1 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  text-transform: capitalize;
+  margin: 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
 /* ===================== Tablas reutilizables ===================== */
 .data-table {
   width: 100%;
@@ -562,15 +572,6 @@ h1 {
   .data-table td { border: none; position: relative; padding-left: 7.5rem; min-height: 2.5rem; }
   .data-table td::before { content: attr(data-label); position:absolute; left:.75rem; top:.5rem; font-size:.65rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color: var(--text-secondary); }
   .data-table .actions-cell { padding-left: .75rem; }
-}
-  font-size: 1.875rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.02em;
-  text-transform: capitalize;
-  margin: 0;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
 }
 
 @media (max-width: 767px) {
