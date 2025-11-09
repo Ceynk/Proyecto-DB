@@ -66,6 +66,15 @@ async function asegurarEsquemaYSemilla() {
   } catch (e) {
     console.warn('No se pudo verificar/agregar columna foto_url:', e.message);
   }
+  // Descriptor facial para login con rostro
+  try {
+    const [cf] = await pool.query("SHOW COLUMNS FROM usuarios LIKE 'face_descriptor'");
+    if (cf.length === 0) {
+      await pool.query("ALTER TABLE usuarios ADD COLUMN face_descriptor LONGTEXT NULL");
+    }
+  } catch (e) {
+    console.warn('No se pudo verificar/agregar usuarios.face_descriptor:', e.message);
+  }
   try {
     const [cu] = await pool.query("SHOW COLUMNS FROM usuarios LIKE 'Correo'");
     if (cu.length === 0) {
@@ -451,6 +460,57 @@ app.post('/api/auth/login', async (req, res) => {
       idCliente: u.idCliente || null
     };
     return res.json({ ok: true, user: req.session.user });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Login con rostro: compara descriptor actual con el almacenado para el usuario
+app.post('/api/auth/login-face', async (req, res) => {
+  try {
+    const { username, descriptor } = req.body || {};
+    if (!username || !descriptor) return res.status(400).json({ error: 'Faltan username y descriptor' });
+    if (!Array.isArray(descriptor) || descriptor.length < 64) return res.status(400).json({ error: 'Descriptor inválido' });
+
+    const [rows] = await pool.query(
+      'SELECT idUsuario, nombre_usuario, rol, idEmpleado, idCliente, face_descriptor FROM usuarios WHERE nombre_usuario = ? LIMIT 1',
+      [username]
+    );
+    if (!rows.length) return res.status(401).json({ error: 'Usuario no encontrado' });
+    const u = rows[0];
+    if (!u.face_descriptor) return res.status(400).json({ error: 'Usuario sin descriptor facial registrado' });
+
+    let stored;
+    try { stored = JSON.parse(u.face_descriptor); } catch (_) { stored = null; }
+    if (!Array.isArray(stored) || stored.length === 0) {
+      return res.status(400).json({ error: 'Descriptor facial almacenado inválido' });
+    }
+    const n = Math.min(stored.length, descriptor.length, 512);
+    let sum = 0;
+    for (let i = 0; i < n; i++) {
+      const a = Number(descriptor[i]);
+      const b = Number(stored[i]);
+      if (!Number.isFinite(a) || !Number.isFinite(b)) {
+        return res.status(400).json({ error: 'Descriptor contiene valores inválidos' });
+      }
+      const d = a - b;
+      sum += d * d;
+    }
+    const distancia = Math.sqrt(sum);
+    // Umbral típico para face-api.js (TinyFace + FaceRecognitionNet): 0.45–0.6. Ajustable.
+    const THRESHOLD = Number(process.env.FACE_LOGIN_THRESHOLD || 0.5);
+    if (distancia > THRESHOLD) {
+      return res.status(401).json({ error: 'Rostro no coincide' });
+    }
+    // Autenticar sesión
+    req.session.user = {
+      idUsuario: u.idUsuario,
+      nombre_usuario: u.nombre_usuario,
+      rol: u.rol,
+      idEmpleado: u.idEmpleado || null,
+      idCliente: u.idCliente || null
+    };
+    return res.json({ ok: true, user: req.session.user, distancia });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -856,6 +916,31 @@ app.post('/api/users/create', requerirAutenticacion, requerirAdmin, subida.singl
     );
     res.status(201).json({ idUsuario: r.insertId, username, rol, idEmpleado: idEmpleadoFinal, idCliente: idClienteFinal, foto_url, correo: correo || null });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Guardar/actualizar descriptor facial de un usuario (JSON con 128 floats)
+app.post('/api/users/:id/face', requerirAutenticacion, requerirAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ error: 'ID de usuario inválido' });
+  try {
+    const descriptor = req.body?.descriptor;
+    if (!descriptor || !Array.isArray(descriptor) || descriptor.length < 64) {
+      return res.status(400).json({ error: 'Descriptor facial inválido' });
+    }
+    // Validar que todos sean números finitos y limitar a 512 elementos
+    const lim = Math.min(descriptor.length, 512);
+    const limpio = [];
+    for (let i = 0; i < lim; i++) {
+      const v = Number(descriptor[i]);
+      if (!Number.isFinite(v)) return res.status(400).json({ error: 'Descriptor contiene valores inválidos' });
+      limpio.push(v);
+    }
+    const json = JSON.stringify(limpio);
+    const [r] = await pool.query('UPDATE usuarios SET face_descriptor = ? WHERE idUsuario = ?', [json, id]);
+    res.json({ ok: true, affectedRows: r.affectedRows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ==============================

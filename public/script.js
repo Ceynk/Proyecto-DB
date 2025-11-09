@@ -75,6 +75,16 @@ const formularioLogin = document.getElementById('loginForm');
 const mensajeLogin = document.getElementById('loginMsg');
 // (Eliminado) formulario de verificación por email
 const btnCerrarSesion = document.getElementById('logoutBtn');
+// Face login elements
+const faceVideo = document.getElementById('faceVideo');
+const faceCanvas = document.getElementById('faceCanvas');
+const btnInitFace = document.getElementById('btnInitFace');
+const btnFaceLogin = document.getElementById('btnFaceLogin');
+const faceLoginMsg = document.getElementById('faceLoginMsg');
+const faceLoginUsername = document.getElementById('faceLoginUsername');
+let faceStream = null;
+let faceModelsLoaded = false;
+let cargandoModelo = false;
 
 // ---
 
@@ -988,6 +998,94 @@ if (formularioLogin) {
     }
   });
 }
+
+// Inicializar modelos de face-api (solo cuando se solicita cámara)
+async function cargarModelosFace() {
+  if (faceModelsLoaded || cargandoModelo) return;
+  cargandoModelo = true;
+  try {
+    faceLoginMsg.textContent = 'Cargando modelos...';
+    // Ruta de pesos en CDN para evitar depender de servicios de reconocimiento externos
+    const base = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+    // Cargar modelos livianos (TinyFaceDetector + FaceLandmark68 + FaceRecognition)
+    await faceapi.nets.tinyFaceDetector.loadFromUri(base);
+    await faceapi.nets.faceLandmark68Net.loadFromUri(base);
+    await faceapi.nets.faceRecognitionNet.loadFromUri(base);
+    faceModelsLoaded = true;
+    faceLoginMsg.textContent = 'Modelos listos';
+  } catch (e) {
+    faceLoginMsg.style.color = 'salmon';
+    faceLoginMsg.textContent = 'Error cargando modelos: ' + e.message;
+  } finally { cargandoModelo = false; }
+}
+
+async function iniciarCamaraFace() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    faceLoginMsg.style.color = 'salmon';
+    faceLoginMsg.textContent = 'getUserMedia no soportado en este navegador';
+    return;
+  }
+  try {
+    await cargarModelosFace();
+    faceLoginMsg.textContent = 'Activando cámara...'; faceLoginMsg.style.color = '';
+    faceStream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } });
+    faceVideo.srcObject = faceStream;
+    btnFaceLogin.disabled = false;
+    faceLoginMsg.textContent = 'Cámara lista';
+  } catch (e) {
+    faceLoginMsg.style.color = 'salmon';
+    faceLoginMsg.textContent = 'Error al activar cámara: ' + e.message;
+  }
+}
+
+async function capturarDescriptorFace() {
+  if (!faceModelsLoaded) {
+    faceLoginMsg.style.color = 'salmon';
+    faceLoginMsg.textContent = 'Modelos no cargados';
+    return null;
+  }
+  if (!faceVideo || faceVideo.readyState < 2) {
+    faceLoginMsg.style.color = 'salmon';
+    faceLoginMsg.textContent = 'Video no listo';
+    return null;
+  }
+  const opciones = new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5, inputSize: 160 });
+  const deteccion = await faceapi.detectSingleFace(faceVideo, opciones).withFaceLandmarks().withFaceDescriptor();
+  if (!deteccion) {
+    faceLoginMsg.style.color = 'salmon';
+    faceLoginMsg.textContent = 'No se detectó rostro. Reintenta.';
+    return null;
+  }
+  faceLoginMsg.style.color = '';
+  faceLoginMsg.textContent = 'Rostro detectado';
+  return Array.from(deteccion.descriptor); // Float32Array -> Array
+}
+
+async function ejecutarLoginFace() {
+  const username = (faceLoginUsername?.value || '').trim();
+  if (!username) {
+    faceLoginMsg.style.color = 'salmon'; faceLoginMsg.textContent = 'Ingresa el usuario'; return;
+  }
+  faceLoginMsg.style.color = ''; faceLoginMsg.textContent = 'Capturando rostro...';
+  try {
+    const descriptor = await capturarDescriptorFace();
+    if (!descriptor) return;
+    faceLoginMsg.textContent = 'Comparando...';
+    const r = await solicitarAPI('/api/auth/login-face', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, descriptor })
+    });
+    usuarioActual = r.user;
+    faceLoginMsg.textContent = 'Login facial exitoso (distancia ' + r.distancia.toFixed(3) + ')';
+    actualizarUIParaAutenticacion();
+  } catch (e) {
+    faceLoginMsg.style.color = 'salmon'; faceLoginMsg.textContent = e.message;
+  }
+}
+
+if (btnInitFace) btnInitFace.addEventListener('click', iniciarCamaraFace);
+if (btnFaceLogin) btnFaceLogin.addEventListener('click', ejecutarLoginFace);
 
 if (btnCerrarSesion) {
   btnCerrarSesion.addEventListener('click', async () => {
