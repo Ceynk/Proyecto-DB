@@ -200,7 +200,7 @@ async function cargarInventarioCards() {
   cont.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)">Cargando inventario...</div>';
   try {
     const url = q ? `/api/inventory/cards?q=${encodeURIComponent(q)}` : '/api/inventory/cards';
-    const [ovwResp, cards] = await Promise.all([
+    const [ovwResp, cardsResp] = await Promise.all([
       fetch(`${baseAPI}/api/inventory/overview`, { credentials: 'include' }).then(r=>r.json()),
       fetch(`${baseAPI}${url}`, { credentials: 'include' }).then(r=>r.json())
     ]);
@@ -216,7 +216,13 @@ async function cargarInventarioCards() {
     wrap.appendChild(resumen);
     const grid = document.createElement('div');
     grid.className = 'inv-grid';
-    (cards || []).forEach((it) => {
+    const cards = Array.isArray(cardsResp)
+      ? cardsResp
+      : (Array.isArray(cardsResp?.rows) ? cardsResp.rows : []);
+    if (!Array.isArray(cards)) {
+      throw new Error(typeof cardsResp?.error === 'string' ? cardsResp.error : 'Respuesta inesperada de /api/inventory/cards');
+    }
+    cards.forEach((it) => {
       const agotado = Number(it.stock || 0) <= 0;
       const card = document.createElement('div');
       card.className = 'inv-card';

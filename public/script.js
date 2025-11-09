@@ -368,7 +368,15 @@ function renderizarTabla(filas) {
   const tabla = crear('table');
   const thead = crear('thead');
   const htr = crear('tr');
-  const encabezados = Object.keys(filas[0]);
+  let encabezados = Object.keys(filas[0]);
+  // Corrección: en Empleado forzamos el orden correcto de columnas
+  // para evitar desalineaciones donde el nombre aparecía como un número (id anterior)
+  // y la foto/proyecto quedaban corridos. Si todas las claves existen, usamos este orden fijo.
+  if (entidadActual === 'empleado') {
+    const ordenEmpleado = ['idEmpleado','Nombre','Correo','Telefono','Asistencia','Especialidad','foto_url','Proyecto'];
+    const tieneTodas = ordenEmpleado.every(k => Object.prototype.hasOwnProperty.call(filas[0], k));
+    if (tieneTodas) encabezados = ordenEmpleado;
+  }
   encabezados.forEach((h) => htr.appendChild(crear('th', '', formatearNombreColumna(h))));
   if (usuarioActual?.rol === 'Administrador') {
     htr.appendChild(crear('th', '', 'Acciones'));
