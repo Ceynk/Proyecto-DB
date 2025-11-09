@@ -1098,27 +1098,35 @@ if (formularioLogin) {
 async function cargarModelosFace() {
   if (faceModelsLoaded || cargandoModelo) return;
   cargandoModelo = true;
-  try {
-    faceLoginMsg.textContent = 'Cargando modelos...';
-    // Ruta de pesos en CDN para evitar depender de servicios de reconocimiento externos
-    // Si se descargaron los pesos localmente estarán en /models, de lo contrario seguirá intentando CDN
-    const baseLocal = '/models';
-    const baseCDN = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-    // Estrategia: intentar local primero, si falla algún fetch, intentar CDN individualmente
-    async function cargarRed(net, nombre) {
-      try { await net.loadFromUri(baseLocal); return true; } catch (_) {
-        try { await net.loadFromUri(baseCDN); return true; } catch (e2) { throw e2; }
+  const baseLocal = '/models';
+  async function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
+  async function cargarConReintentos(net, nombre){
+    const intentos = 10;
+    for (let i=1;i<=intentos;i++) {
+      try {
+        // La librería busca los manifests JSON y luego los shards .bin; mantenemos nombres por defecto.
+        await net.loadFromUri(baseLocal);
+        return;
+      } catch (e) {
+        if (i===intentos) throw e;
+        faceLoginMsg.textContent = `Esperando modelos (${nombre}) intento ${i}/${intentos}...`;
+        await sleep(600);
       }
     }
-    await cargarRed(faceapi.nets.tinyFaceDetector, 'tiny');
-    await cargarRed(faceapi.nets.faceLandmark68Net, 'landmarks');
-    await cargarRed(faceapi.nets.faceRecognitionNet, 'recognition');
+  }
+  try {
+    faceLoginMsg.textContent = 'Cargando modelos (local)...';
+    await cargarConReintentos(faceapi.nets.tinyFaceDetector,'tiny');
+    await cargarConReintentos(faceapi.nets.faceLandmark68Net,'landmarks');
+    await cargarConReintentos(faceapi.nets.faceRecognitionNet,'recognition');
     faceModelsLoaded = true;
     faceLoginMsg.textContent = 'Modelos listos';
   } catch (e) {
-    faceLoginMsg.style.color = 'salmon';
-    faceLoginMsg.textContent = 'Error cargando modelos: ' + e.message;
-  } finally { cargandoModelo = false; }
+    faceLoginMsg.style.color='salmon';
+    faceLoginMsg.textContent = 'Modelos no cargados. Verifica que los archivos *weights_manifest.json y *shard1.bin estén en /public/models y recarga la página.';
+  } finally {
+    cargandoModelo = false;
+  }
 }
 
 async function iniciarCamaraFace() {

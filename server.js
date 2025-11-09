@@ -1632,7 +1632,7 @@ asegurarEsquemaYSemilla().finally(() => {
   });
 });
 
-// Descarga automática de modelos face-api si faltan (para uso local sin CDN)
+// Descarga automática de modelos face-api si faltan (para uso local sin CDN). Si no hay internet, se omite y el cliente mostrará reintentos.
 const archivosModelos = [
   'tiny_face_detector_model-weights_manifest.json',
   'tiny_face_detector_model-shard1.bin',
@@ -1644,7 +1644,7 @@ const archivosModelos = [
 const modelosDir = path.join(__dirname, 'public', 'models');
 function asegurarModelosFace() {
   try { if (!fs.existsSync(modelosDir)) fs.mkdirSync(modelosDir, { recursive: true }); } catch (e) { console.warn('No se pudo crear /public/models:', e.message); }
-  const baseCDN = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+  const baseCDN = 'https://unpkg.com/@vladmandic/face-api@1.7.15/model/';
   archivosModelos.forEach((fname) => {
     const destino = path.join(modelosDir, fname);
     if (fs.existsSync(destino) && fs.statSync(destino).size > 0) return;
