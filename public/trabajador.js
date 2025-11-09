@@ -59,29 +59,30 @@ async function cargarInfo() {
 
 async function cargarTareas() {
   const cont = document.getElementById('listaTareas');
-  cont.innerHTML = '<div style="padding:1rem; color: var(--text-muted);">Cargando...</div>';
+  cont.innerHTML = '<div class="table-empty">Cargando...</div>';
   try {
     const tareas = await api('/api/empleado/mis-tareas');
-    if (!tareas.length) {
-      cont.innerHTML = '<div style="padding:1rem; color: var(--text-muted);">Sin tareas</div>';
-      return;
-    }
-    const tabla = document.createElement('table');
-    const thead = document.createElement('thead');
-    const trh = document.createElement('tr');
-    ['ID','Descripción','Estado','Proyecto','Pisos','Apartamentos','Fecha inicio','Fecha fin'].forEach(t => { const th = document.createElement('th'); th.textContent = t; trh.appendChild(th); });
-    thead.appendChild(trh);
-    const tbody = document.createElement('tbody');
-    tareas.forEach(t => {
-      const tr = document.createElement('tr');
-      const fechaI = t.Fecha_inicio ? new Date(t.Fecha_inicio).toISOString().slice(0,10) : '—';
-      const fechaF = t.Fecha_fin ? new Date(t.Fecha_fin).toISOString().slice(0,10) : '—';
-      const c = [t.idTarea, t.Descripcion, t.Estado, t.Proyecto||'—', t.Pisos ?? 0, t.Apartamentos ?? 0, fechaI, fechaF];
-      c.forEach(v => { const td = document.createElement('td'); td.textContent = v==null?'':String(v); tr.appendChild(td); });
-      tbody.appendChild(tr);
-    });
-    tabla.appendChild(thead); tabla.appendChild(tbody);
-    cont.innerHTML = ''; cont.appendChild(tabla);
+    if (!tareas.length) { cont.innerHTML = '<div class="table-empty">Sin tareas</div>'; return; }
+    const rows = tareas.map(t => ({
+      idTarea: t.idTarea,
+      Descripcion: t.Descripcion,
+      Estado: t.Estado,
+      Proyecto: t.Proyecto || '—',
+      Pisos: t.Pisos ?? 0,
+      Apartamentos: t.Apartamentos ?? 0,
+      Fecha_inicio: t.Fecha_inicio ? String(t.Fecha_inicio).slice(0,10) : '—',
+      Fecha_fin: t.Fecha_fin ? String(t.Fecha_fin).slice(0,10) : '—'
+    }));
+    renderTable(cont, [
+      { key:'idTarea', header:'ID' },
+      { key:'Descripcion', header:'Descripción' },
+      { key:'Estado', header:'Estado' },
+      { key:'Proyecto', header:'Proyecto' },
+      { key:'Pisos', header:'Pisos' },
+      { key:'Apartamentos', header:'Apartamentos' },
+      { key:'Fecha_inicio', header:'Fecha inicio', type:'date' },
+      { key:'Fecha_fin', header:'Fecha fin', type:'date' }
+    ], rows);
   } catch (e) {
     cont.innerHTML = `<div style=\"color:salmon; padding:1rem;\">${e.message}</div>`;
   }

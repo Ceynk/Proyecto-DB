@@ -537,110 +537,55 @@ function resolverRutaImagen(valor) {
   return limpio;
 }
 
+// Nuevo renderizador genérico usando componente reutilizable renderTable (ui-table.js)
 function renderizarTabla(filas) {
   contenedorTabla.innerHTML = '';
-  if (!filas || filas.length === 0) {
-    contenedorTabla.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Sin datos para mostrar</div>';
+  const normalizador = normalizadoresFilas[entidadActual];
+  const datos = Array.isArray(filas) ? filas.map(f => normalizador ? normalizador({ ...f }) : { ...f }) : [];
+  if (!datos.length) {
+    contenedorTabla.innerHTML = '<div class="table-empty">Sin datos para mostrar</div>';
     return;
   }
-
-  const { columnas, claveId } = obtenerColumnasDisponibles(filas);
-
-  const tabla = crear('table');
-  const cabecera = crear('thead');
-  const filaCabecera = crear('tr');
-
-  columnas.forEach((columna) => {
-    const th = crear('th', '', columna.titulo);
-    th.setAttribute('scope', 'col');
-    filaCabecera.appendChild(th);
-  });
-
-  if (usuarioActual?.rol === 'Administrador') {
-    filaCabecera.appendChild(crear('th', '', 'Acciones'));
-  }
-
-  cabecera.appendChild(filaCabecera);
-  tabla.appendChild(cabecera);
-
-  const cuerpo = crear('tbody');
-  const normalizador = normalizadoresFilas[entidadActual];
-
-  filas.forEach((registro, idx) => {
-    const filaNormalizada = normalizador ? normalizador({ ...registro }) : { ...registro };
-    const filaTabla = crear('tr');
-    
-    // Debug primera fila para verificar datos
-    if (idx === 0) {
-      console.log(`[${entidadActual}] Primera fila (original):`, registro);
-      console.log(`[${entidadActual}] Primera fila (normalizada):`, filaNormalizada);
-    }
-
-    columnas.forEach((columna) => {
-      const celda = crear('td');
-      const valor = filaNormalizada[columna.clave];
-      
-      if (columna.tipo === 'imagen') {
-        const imagen = document.createElement('img');
-        imagen.src = resolverRutaImagen(valor);
-        imagen.alt = 'foto';
-        imagen.style.maxWidth = '64px';
-        imagen.style.maxHeight = '64px';
-        imagen.style.borderRadius = '6px';
-        imagen.style.border = '1px solid var(--border-light)';
-        imagen.loading = 'lazy';
-        imagen.onerror = () => { imagen.src = '/default-user.svg'; };
-        celda.appendChild(imagen);
-      } else {
-        celda.textContent = valor == null ? '' : String(valor);
-      }
-      
-      // Debug valores vacíos en columna ID
-      if (idx === 0 && columna.esId && !valor) {
-        console.warn(`[${entidadActual}] Valor vacío para columna ID '${columna.titulo}' (clave: ${columna.clave})`);
-        console.warn(`[${entidadActual}] Claves disponibles en fila:`, Object.keys(filaNormalizada));
-      }
-      
-      filaTabla.appendChild(celda);
-    });
-
-    if (usuarioActual?.rol === 'Administrador') {
-      const celdaAcciones = crear('td');
-      celdaAcciones.style.whiteSpace = 'nowrap';
-      const botonSeleccionar = crear('button', '', 'Seleccionar');
-      botonSeleccionar.className = 'btn-table-action';
-      botonSeleccionar.addEventListener('click', () => {
-        if (!claveId) return;
-        const valorId = filaNormalizada[claveId];
-        if (valorId == null) return;
-        const textoId = String(valorId);
-        if (entradaIdActualizacion) {
-          let opcion = Array.from(entradaIdActualizacion.options).find((o) => o.value === textoId);
-          if (!opcion) {
-            opcion = document.createElement('option');
-            opcion.value = textoId;
-            opcion.textContent = `ID ${textoId}`;
-            entradaIdActualizacion.appendChild(opcion);
-          }
-          entradaIdActualizacion.value = textoId;
+  const { columnas, claveId } = obtenerColumnasDisponibles(datos);
+  const cols = columnas.map(c => ({
+    key: c.clave,
+    header: c.titulo,
+    type: c.tipo === 'imagen' ? 'image' : 'text',
+    render: c.tipo === 'imagen' ? (td, value) => {
+      const img = document.createElement('img');
+      img.className = 'tbl-img';
+      img.alt = 'foto';
+      img.loading = 'lazy';
+      img.onerror = () => { img.src = '/default-user.svg'; };
+      img.src = resolverRutaImagen(value);
+      td.appendChild(img);
+    } : null
+  }));
+  const acciones = (usuarioActual?.rol === 'Administrador') ? [{
+    label: 'Seleccionar',
+    onClick: (row) => {
+      if (!claveId) return;
+      const valorId = row[claveId];
+      if (valorId == null) return;
+      const textoId = String(valorId);
+      if (entradaIdActualizacion) {
+        let opcion = Array.from(entradaIdActualizacion.options).find(o => o.value === textoId);
+        if (!opcion) {
+          opcion = document.createElement('option');
+          opcion.value = textoId;
+          opcion.textContent = `ID ${textoId}`;
+          entradaIdActualizacion.appendChild(opcion);
         }
-        if (mensajeActualizacion) {
-          mensajeActualizacion.style.color = 'var(--success)';
-          mensajeActualizacion.textContent = `✓ ID ${textoId} seleccionado`;
-          setTimeout(() => {
-            if (mensajeActualizacion) mensajeActualizacion.style.color = '';
-          }, 3000);
-        }
-      });
-      celdaAcciones.appendChild(botonSeleccionar);
-      filaTabla.appendChild(celdaAcciones);
+        entradaIdActualizacion.value = textoId;
+      }
+      if (mensajeActualizacion) {
+        mensajeActualizacion.style.color = 'var(--success)';
+        mensajeActualizacion.textContent = `✓ ID ${textoId} seleccionado`;
+        setTimeout(() => { if (mensajeActualizacion) mensajeActualizacion.style.color = ''; }, 2500);
+      }
     }
-
-    cuerpo.appendChild(filaTabla);
-  });
-
-  tabla.appendChild(cuerpo);
-  contenedorTabla.appendChild(tabla);
+  }] : [];
+  renderTable(contenedorTabla, cols, datos, { rowActions: acciones, emptyText: 'Sin datos para mostrar' });
 }
 
 // Renderizado especial para inventario tipo catálogo
@@ -948,13 +893,13 @@ function textoParaOpcionItem(item) {
 
 async function cargarOpcionesActualizacion() {
   if (!entradaIdActualizacion) return;
-  // Clear existing options
+  // Limpiar opciones existentes
   entradaIdActualizacion.innerHTML = '';
   const marcadorPosicion = document.createElement('option');
   marcadorPosicion.value = '';
   marcadorPosicion.textContent = '-- Selecciona --';
   entradaIdActualizacion.appendChild(marcadorPosicion);
-  // Try min endpoint first
+  // Obtener plural y cargar elementos (preferir /api/min si existe)
   const plural = obtenerPlural(entidadActual);
   let elementos = [];
   try {
@@ -964,11 +909,8 @@ async function cargarOpcionesActualizacion() {
       elementos = await solicitarAPI(`/api/list/${entidadActual}`);
     }
   } catch (_) {
-    // Fallback por si el backend cambia
-    try { elementos = await solicitarAPI(`/api/list/${entidadActual}`); }
-    catch (_) { elementos = []; }
+    try { elementos = await solicitarAPI(`/api/list/${entidadActual}`); } catch (_) { elementos = []; }
   }
-  // Normalize to array of objects with id and nombre-ish
   if (!Array.isArray(elementos)) elementos = [];
   elementos.forEach((it) => {
     const opt = document.createElement('option');
@@ -977,47 +919,6 @@ async function cargarOpcionesActualizacion() {
     opt.value = String(id);
     opt.textContent = textoParaOpcionItem(it) || `ID ${id}`;
     entradaIdActualizacion.appendChild(opt);
-  });
-}
-
-async function cargarMisDatos() {
-  try {
-    const info = await solicitarAPI('/api/empleado/mis-datos');
-    empleadoInfo.innerHTML = `
-      <div><strong>Nombre:</strong> ${info.Nombre || ''}</div>
-      <div><strong>Correo:</strong> ${info.Correo || ''}</div>
-      <div><strong>Teléfono:</strong> ${info.Telefono || ''}</div>
-      <div><strong>Proyecto:</strong> ${info.Proyecto || '—'}</div>
-      <div><strong>Asistencia:</strong> ${info.Asistencia || '—'}</div>
-    `;
-  } catch (e) {
-    empleadoInfo.innerHTML = `<div style="color:salmon;">Error: ${e.message}</div>`;
-  }
-}
-
-if (formularioLogin) {
-  formularioLogin.addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    mensajeLogin.textContent = 'Ingresando...';
-    mensajeLogin.style.color = '';
-    const formData = new FormData(formularioLogin);
-    const payload = {
-      username: formData.get('username'),
-      password: formData.get('password')
-    };
-    try {
-      const r = await solicitarAPI('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      usuarioActual = r.user;
-      formularioLogin.reset();
-      actualizarUIParaAutenticacion();
-    } catch (e) {
-      mensajeLogin.style.color = 'salmon';
-      mensajeLogin.textContent = e.message;
-    }
   });
 }
 

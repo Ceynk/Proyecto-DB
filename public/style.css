@@ -498,6 +498,71 @@ body {
 }
 
 h1 {
+/* ===================== Tablas reutilizables ===================== */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.data-table thead {
+  background: var(--surface);
+}
+.data-table thead th {
+  font-weight: 600;
+  text-align: left;
+  padding: .65rem .75rem;
+  border-bottom: 1px solid var(--border-medium);
+  color: var(--text-secondary);
+  position: relative;
+}
+.data-table tbody td {
+  padding: .55rem .75rem;
+  border-top: 1px solid var(--border-light);
+  vertical-align: middle;
+}
+.data-table tbody tr:hover {
+  background: var(--surface-hover);
+}
+.data-table tbody tr:nth-child(even) {
+  background: var(--bg-tertiary);
+}
+.data-table tbody tr:nth-child(even):hover {
+  background: var(--surface-hover);
+}
+.data-table .actions-cell { white-space: nowrap; }
+.btn-table-action {
+  background: var(--accent-primary);
+  border: none;
+  color: #fff;
+  font-size: .7rem;
+  padding: .4rem .6rem;
+  margin: 0 .25rem .25rem 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.btn-table-action:hover { background: var(--accent-hover); }
+.table-empty {
+  text-align: center;
+  padding: 1.25rem;
+  color: var(--text-muted);
+  font-size: .85rem;
+  border: 1px dashed var(--border-light);
+  border-radius: var(--radius-md);
+}
+.tbl-img { max-width:64px; max-height:64px; border-radius:6px; border:1px solid var(--border-light); object-fit:cover; display:block; }
+@media (max-width: 760px) {
+  .data-table thead { display: none; }
+  .data-table, .data-table tbody, .data-table tr, .data-table td { display: block; width:100%; }
+  .data-table tr { margin-bottom: .75rem; border: 1px solid var(--border-light); border-radius: var(--radius-md); overflow:hidden; background: var(--bg-tertiary); }
+  .data-table td { border: none; position: relative; padding-left: 7.5rem; min-height: 2.5rem; }
+  .data-table td::before { content: attr(data-label); position:absolute; left:.75rem; top:.5rem; font-size:.65rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color: var(--text-secondary); }
+  .data-table .actions-cell { padding-left: .75rem; }
+}
   font-size: 1.875rem;
   font-weight: 700;
   color: var(--text-primary);
