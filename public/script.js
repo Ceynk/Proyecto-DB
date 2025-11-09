@@ -209,7 +209,102 @@ if (btnPanelAdmin) {
     // Remove active class from entity buttons
     Array.from(listaEntidadesEl.children).forEach((b) => b.classList.remove('active'));
     btnPanelAdmin.classList.add('active');
+    construirUIEnrollFace();
   });
+}
+
+function construirUIEnrollFace() {
+  if (!panelAdmin || contenedorEnroll) return;
+  contenedorEnroll = document.createElement('div');
+  contenedorEnroll.className = 'form-wrap';
+  contenedorEnroll.style.marginTop = '2rem';
+  contenedorEnroll.innerHTML = `
+    <div class="form-header" style="display:flex; justify-content:space-between; align-items:center; gap:.5rem;">
+      <h3 class="form-heading">Enrolar Rostro de Usuario</h3>
+      <button type="button" id="btnRefreshUsersFace" class="btn-icon" title="Actualizar usuarios"></button>
+    </div>
+    <div class="dyn-form" style="display:grid; gap: .75rem; max-width:600px;">
+      <div>
+        <label>Seleccionar Usuario</label>
+        <select id="selUsuarioFace" style="width:100%"><option value="">--</option></select>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:.5rem;">
+        <video id="faceEnrollVideo" width="280" height="210" autoplay muted playsinline style="background:#111; border:1px solid var(--border-color); border-radius: var(--radius-sm);"></video>
+        <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
+          <button id="btnInitEnrollCam" type="button">Activar Cámara</button>
+          <button id="btnCaptureDescriptor" type="button" disabled>Capturar & Guardar Descriptor</button>
+        </div>
+        <div id="faceEnrollMsg" class="form-msg" style="min-height:1.1rem"></div>
+      </div>
+    </div>
+    <details style="margin-top:.75rem;">
+      <summary>Ayuda</summary>
+      <p style="font-size:.75rem;">El descriptor se guarda como vector numérico (no la imagen). Asegúrate de una sola cara visible y buena iluminación. Repite si la distancia en login es alta.</p>
+    </details>
+  `;
+  panelAdmin.appendChild(contenedorEnroll);
+  inicializarEnrollFace();
+}
+
+async function inicializarEnrollFace() {
+  const sel = document.getElementById('selUsuarioFace');
+  const btnInit = document.getElementById('btnInitEnrollCam');
+  const btnCapture = document.getElementById('btnCaptureDescriptor');
+  const msg = document.getElementById('faceEnrollMsg');
+  const video = document.getElementById('faceEnrollVideo');
+  const btnRefresh = document.getElementById('btnRefreshUsersFace');
+  let stream = null;
+
+  async function cargarUsuarios() {
+    if (!sel) return;
+    sel.innerHTML = '<option value="">--</option>';
+    try {
+      const usuarios = await solicitarAPI('/api/users');
+      usuarios.forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.idUsuario;
+        opt.textContent = `${u.idUsuario} - ${u.nombre_usuario} (${u.rol})`;
+        sel.appendChild(opt);
+      });
+    } catch (e) {
+      msg.style.color = 'salmon'; msg.textContent = 'Error usuarios: ' + e.message;
+    }
+  }
+  await cargarUsuarios();
+  if (btnRefresh) btnRefresh.addEventListener('click', cargarUsuarios);
+
+  async function activarCamara() {
+    msg.style.color=''; msg.textContent='Activando cámara...';
+    try {
+      await cargarModelosFace();
+      stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } });
+      video.srcObject = stream;
+      btnCapture.disabled = false;
+      msg.textContent = 'Cámara lista';
+    } catch (e) {
+      msg.style.color='salmon'; msg.textContent='Error cámara: '+e.message;
+    }
+  }
+  async function capturar() {
+    const id = sel.value.trim();
+    if (!id) { msg.style.color='salmon'; msg.textContent='Selecciona usuario'; return; }
+    msg.style.color=''; msg.textContent='Detectando...';
+    try {
+      const opciones = new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5, inputSize: 160 });
+      const det = await faceapi.detectSingleFace(video, opciones).withFaceLandmarks().withFaceDescriptor();
+      if (!det) { msg.style.color='salmon'; msg.textContent='No se detectó rostro'; return; }
+      const descriptor = Array.from(det.descriptor);
+      msg.textContent='Guardando descriptor...';
+      await solicitarAPI(`/api/users/${id}/face`, {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ descriptor })
+      });
+      msg.textContent='Descriptor guardado'; msg.style.color='';
+    } catch (e) {
+      msg.style.color='salmon'; msg.textContent=e.message;
+    }
+  }
+  if (btnInit) btnInit.addEventListener('click', activarCamara);
+  if (btnCapture) btnCapture.addEventListener('click', capturar);
 }
 
 const envoltorioCrearAdmin = document.getElementById('adminCreateWrap');
@@ -1006,11 +1101,18 @@ async function cargarModelosFace() {
   try {
     faceLoginMsg.textContent = 'Cargando modelos...';
     // Ruta de pesos en CDN para evitar depender de servicios de reconocimiento externos
-    const base = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-    // Cargar modelos livianos (TinyFaceDetector + FaceLandmark68 + FaceRecognition)
-    await faceapi.nets.tinyFaceDetector.loadFromUri(base);
-    await faceapi.nets.faceLandmark68Net.loadFromUri(base);
-    await faceapi.nets.faceRecognitionNet.loadFromUri(base);
+    // Si se descargaron los pesos localmente estarán en /models, de lo contrario seguirá intentando CDN
+    const baseLocal = '/models';
+    const baseCDN = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+    // Estrategia: intentar local primero, si falla algún fetch, intentar CDN individualmente
+    async function cargarRed(net, nombre) {
+      try { await net.loadFromUri(baseLocal); return true; } catch (_) {
+        try { await net.loadFromUri(baseCDN); return true; } catch (e2) { throw e2; }
+      }
+    }
+    await cargarRed(faceapi.nets.tinyFaceDetector, 'tiny');
+    await cargarRed(faceapi.nets.faceLandmark68Net, 'landmarks');
+    await cargarRed(faceapi.nets.faceRecognitionNet, 'recognition');
     faceModelsLoaded = true;
     faceLoginMsg.textContent = 'Modelos listos';
   } catch (e) {

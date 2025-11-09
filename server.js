@@ -10,6 +10,8 @@ import { fileURLToPath } from 'url';
 import multer from 'multer';
 // Eliminado: autenticación por correo/2FA
 import PDFDocument from 'pdfkit';
+// Descarga opcional de modelos de face-api para hosting local
+import https from 'https';
 
 dotenv.config();
 
@@ -38,6 +40,8 @@ app.use(
 
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
+// Servir face-api desde node_modules local
+app.use('/vendor/face-api', express.static(path.join(__dirname, 'node_modules', '@vladmandic', 'face-api', 'dist')));
 // Static uploads
 const dirSubidas = path.join(__dirname, 'uploads');
 if (!fs.existsSync(dirSubidas)) {
@@ -1627,3 +1631,37 @@ asegurarEsquemaYSemilla().finally(() => {
     console.log(`Servidor escuchando en http://localhost:${PORT}`);
   });
 });
+
+// Descarga automática de modelos face-api si faltan (para uso local sin CDN)
+const archivosModelos = [
+  'tiny_face_detector_model-weights_manifest.json',
+  'tiny_face_detector_model-shard1.bin',
+  'face_landmark_68_model-weights_manifest.json',
+  'face_landmark_68_model-shard1.bin',
+  'face_recognition_model-weights_manifest.json',
+  'face_recognition_model-shard1.bin'
+];
+const modelosDir = path.join(__dirname, 'public', 'models');
+function asegurarModelosFace() {
+  try { if (!fs.existsSync(modelosDir)) fs.mkdirSync(modelosDir, { recursive: true }); } catch (e) { console.warn('No se pudo crear /public/models:', e.message); }
+  const baseCDN = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+  archivosModelos.forEach((fname) => {
+    const destino = path.join(modelosDir, fname);
+    if (fs.existsSync(destino) && fs.statSync(destino).size > 0) return;
+    const url = baseCDN + fname;
+    console.log('Descargando modelo facial:', fname);
+    const file = fs.createWriteStream(destino);
+    https.get(url, (resp) => {
+      if (resp.statusCode !== 200) {
+        console.warn('Fallo descarga modelo', fname, 'status', resp.statusCode);
+        file.close(); fs.unlink(destino, () => {}); return;
+      }
+      resp.pipe(file);
+      file.on('finish', () => file.close());
+    }).on('error', (err) => {
+      console.warn('Error descargando', fname, err.message);
+      file.close(); fs.unlink(destino, () => {});
+    });
+  });
+}
+asegurarModelosFace();

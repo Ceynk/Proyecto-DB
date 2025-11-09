@@ -12,6 +12,20 @@
 				"-Command",
 				"npm install; npm run dev"
 			]
+		},
+		{
+			"label": "Install Node deps and start dev server",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"npm install; npm run dev"
+			],
+			"isBackground": false,
+			"problemMatcher": []
 		}
 	]
 }
