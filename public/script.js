@@ -46,6 +46,10 @@ initTheme();
 // ========================================
 // Variables de elementos del DOM
 // ========================================
+// Base de la API y sesión actual para todo el panel principal
+const baseAPI = (typeof window !== 'undefined' && (window.API_BASE || localStorage.getItem('API_BASE'))) || '';
+let usuarioActual = null;
+
 const listaEntidadesEl = document.getElementById('entidades');
 const tituloEl = document.getElementById('titulo');
 const buscarEl = document.getElementById('buscar');
