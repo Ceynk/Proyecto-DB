@@ -43,6 +43,31 @@
         </div>
         <div id="listaTareas" class="table-wrap" style="padding: .5rem;"></div>
       </div>
+
+      <div class="panel" style="margin-top:1rem;">
+        <div class="panel-header">
+          <h1>Inventario</h1>
+          <div class="header-actions">
+            <input id="buscarInvTrab" class="input" placeholder="Buscar material" style="max-width:240px;" />
+          </div>
+        </div>
+        <div id="catalogoMaterialesTrab" class="table-wrap" style="padding:.5rem;"></div>
+        <div class="form-wrap">
+          <div class="form-header"><h3 class="form-heading">Consumir material</h3></div>
+          <form id="formConsumirMaterial" class="dyn-form">
+            <div>
+              <label>Material</label>
+              <select id="selMaterialTrab" name="idMaterial" required></select>
+            </div>
+            <div>
+              <label>Cantidad</label>
+              <input type="number" name="cantidad" min="1" required />
+            </div>
+            <button type="submit">Consumir</button>
+          </form>
+          <div id="msgConsumirMaterial" class="form-msg"></div>
+        </div>
+      </div>
     </main>
   </div>
 

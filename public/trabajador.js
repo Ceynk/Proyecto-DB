@@ -15,12 +15,14 @@ async function verificarSesion() {
     const me = await api('/api/auth/me');
     usuarioActual = me.user;
     if (!usuarioActual) throw new Error('No autenticado');
-    if (usuarioActual.rol !== 'Empleado' && usuarioActual.rol !== 'Administrador') {
+    if (usuarioActual.rol !== 'Empleado') {
       window.location.href = '/';
       return;
     }
     cargarInfo();
     cargarTareas();
+    cargarMaterialesTrabajador();
+    cargarListaMaterialesSelect();
   } catch (_) {
     window.location.href = '/';
   }
@@ -115,3 +117,80 @@ if (btnRefrescar) {
 }
 
 verificarSesion();
+
+// ===================== Inventario para Trabajador =====================
+async function cargarMaterialesTrabajador() {
+  const cont = document.getElementById('catalogoMaterialesTrab');
+  if (!cont) return;
+  const q = (document.getElementById('buscarInvTrab')?.value || '').trim();
+  cont.innerHTML = '<div style="padding:1rem; color: var(--text-muted);">Cargando...</div>';
+  try {
+    const url = q ? `/api/inventory/cards?q=${encodeURIComponent(q)}` : '/api/inventory/cards';
+    const lista = await api(url);
+    if (!lista.length) { cont.innerHTML = '<div style="padding:1rem; color: var(--text-muted);">Sin materiales</div>'; return; }
+    const grid = document.createElement('div');
+    grid.style.display = 'grid';
+    grid.style.gridTemplateColumns = 'repeat(auto-fill,minmax(220px,1fr))';
+    grid.style.gap = '1rem';
+    lista.forEach(m => {
+      const card = document.createElement('div');
+      card.style.background = 'var(--bg-secondary)';
+      card.style.border = '1px solid var(--border-light)';
+      card.style.borderRadius = '8px';
+      card.style.padding = '.75rem';
+      card.innerHTML = `
+        <div style="height:120px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:6px;margin-bottom:.5rem;background:#111">
+          <img src="${m.foto_url || '/default-material.svg'}" alt="${m.Nombre}" style="max-width:100%;max-height:100%;object-fit:cover" onerror="this.src='/default-material.svg'" />
+        </div>
+        <div style="font-weight:600;margin-bottom:.25rem">${m.Nombre}</div>
+        <div style="font-size:.75rem;color:var(--text-muted)">Tipo: ${m.tipo || '—'}</div>
+        <div style="font-size:.75rem;color:var(--text-muted)">Stock: ${m.stock ?? 0}</div>
+      `;
+      grid.appendChild(card);
+    });
+    cont.innerHTML = ''; cont.appendChild(grid);
+  } catch (e) {
+    cont.innerHTML = `<div style=\"color:salmon; padding:1rem;\">${e.message}</div>`;
+  }
+}
+
+const buscarInvTrab = document.getElementById('buscarInvTrab');
+if (buscarInvTrab) {
+  buscarInvTrab.addEventListener('input', () => { if (buscarInvTrab._t) clearTimeout(buscarInvTrab._t); buscarInvTrab._t = setTimeout(cargarMaterialesTrabajador, 300); });
+}
+
+async function cargarListaMaterialesSelect() {
+  const sel = document.getElementById('selMaterialTrab');
+  if (!sel) return;
+  sel.innerHTML = '';
+  try {
+    const lista = await api('/api/inventory/cards');
+    lista.forEach(m => {
+      const op = document.createElement('option');
+      op.value = m.idMaterial; op.textContent = `${m.idMaterial} - ${m.Nombre} (stock ${m.stock ?? 0})`;
+      sel.appendChild(op);
+    });
+  } catch (e) {
+    const op = document.createElement('option'); op.value=''; op.textContent='Error'; sel.appendChild(op);
+  }
+}
+
+const formConsumir = document.getElementById('formConsumirMaterial');
+const msgConsumir = document.getElementById('msgConsumirMaterial');
+if (formConsumir) {
+  formConsumir.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    msgConsumir.textContent = 'Procesando...'; msgConsumir.style.color='';
+    const fd = new FormData(formConsumir);
+    const datos = Object.fromEntries(fd.entries());
+    try {
+      await api('/api/empleado/consumir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos) });
+      msgConsumir.textContent = 'Consumo registrado';
+      formConsumir.reset();
+      await cargarMaterialesTrabajador();
+      await cargarListaMaterialesSelect();
+    } catch (e) {
+      msgConsumir.style.color = 'salmon'; msgConsumir.textContent = e.message;
+    }
+  });
+}

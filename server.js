@@ -90,6 +90,106 @@ async function asegurarEsquemaYSemilla() {
   } catch (e) {
     console.warn('No se pudo verificar/agregar materials.foto_url:', e.message);
   }
+  // Stock en materials + triggers de inventario
+  try {
+    const [cs] = await pool.query("SHOW COLUMNS FROM materials LIKE 'stock'");
+    if (cs.length === 0) {
+      await pool.query('ALTER TABLE materials ADD COLUMN stock INT NOT NULL DEFAULT 0');
+      // Recalcular stock inicial desde inventarios si existe
+      try {
+        await pool.query(`
+          UPDATE materials m
+          LEFT JOIN (
+            SELECT i.idMaterial,
+                   SUM(CASE WHEN LOWER(i.tipo_movimiento) IN ('entrada','ingreso','compra') THEN i.cantidad
+                            WHEN LOWER(i.tipo_movimiento) IN ('salida','consumo','uso') THEN -i.cantidad
+                            ELSE 0 END) AS stock
+            FROM inventarios i
+            GROUP BY i.idMaterial
+          ) t ON t.idMaterial = m.idMaterial
+          SET m.stock = IFNULL(t.stock, 0);
+        `);
+      } catch (_) {}
+    }
+  } catch (e) {
+    console.warn('No se pudo verificar/agregar materials.stock:', e.message);
+  }
+  // Crear tabla detalles de factura y columna Estado
+  try {
+    const [col] = await pool.query("SHOW COLUMNS FROM facturas LIKE 'Estado'");
+    if (col.length === 0) {
+      await pool.query("ALTER TABLE facturas ADD COLUMN Estado ENUM('Borrador','Emitida') DEFAULT 'Borrador'");
+    }
+  } catch (e) {
+    console.warn('No se pudo verificar/agregar facturas.Estado:', e.message);
+  }
+  try {
+    await pool.query(`CREATE TABLE IF NOT EXISTS factura_detalles (
+      idDetalle INT AUTO_INCREMENT PRIMARY KEY,
+      idFactura INT NOT NULL,
+      idMaterial INT,
+      cantidad INT NOT NULL,
+      costo_unitario DECIMAL(12,2) NOT NULL,
+      subtotal DECIMAL(12,2) NOT NULL,
+      FOREIGN KEY (idFactura) REFERENCES facturas(idFactura),
+      FOREIGN KEY (idMaterial) REFERENCES materials(idMaterial)
+    )`);
+  } catch (e) {
+    console.warn('No se pudo crear tabla factura_detalles:', e.message);
+  }
+  // Intentar crear triggers para mantener stock
+  try {
+    await pool.query('DROP TRIGGER IF EXISTS trig_inventarios_ai');
+    await pool.query(`CREATE TRIGGER trig_inventarios_ai AFTER INSERT ON inventarios FOR EACH ROW
+      BEGIN
+        IF NEW.idMaterial IS NOT NULL THEN
+          IF LOWER(NEW.tipo_movimiento) IN ('entrada','ingreso','compra') THEN
+            UPDATE materials SET stock = stock + NEW.cantidad WHERE idMaterial = NEW.idMaterial;
+          ELSEIF LOWER(NEW.tipo_movimiento) IN ('salida','consumo','uso') THEN
+            UPDATE materials SET stock = stock - NEW.cantidad WHERE idMaterial = NEW.idMaterial;
+          END IF;
+        END IF;
+      END`);
+  } catch (e) {
+    console.warn('No se pudo crear trigger trig_inventarios_ai:', e.message);
+  }
+  try {
+    await pool.query('DROP TRIGGER IF EXISTS trig_inventarios_au');
+    await pool.query(`CREATE TRIGGER trig_inventarios_au AFTER UPDATE ON inventarios FOR EACH ROW
+      BEGIN
+        IF OLD.idMaterial IS NOT NULL THEN
+          IF LOWER(OLD.tipo_movimiento) IN ('entrada','ingreso','compra') THEN
+            UPDATE materials SET stock = stock - OLD.cantidad WHERE idMaterial = OLD.idMaterial;
+          ELSEIF LOWER(OLD.tipo_movimiento) IN ('salida','consumo','uso') THEN
+            UPDATE materials SET stock = stock + OLD.cantidad WHERE idMaterial = OLD.idMaterial;
+          END IF;
+        END IF;
+        IF NEW.idMaterial IS NOT NULL THEN
+          IF LOWER(NEW.tipo_movimiento) IN ('entrada','ingreso','compra') THEN
+            UPDATE materials SET stock = stock + NEW.cantidad WHERE idMaterial = NEW.idMaterial;
+          ELSEIF LOWER(NEW.tipo_movimiento) IN ('salida','consumo','uso') THEN
+            UPDATE materials SET stock = stock - NEW.cantidad WHERE idMaterial = NEW.idMaterial;
+          END IF;
+        END IF;
+      END`);
+  } catch (e) {
+    console.warn('No se pudo crear trigger trig_inventarios_au:', e.message);
+  }
+  try {
+    await pool.query('DROP TRIGGER IF EXISTS trig_inventarios_ad');
+    await pool.query(`CREATE TRIGGER trig_inventarios_ad AFTER DELETE ON inventarios FOR EACH ROW
+      BEGIN
+        IF OLD.idMaterial IS NOT NULL THEN
+          IF LOWER(OLD.tipo_movimiento) IN ('entrada','ingreso','compra') THEN
+            UPDATE materials SET stock = stock - OLD.cantidad WHERE idMaterial = OLD.idMaterial;
+          ELSEIF LOWER(OLD.tipo_movimiento) IN ('salida','consumo','uso') THEN
+            UPDATE materials SET stock = stock + OLD.cantidad WHERE idMaterial = OLD.idMaterial;
+          END IF;
+        END IF;
+      END`);
+  } catch (e) {
+    console.warn('No se pudo crear trigger trig_inventarios_ad:', e.message);
+  }
   // Asegurar enum de rol incluye 'Cliente'
   try {
     const [rolCol] = await pool.query(`
@@ -1287,19 +1387,27 @@ function stockCaseExpr(prefix = 'i') {
 // Resumen general
 app.get('/api/inventory/overview', async (req, res) => {
   try {
-    const [rows] = await pool.query(`
-      SELECT 
-        COUNT(*) AS materiales,
-        SUM(CASE WHEN IFNULL(stock, 0) > 0 THEN 1 ELSE 0 END) AS disponibles,
-        SUM(CASE WHEN IFNULL(stock, 0) <= 0 THEN 1 ELSE 0 END) AS agotados
-      FROM (
-        SELECT m.idMaterial,
-               ${stockCaseExpr('i')} AS stock
-        FROM materials m
-        LEFT JOIN inventarios i ON i.idMaterial = m.idMaterial
-        GROUP BY m.idMaterial
-      ) t;
-    `);
+    // Preferir columna stock si existe; si no, calcular por SUM
+    let rows;
+    try {
+      const [r1] = await pool.query('SELECT COUNT(*) materiales, SUM(CASE WHEN IFNULL(stock,0) > 0 THEN 1 ELSE 0 END) disponibles, SUM(CASE WHEN IFNULL(stock,0) <= 0 THEN 1 ELSE 0 END) agotados FROM materials');
+      rows = r1;
+    } catch (_) {
+      const [r2] = await pool.query(`
+        SELECT 
+          COUNT(*) AS materiales,
+          SUM(CASE WHEN IFNULL(stock, 0) > 0 THEN 1 ELSE 0 END) AS disponibles,
+          SUM(CASE WHEN IFNULL(stock, 0) <= 0 THEN 1 ELSE 0 END) AS agotados
+        FROM (
+          SELECT m.idMaterial,
+                 ${stockCaseExpr('i')} AS stock
+          FROM materials m
+          LEFT JOIN inventarios i ON i.idMaterial = m.idMaterial
+          GROUP BY m.idMaterial
+        ) t;
+      `);
+      rows = r2;
+    }
     res.json(rows[0] || { materiales: 0, disponibles: 0, agotados: 0 });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1313,25 +1421,88 @@ app.get('/api/inventory/cards', async (req, res) => {
     const params = [];
     let where = '';
     if (q) { where = 'WHERE m.Nombre LIKE ?'; params.push(`%${q}%`); }
-    const sql = `
-      SELECT 
-        m.idMaterial,
-        m.Nombre,
-        m.costo_unitario,
-        m.tipo,
-        ${stockCaseExpr('i')} AS stock,
-        COUNT(i.idInventario) AS movimientos
-      FROM materials m
-      LEFT JOIN inventarios i ON i.idMaterial = m.idMaterial
-      ${where}
-      GROUP BY m.idMaterial, m.Nombre, m.costo_unitario, m.tipo
-      ORDER BY m.idMaterial DESC
-      LIMIT 200
-    `;
-    const [rows] = await pool.query(sql, params);
+    // Preferir columna stock si existe
+    let rows;
+    try {
+      const [r] = await pool.query(`
+        SELECT m.idMaterial, m.Nombre, m.costo_unitario, m.tipo, m.stock AS stock,
+               (SELECT COUNT(*) FROM inventarios i WHERE i.idMaterial = m.idMaterial) AS movimientos,
+               m.foto_url
+        FROM materials m
+        ${where}
+        ORDER BY m.idMaterial DESC
+        LIMIT 200` , params);
+      rows = r;
+    } catch (_) {
+      const sql = `
+        SELECT 
+          m.idMaterial,
+          m.Nombre,
+          m.costo_unitario,
+          m.tipo,
+          ${stockCaseExpr('i')} AS stock,
+          COUNT(i.idInventario) AS movimientos,
+          m.foto_url
+        FROM materials m
+        LEFT JOIN inventarios i ON i.idMaterial = m.idMaterial
+        ${where}
+        GROUP BY m.idMaterial, m.Nombre, m.costo_unitario, m.tipo
+        ORDER BY m.idMaterial DESC
+        LIMIT 200
+      `;
+      const [r2] = await pool.query(sql, params);
+      rows = r2;
+    }
     res.json(rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Consumo de material por empleado (crea movimiento de Salida y acumula en factura borrador)
+app.post('/api/empleado/consumir', requerirAutenticacion, requerirEmpleado, async (req, res) => {
+  const idEmp = req.session.user?.idEmpleado;
+  if (!idEmp) return res.status(400).json({ error: 'Usuario sin empleado asociado' });
+  const { idMaterial, cantidad } = req.body || {};
+  if (!idMaterial || !cantidad) return res.status(400).json({ error: 'idMaterial y cantidad requeridos' });
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    // Obtener proyecto y cliente del empleado
+    const [empRows] = await conn.query('SELECT e.idProyecto, p.idCliente FROM empleados e LEFT JOIN proyectos p ON p.idProyecto = e.idProyecto WHERE e.idEmpleado = ? LIMIT 1', [idEmp]);
+    const idProyecto = empRows[0]?.idProyecto || null;
+    const idCliente = empRows[0]?.idCliente || null;
+    // Insertar salida de inventario
+    const fecha = new Date().toISOString().slice(0,10);
+    await conn.query('INSERT INTO inventarios (tipo_movimiento, cantidad, fecha, idMaterial, idProyecto) VALUES (\'Salida\', ?, ?, ?, ?)', [Number(cantidad), fecha, idMaterial, idProyecto]);
+
+    // Crear/actualizar factura borrador si hay cliente
+    if (idCliente) {
+      // Buscar factura borrador activa del proyecto/cliente
+      let idFactura = null;
+      const [f] = await conn.query('SELECT idFactura FROM facturas WHERE idCliente = ? AND IFNULL(idProyecto, ?) <=> ? AND Estado = \'Borrador\' ORDER BY idFactura DESC LIMIT 1', [idCliente, idProyecto, idProyecto]);
+      if (f.length) {
+        idFactura = f[0].idFactura;
+      } else {
+        const [nuevo] = await conn.query('INSERT INTO facturas (Fecha, Valor_total, idProyecto, idCliente, Estado) VALUES (CURDATE(), 0, ?, ?, \'Borrador\')', [idProyecto, idCliente]);
+        idFactura = nuevo.insertId;
+      }
+      // Obtener costo unitario del material
+      const [mat] = await conn.query('SELECT costo_unitario FROM materials WHERE idMaterial = ? LIMIT 1', [idMaterial]);
+      const cu = Number(mat[0]?.costo_unitario || 0);
+      const cant = Number(cantidad);
+      const subtotal = cu * cant;
+      await conn.query('INSERT INTO factura_detalles (idFactura, idMaterial, cantidad, costo_unitario, subtotal) VALUES (?, ?, ?, ?, ?)', [idFactura, idMaterial, cant, cu, subtotal]);
+      await conn.query('UPDATE facturas SET Valor_total = IFNULL(Valor_total,0) + ? WHERE idFactura = ?', [subtotal, idFactura]);
+    }
+
+    await conn.commit();
+    res.status(201).json({ ok: true });
+  } catch (e) {
+    try { await conn.rollback(); } catch (_) {}
+    res.status(500).json({ error: e.message });
+  } finally {
+    conn.release();
   }
 });
 

@@ -64,7 +64,8 @@ CREATE TABLE materials (
     Nombre VARCHAR(120) NOT NULL,
     costo_unitario DECIMAL(12,2) NOT NULL,
     tipo VARCHAR(60),
-    foto_url VARCHAR(255)
+    foto_url VARCHAR(255),
+    stock INT NOT NULL DEFAULT 0
 );
 
 CREATE TABLE turnos (
@@ -97,6 +98,57 @@ CREATE TABLE inventarios (
     FOREIGN KEY (idProyecto) REFERENCES proyectos(idProyecto)
 );
 
+-- ================================================
+-- TRIGGERS PARA MANTENER STOCK EN materials
+-- ================================================
+DROP TRIGGER IF EXISTS trig_inventarios_ai;
+DROP TRIGGER IF EXISTS trig_inventarios_au;
+DROP TRIGGER IF EXISTS trig_inventarios_ad;
+
+DELIMITER $$
+CREATE TRIGGER trig_inventarios_ai AFTER INSERT ON inventarios FOR EACH ROW
+BEGIN
+    IF NEW.idMaterial IS NOT NULL THEN
+        IF LOWER(NEW.tipo_movimiento) IN ('entrada','ingreso','compra') THEN
+            UPDATE materials SET stock = stock + NEW.cantidad WHERE idMaterial = NEW.idMaterial;
+        ELSEIF LOWER(NEW.tipo_movimiento) IN ('salida','consumo','uso') THEN
+            UPDATE materials SET stock = stock - NEW.cantidad WHERE idMaterial = NEW.idMaterial;
+        END IF;
+    END IF;
+END$$
+
+CREATE TRIGGER trig_inventarios_au AFTER UPDATE ON inventarios FOR EACH ROW
+BEGIN
+    IF OLD.idMaterial IS NOT NULL THEN
+        -- Revertir efecto antiguo
+        IF LOWER(OLD.tipo_movimiento) IN ('entrada','ingreso','compra') THEN
+            UPDATE materials SET stock = stock - OLD.cantidad WHERE idMaterial = OLD.idMaterial;
+        ELSEIF LOWER(OLD.tipo_movimiento) IN ('salida','consumo','uso') THEN
+            UPDATE materials SET stock = stock + OLD.cantidad WHERE idMaterial = OLD.idMaterial;
+        END IF;
+    END IF;
+    IF NEW.idMaterial IS NOT NULL THEN
+        -- Aplicar efecto nuevo
+        IF LOWER(NEW.tipo_movimiento) IN ('entrada','ingreso','compra') THEN
+            UPDATE materials SET stock = stock + NEW.cantidad WHERE idMaterial = NEW.idMaterial;
+        ELSEIF LOWER(NEW.tipo_movimiento) IN ('salida','consumo','uso') THEN
+            UPDATE materials SET stock = stock - NEW.cantidad WHERE idMaterial = NEW.idMaterial;
+        END IF;
+    END IF;
+END$$
+
+CREATE TRIGGER trig_inventarios_ad AFTER DELETE ON inventarios FOR EACH ROW
+BEGIN
+    IF OLD.idMaterial IS NOT NULL THEN
+        IF LOWER(OLD.tipo_movimiento) IN ('entrada','ingreso','compra') THEN
+            UPDATE materials SET stock = stock - OLD.cantidad WHERE idMaterial = OLD.idMaterial;
+        ELSEIF LOWER(OLD.tipo_movimiento) IN ('salida','consumo','uso') THEN
+            UPDATE materials SET stock = stock + OLD.cantidad WHERE idMaterial = OLD.idMaterial;
+        END IF;
+    END IF;
+END$$
+DELIMITER ;
+
 CREATE TABLE ingresos (
     idIngreso INT AUTO_INCREMENT PRIMARY KEY,
     fecha DATE NOT NULL,
@@ -121,6 +173,7 @@ CREATE TABLE facturas (
     Valor_total DECIMAL(12,2) NOT NULL,
     idProyecto INT,
     idCliente INT,
+    Estado ENUM('Borrador','Emitida') DEFAULT 'Borrador',
     FOREIGN KEY (idProyecto) REFERENCES proyectos(idProyecto),
     FOREIGN KEY (idCliente) REFERENCES clientes(idCliente)
 );
@@ -131,4 +184,16 @@ CREATE TABLE pagos (
     Monto DECIMAL(12,2) NOT NULL,
     idFactura INT,
     FOREIGN KEY (idFactura) REFERENCES facturas(idFactura)
+);
+
+-- Detalles de factura (materiales consumidos)
+CREATE TABLE IF NOT EXISTS factura_detalles (
+    idDetalle INT AUTO_INCREMENT PRIMARY KEY,
+    idFactura INT NOT NULL,
+    idMaterial INT,
+    cantidad INT NOT NULL,
+    costo_unitario DECIMAL(12,2) NOT NULL,
+    subtotal DECIMAL(12,2) NOT NULL,
+    FOREIGN KEY (idFactura) REFERENCES facturas(idFactura),
+    FOREIGN KEY (idMaterial) REFERENCES materials(idMaterial)
 );
