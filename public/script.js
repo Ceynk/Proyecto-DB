@@ -269,72 +269,231 @@ function sanitizarDigitos(value) {
   return value.replace(/\D/g, '');
 }
 
-function normalizarClave(nombre) {
+function limpiarNombreClave(nombre) {
   return String(nombre ?? '')
-    .replace(/([a-z\d])([A-Z])/g, '$1-$2')
-    .replace(/[_\s]+/g, '-')
-    .replace(/-+/g, '-')
     .toLowerCase()
-    .trim();
+    .replace(/[^a-z0-9]/g, '');
 }
 
-const nombresEspecialesNormalizados = {
-  'id-empleado': 'ID Empleado',
-  'id-cliente': 'ID Cliente',
-  'id-proyecto': 'ID Proyecto',
-  'id-material': 'ID Material',
-  'id-asistencia': 'ID Asistencia',
-  'id-usuario': 'ID Usuario',
-  'id-turno': 'ID Turno',
-  'id-tarea': 'ID Tarea',
-  'id-inventario': 'ID Inventario',
-  'id-ingreso': 'ID Ingreso',
-  'id-gasto': 'ID Gasto',
-  'id-pago': 'ID Pago',
-  'nombre-completo': 'Nombre Completo',
-  'correo': 'Correo',
-  'telefono': 'Teléfono',
-  'especialidad': 'Especialidad',
-  'foto-url': 'Foto',
-  'foto': 'Foto',
-  'fecha-inicio': 'Fecha Inicio',
-  'fecha-fin': 'Fecha Fin',
-  'nombre-proyecto': 'Nombre Proyecto',
-  'nombre-material': 'Nombre Material',
-  'costo-total': 'Costo Total',
-  'estado-proyecto': 'Estado',
-  'fecha-registro': 'Fecha Registro',
-  'hora-entrada': 'Hora Entrada',
-  'hora-salida': 'Hora Salida',
-  'usuario': 'Usuario',
-  'rol': 'Rol',
-  'fecha-creacion': 'Fecha Creación'
+function formatearTituloColumna(nombre) {
+  return String(nombre ?? '')
+    .replace(/([a-z\d])([A-Z])/g, '$1 $2')
+    .replace(/[_\-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function resolverClaveDisponible(conjuntoClaves, posibles) {
+  const mapa = {};
+  conjuntoClaves.forEach((clave) => {
+    mapa[limpiarNombreClave(clave)] = clave;
+  });
+  for (const candidato of posibles) {
+    const claveNormalizada = limpiarNombreClave(candidato);
+    if (mapa[claveNormalizada]) {
+      return mapa[claveNormalizada];
+    }
+  }
+  return null;
+}
+
+function resolverClaveEnObjeto(objeto, posibles) {
+  return resolverClaveDisponible(Object.keys(objeto || {}), posibles);
+}
+
+function obtenerColumnasDisponibles(filas) {
+  const definicion = configuracionTablas[entidadActual] || [];
+  const todasLasClaves = new Set();
+  filas.forEach((fila) => {
+    Object.keys(fila).forEach((clave) => todasLasClaves.add(clave));
+  });
+
+  const columnas = [];
+  const clavesUsadas = new Set();
+  let claveId = null;
+
+  definicion.forEach((columna) => {
+    const claveReal = resolverClaveDisponible(Array.from(todasLasClaves), columna.claves);
+    if (!claveReal) return;
+    columnas.push({
+      clave: claveReal,
+      titulo: columna.titulo,
+      tipo: columna.tipo || inferirTipoColumna(claveReal)
+    });
+    clavesUsadas.add(claveReal);
+    if (!claveId && (columna.esId || /^id/.test(limpiarNombreClave(claveReal)))) {
+      claveId = claveReal;
+    }
+  });
+
+  Array.from(todasLasClaves).forEach((clave) => {
+    if (clavesUsadas.has(clave)) return;
+    columnas.push({
+      clave,
+      titulo: formatearTituloColumna(clave),
+      tipo: inferirTipoColumna(clave)
+    });
+    clavesUsadas.add(clave);
+    if (!claveId && /^id/.test(limpiarNombreClave(clave))) {
+      claveId = clave;
+    }
+  });
+
+  if (!claveId && columnas.length) {
+    claveId = columnas[0].clave;
+  }
+
+  return { columnas, claveId };
+}
+
+function inferirTipoColumna(nombreClave) {
+  const limpio = limpiarNombreClave(nombreClave);
+  if (limpio.includes('foto') || limpio.includes('imagen')) {
+    return 'imagen';
+  }
+  return 'texto';
+}
+
+const configuracionTablas = {
+  empleado: [
+    { claves: ['idEmpleado'], titulo: 'ID Empleado', esId: true },
+    { claves: ['Nombre'], titulo: 'Nombre' },
+    { claves: ['Correo'], titulo: 'Correo' },
+    { claves: ['Telefono', 'Teléfono'], titulo: 'Teléfono' },
+    { claves: ['Asistencia'], titulo: 'Asistencia' },
+    { claves: ['Especialidad'], titulo: 'Especialidad' },
+    { claves: ['foto_url', 'Foto', 'Imagen'], titulo: 'Foto', tipo: 'imagen' },
+    { claves: ['Proyecto', 'NombreProyecto'], titulo: 'Proyecto' }
+  ],
+  cliente: [
+    { claves: ['idCliente'], titulo: 'ID Cliente', esId: true },
+    { claves: ['Nombre'], titulo: 'Nombre' },
+    { claves: ['Correo'], titulo: 'Correo' },
+    { claves: ['Telefono', 'Teléfono'], titulo: 'Teléfono' }
+  ],
+  proyecto: [
+    { claves: ['idProyecto'], titulo: 'ID Proyecto', esId: true },
+    { claves: ['Nombre', 'nombreProyecto'], titulo: 'Nombre' },
+    { claves: ['Cliente', 'NombreCliente'], titulo: 'Cliente' }
+  ],
+  apartamento: [
+    { claves: ['idApartamento'], titulo: 'ID Apartamento', esId: true },
+    { claves: ['num_apartamento'], titulo: 'Número Apartamento' },
+    { claves: ['num_piso'], titulo: 'Número Piso' },
+    { claves: ['estado'], titulo: 'Estado' },
+    { claves: ['idProyecto', 'Proyecto'], titulo: 'Proyecto' }
+  ],
+  piso: [
+    { claves: ['idPiso'], titulo: 'ID Piso', esId: true },
+    { claves: ['numero'], titulo: 'Número' },
+    { claves: ['idApartamento', 'Apartamento'], titulo: 'Apartamento' },
+    { claves: ['idProyecto', 'Proyecto'], titulo: 'Proyecto' }
+  ],
+  material: [
+    { claves: ['idMaterial'], titulo: 'ID Material', esId: true },
+    { claves: ['Nombre'], titulo: 'Nombre' },
+    { claves: ['tipo'], titulo: 'Tipo' },
+    { claves: ['costo_unitario'], titulo: 'Costo Unitario' },
+    { claves: ['stock'], titulo: 'Stock' },
+    { claves: ['foto_url', 'Foto', 'Imagen'], titulo: 'Foto', tipo: 'imagen' }
+  ],
+  inventario: [
+    { claves: ['idInventario'], titulo: 'ID Inventario', esId: true },
+    { claves: ['tipo_movimiento'], titulo: 'Movimiento' },
+    { claves: ['cantidad'], titulo: 'Cantidad' },
+    { claves: ['fecha'], titulo: 'Fecha' },
+    { claves: ['Material', 'NombreMaterial', 'idMaterial'], titulo: 'Material' },
+    { claves: ['Proyecto', 'NombreProyecto', 'idProyecto'], titulo: 'Proyecto' }
+  ],
+  tarea: [
+    { claves: ['idTarea'], titulo: 'ID Tarea', esId: true },
+    { claves: ['Descripcion'], titulo: 'Descripción' },
+    { claves: ['Estado'], titulo: 'Estado' },
+    { claves: ['Fecha_inicio'], titulo: 'Fecha Inicio' },
+    { claves: ['Fecha_fin'], titulo: 'Fecha Fin' },
+    { claves: ['Proyecto', 'NombreProyecto'], titulo: 'Proyecto' },
+    { claves: ['Empleado', 'NombreEmpleado'], titulo: 'Empleado' }
+  ],
+  turno: [
+    { claves: ['idTurno'], titulo: 'ID Turno', esId: true },
+    { claves: ['Hora_inicio'], titulo: 'Hora Inicio' },
+    { claves: ['Hora_fin'], titulo: 'Hora Fin' },
+    { claves: ['Tipo_jornada'], titulo: 'Tipo Jornada' },
+    { claves: ['Empleado', 'NombreEmpleado'], titulo: 'Empleado' }
+  ],
+  ingreso: [
+    { claves: ['idIngreso'], titulo: 'ID Ingreso', esId: true },
+    { claves: ['fecha'], titulo: 'Fecha' },
+    { claves: ['Valor'], titulo: 'Valor' },
+    { claves: ['Descripcion'], titulo: 'Descripción' },
+    { claves: ['Proyecto', 'NombreProyecto'], titulo: 'Proyecto' }
+  ],
+  gasto: [
+    { claves: ['idGasto'], titulo: 'ID Gasto', esId: true },
+    { claves: ['Valor'], titulo: 'Valor' },
+    { claves: ['Descripcion'], titulo: 'Descripción' },
+    { claves: ['fecha'], titulo: 'Fecha' },
+    { claves: ['Proyecto', 'NombreProyecto'], titulo: 'Proyecto' }
+  ],
+  factura: [
+    { claves: ['idFactura'], titulo: 'ID Factura', esId: true },
+    { claves: ['Fecha'], titulo: 'Fecha' },
+    { claves: ['Valor_total'], titulo: 'Valor Total' },
+    { claves: ['Proyecto', 'NombreProyecto'], titulo: 'Proyecto' },
+    { claves: ['Cliente', 'NombreCliente'], titulo: 'Cliente' }
+  ],
+  pago: [
+    { claves: ['idPago'], titulo: 'ID Pago', esId: true },
+    { claves: ['Fecha'], titulo: 'Fecha' },
+    { claves: ['Monto'], titulo: 'Monto' },
+    { claves: ['Factura', 'idFactura'], titulo: 'Factura' }
+  ]
 };
 
-function encontrarClavePorNorma(obj, referencia) {
-  if (!obj) return null;
-  const objetivo = normalizarClave(referencia);
-  return Object.keys(obj).find((k) => normalizarClave(k) === objetivo) || null;
-}
+const normalizadoresFilas = {
+  empleado(filaOriginal) {
+    const fila = { ...filaOriginal };
+    const claveTelefono = resolverClaveEnObjeto(fila, ['Telefono', 'Teléfono']);
+    const claveAsistencia = resolverClaveEnObjeto(fila, ['Asistencia']);
+    const claveEspecialidad = resolverClaveEnObjeto(fila, ['Especialidad']);
+    const claveProyecto = resolverClaveEnObjeto(fila, ['Proyecto', 'NombreProyecto']);
+    const claveFoto = resolverClaveEnObjeto(fila, ['foto_url', 'Foto', 'Imagen']);
 
-function obtenerValorCampo(row, referencia) {
-  if (!row) return undefined;
-  if (Object.prototype.hasOwnProperty.call(row, referencia)) {
-    return row[referencia];
-  }
-  const claveReal = encontrarClavePorNorma(row, referencia);
-  return claveReal ? row[claveReal] : undefined;
-}
+    const obtener = (clave) => (clave ? fila[clave] : undefined);
+    const asignar = (clave, valor) => { if (clave) fila[clave] = valor; };
 
-function establecerValorCampo(row, referencia, valor) {
-  if (!row) return;
-  const claveReal = encontrarClavePorNorma(row, referencia);
-  if (claveReal) {
-    row[claveReal] = valor;
-  } else {
-    row[referencia] = valor;
+    const esTelefono = (valor) => typeof valor === 'string' && /\d{7,}/.test(valor.replace(/\D/g, ''));
+    const esAsistencia = (valor) => typeof valor === 'string' && ['presente', 'ausente'].includes(valor.trim().toLowerCase());
+    const esFoto = (valor) => typeof valor === 'string' && /^(https?:\/\/|\/|uploads\/)/i.test(valor.trim());
+
+    const valorTelefono = obtener(claveTelefono);
+    const valorAsistencia = obtener(claveAsistencia);
+    const valorEspecialidad = obtener(claveEspecialidad);
+    const valorProyecto = obtener(claveProyecto);
+    const valorFoto = obtener(claveFoto);
+
+    if (!esTelefono(valorTelefono) && esTelefono(valorAsistencia)) {
+      asignar(claveTelefono, valorAsistencia);
+      asignar(claveAsistencia, valorTelefono);
+    }
+
+    const nuevoValorAsistencia = obtener(claveAsistencia);
+    if (!esAsistencia(nuevoValorAsistencia) && esAsistencia(valorEspecialidad)) {
+      asignar(claveAsistencia, valorEspecialidad);
+      asignar(claveEspecialidad, nuevoValorAsistencia);
+    }
+
+    const fotoCorregida = obtener(claveFoto);
+    if (!esFoto(fotoCorregida) && esFoto(valorProyecto)) {
+      asignar(claveFoto, valorProyecto);
+      if (claveProyecto) asignar(claveProyecto, fotoCorregida || '');
+    }
+
+    return fila;
   }
-}
+};
 
 function renderizarBarraLateral() {
   listaEntidadesEl.innerHTML = '';
@@ -363,34 +522,21 @@ function renderizarBarraLateral() {
   });
 }
 
-function detectarClaveId(filas) {
-  if (!Array.isArray(filas) || !filas.length) return null;
-  const primeraFila = filas[0] || {};
-  const keys = Object.keys(primeraFila);
-  const directa = keys.find((k) => /^id/i.test(k));
-  if (directa) return directa;
-  const alternativa = keys.find((k) => {
-    const normalizada = normalizarClave(k);
-    return normalizada === 'id' || normalizada.startsWith('id-') || normalizada.endsWith('-id');
-  });
-  return alternativa || keys[0] || null;
-}
-
-// Función para formatear nombres de columnas correctamente
-function formatearNombreColumna(nombre) {
-  if (!nombre) return '';
-  const normalizada = normalizarClave(nombre);
-  if (nombresEspecialesNormalizados[normalizada]) {
-    return nombresEspecialesNormalizados[normalizada];
+function resolverRutaImagen(valor) {
+  if (!valor) return '/default-user.svg';
+  if (typeof valor !== 'string') return '/default-user.svg';
+  const limpio = valor.trim().replace(/\\/g, '/');
+  if (limpio.startsWith('http://') || limpio.startsWith('https://')) return limpio;
+  if (limpio.startsWith('/')) {
+    const base = (baseAPI || '').replace(/\/+$/, '');
+    return `${base}${limpio}`;
   }
-  let resultado = String(nombre)
-    .replace(/([a-z\d])([A-Z])/g, '$1 $2')
-    .replace(/[_\-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (!resultado) return '';
-  resultado = resultado.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-  return resultado;
+  if (limpio.startsWith('uploads/')) {
+    const base = (baseAPI || '').replace(/\/+$/, '');
+    const ruta = limpio.replace(/^\/+/, '');
+    return base ? `${base}/${ruta}` : `/${ruta}`;
+  }
+  return limpio;
 }
 
 function renderizarTabla(filas) {
@@ -400,163 +546,88 @@ function renderizarTabla(filas) {
     return;
   }
 
+  const { columnas, claveId } = obtenerColumnasDisponibles(filas);
+
   const tabla = crear('table');
-  const thead = crear('thead');
-  const htr = crear('tr');
-  let encabezados = Object.keys(filas[0]);
+  const cabecera = crear('thead');
+  const filaCabecera = crear('tr');
 
-  const ordenPreferidoPorEntidad = {
-    empleado: ['idEmpleado','Nombre','Correo','Telefono','Asistencia','Especialidad','foto_url','Proyecto'],
-    cliente: ['idCliente','Nombre','Correo','Telefono','Proyecto','foto_url'],
-    proyecto: ['idProyecto','Nombre','Cliente','Estado','Fecha_inicio','Fecha_fin','Pisos','Apartamentos'],
-    apartamento: ['idApartamento','num_apartamento','num_piso','estado','idProyecto'],
-    piso: ['idPiso','numero','idApartamento','idProyecto'],
-    material: ['idMaterial','Nombre','tipo','costo_unitario','stock','foto_url'],
-    inventario: ['idInventario','tipo_movimiento','cantidad','fecha','Material','Proyecto','idMaterial','idProyecto'],
-    tarea: ['idTarea','Descripcion','Estado','Fecha_inicio','Fecha_fin','Proyecto','Empleado','idProyecto','idEmpleado'],
-    turno: ['idTurno','Hora_inicio','Hora_fin','Tipo_jornada','Empleado','idEmpleado']
-  };
-
-  if (ordenPreferidoPorEntidad[entidadActual]) {
-    const usados = new Set();
-    const preferidas = [];
-    ordenPreferidoPorEntidad[entidadActual].forEach((referencia) => {
-      const encontrada = encabezados.find((col) => !usados.has(col) && normalizarClave(col) === normalizarClave(referencia));
-      if (encontrada) {
-        preferidas.push(encontrada);
-        usados.add(encontrada);
-      }
-    });
-    const restantes = encabezados.filter((col) => !usados.has(col));
-    if (preferidas.length) {
-      encabezados = [...preferidas, ...restantes];
-    }
-  }
-
-  encabezados.forEach((h) => {
-    const th = crear('th', '', formatearNombreColumna(h));
+  columnas.forEach((columna) => {
+    const th = crear('th', '', columna.titulo);
     th.setAttribute('scope', 'col');
-    htr.appendChild(th);
+    filaCabecera.appendChild(th);
   });
+
   if (usuarioActual?.rol === 'Administrador') {
-    htr.appendChild(crear('th', '', 'Acciones'));
+    filaCabecera.appendChild(crear('th', '', 'Acciones'));
   }
-  thead.appendChild(htr);
 
-  const tbody = crear('tbody');
-  const claveId = detectarClaveId(filas);
+  cabecera.appendChild(filaCabecera);
+  tabla.appendChild(cabecera);
 
-  function resolverSrcImagen(val) {
-    if (!val) return '/default-user.svg';
-    if (typeof val !== 'string') return '/default-user.svg';
-  const limpio = val.trim().replace(/\\/g, '/');
-    if (limpio.startsWith('http://') || limpio.startsWith('https://')) return limpio;
-    if (limpio.startsWith('/')) {
-      const base = (baseAPI || '').replace(/\/+$/, '');
-      return `${base}${limpio}`;
-    }
-    if (limpio.startsWith('uploads/')) {
-      const base = (baseAPI || '').replace(/\/+$/, '');
-      const path = limpio.replace(/^\/+/, '');
-      return base ? `${base}/${path}` : `/${path}`;
-    }
-    return limpio;
-  }
+  const cuerpo = crear('tbody');
+  const normalizador = normalizadoresFilas[entidadActual];
 
   filas.forEach((registro) => {
-    const row = { ...registro };
+    const filaNormalizada = normalizador ? normalizador({ ...registro }) : { ...registro };
+    const filaTabla = crear('tr');
 
-    if (entidadActual === 'empleado') {
-      const fotoAlterna = obtenerValorCampo(row, 'Foto');
-      if (fotoAlterna && !obtenerValorCampo(row, 'foto_url')) {
-        establecerValorCampo(row, 'foto_url', fotoAlterna);
-      }
-
-      const esTel = (v) => typeof v === 'string' && /\d{7,}/.test(v.replace(/\D/g, ''));
-      const esAsistencia = (v) => typeof v === 'string' && ['presente', 'ausente'].includes(v.trim().toLowerCase());
-      const esFoto = (v) => typeof v === 'string' && v.trim() !== '' && /^(https?:\/\/|\/|uploads\/)/i.test(v.trim());
-
-      const telefonoVal = obtenerValorCampo(row, 'Telefono');
-      const asistenciaVal = obtenerValorCampo(row, 'Asistencia');
-      const especialidadVal = obtenerValorCampo(row, 'Especialidad');
-      const proyectoVal = obtenerValorCampo(row, 'Proyecto');
-      const fotoUrlActual = obtenerValorCampo(row, 'foto_url');
-
-      if (!esTel(telefonoVal) && esTel(asistenciaVal)) {
-        establecerValorCampo(row, 'Telefono', asistenciaVal);
-        establecerValorCampo(row, 'Asistencia', telefonoVal);
-      }
-
-      const asistenciaPosterior = obtenerValorCampo(row, 'Asistencia');
-      if (!esAsistencia(asistenciaPosterior) && esAsistencia(especialidadVal)) {
-        establecerValorCampo(row, 'Asistencia', especialidadVal);
-        establecerValorCampo(row, 'Especialidad', asistenciaPosterior);
-      }
-
-      if (!esFoto(fotoUrlActual) && esFoto(proyectoVal)) {
-        establecerValorCampo(row, 'foto_url', proyectoVal);
-        establecerValorCampo(row, 'Proyecto', fotoUrlActual ?? '');
-      }
-    }
-
-    const tr = crear('tr');
-    encabezados.forEach((h) => {
-      const td = crear('td');
-      const val = obtenerValorCampo(row, h);
-      if (/foto/i.test(h)) {
-        const img = document.createElement('img');
-        img.src = resolverSrcImagen(val);
-        img.alt = 'foto';
-        img.style.maxWidth = '64px';
-        img.style.maxHeight = '64px';
-        img.style.borderRadius = '6px';
-        img.style.border = '1px solid var(--border-light)';
-        img.loading = 'lazy';
-        img.onerror = () => { img.src = '/default-user.svg'; };
-        td.appendChild(img);
+    columnas.forEach((columna) => {
+      const celda = crear('td');
+      const valor = filaNormalizada[columna.clave];
+      if (columna.tipo === 'imagen') {
+        const imagen = document.createElement('img');
+        imagen.src = resolverRutaImagen(valor);
+        imagen.alt = 'foto';
+        imagen.style.maxWidth = '64px';
+        imagen.style.maxHeight = '64px';
+        imagen.style.borderRadius = '6px';
+        imagen.style.border = '1px solid var(--border-light)';
+        imagen.loading = 'lazy';
+        imagen.onerror = () => { imagen.src = '/default-user.svg'; };
+        celda.appendChild(imagen);
       } else {
-        td.textContent = val == null ? '' : String(val);
+        celda.textContent = valor == null ? '' : String(valor);
       }
-      tr.appendChild(td);
+      filaTabla.appendChild(celda);
     });
 
     if (usuarioActual?.rol === 'Administrador') {
-      const tdAcciones = crear('td');
-      tdAcciones.style.whiteSpace = 'nowrap';
-      const btnSeleccionarId = crear('button', '', 'Seleccionar');
-      btnSeleccionarId.className = 'btn-table-action';
-      btnSeleccionarId.addEventListener('click', () => {
+      const celdaAcciones = crear('td');
+      celdaAcciones.style.whiteSpace = 'nowrap';
+      const botonSeleccionar = crear('button', '', 'Seleccionar');
+      botonSeleccionar.className = 'btn-table-action';
+      botonSeleccionar.addEventListener('click', () => {
         if (!claveId) return;
-        const idValRaw = obtenerValorCampo(row, claveId);
-        if (idValRaw == null) return;
-        const idVal = String(idValRaw);
+        const valorId = filaNormalizada[claveId];
+        if (valorId == null) return;
+        const textoId = String(valorId);
         if (entradaIdActualizacion) {
-          let opt = Array.from(entradaIdActualizacion.options).find((o) => o.value === idVal);
-          if (!opt) {
-            opt = document.createElement('option');
-            opt.value = idVal;
-            opt.textContent = `ID ${idVal}`;
-            entradaIdActualizacion.appendChild(opt);
+          let opcion = Array.from(entradaIdActualizacion.options).find((o) => o.value === textoId);
+          if (!opcion) {
+            opcion = document.createElement('option');
+            opcion.value = textoId;
+            opcion.textContent = `ID ${textoId}`;
+            entradaIdActualizacion.appendChild(opcion);
           }
-          entradaIdActualizacion.value = idVal;
+          entradaIdActualizacion.value = textoId;
         }
         if (mensajeActualizacion) {
           mensajeActualizacion.style.color = 'var(--success)';
-          mensajeActualizacion.textContent = `✓ ID ${idVal} seleccionado`;
+          mensajeActualizacion.textContent = `✓ ID ${textoId} seleccionado`;
           setTimeout(() => {
             if (mensajeActualizacion) mensajeActualizacion.style.color = '';
           }, 3000);
         }
       });
-      tdAcciones.appendChild(btnSeleccionarId);
-      tr.appendChild(tdAcciones);
+      celdaAcciones.appendChild(botonSeleccionar);
+      filaTabla.appendChild(celdaAcciones);
     }
 
-    tbody.appendChild(tr);
+    cuerpo.appendChild(filaTabla);
   });
 
-  tabla.appendChild(thead);
-  tabla.appendChild(tbody);
+  tabla.appendChild(cuerpo);
   contenedorTabla.appendChild(tabla);
 }
 
