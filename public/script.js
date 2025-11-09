@@ -209,9 +209,7 @@ const btnRefrescarAdmins = document.getElementById('btnRefreshAdmins');
 
 
 // en index.html o guarda una clave `API_BASE` en localStorage con la URL del backend en Railway.
-const baseAPI = (typeof window !== 'undefined' && (window.API_BASE || localStorage.getItem('API_BASE'))) || '';
-
-let usuarioActual = null;
+// Nota: `baseAPI` y `usuarioActual` ya están declaradas al inicio del archivo.
 async function solicitarAPI(ruta, opciones = {}) {
   const opcionesFinales = Object.assign({ credentials: 'include' }, opciones);
   const res = await fetch(`${baseAPI}${ruta}`, opcionesFinales);
