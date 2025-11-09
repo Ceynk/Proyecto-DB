@@ -376,19 +376,30 @@ function renderizarTabla(filas) {
   thead.appendChild(htr);
   const tbody = crear('tbody');
   const claveId = detectarClaveId(filas);
+  // Helper para resolver src de imágenes (soporta rutas relativas /uploads )
+  function resolverSrcImagen(val) {
+    if (!val) return '/default-user.svg';
+    if (typeof val !== 'string') return '/default-user.svg';
+    if (val.startsWith('http://') || val.startsWith('https://')) return val;
+    if (val.startsWith('/')) return (baseAPI || '') + val; // prepend baseAPI si existe
+    return val; // podría ser ya relativo válido
+  }
+
   filas.forEach((r) => {
     const tr = crear('tr');
     encabezados.forEach((h) => {
       const td = crear('td');
       const val = r[h];
-      if (val && typeof val === 'string' && /foto/i.test(h)) {
+      if (/foto/i.test(h)) {
         const img = document.createElement('img');
-        img.src = val;
-        img.alt = 'img';
+        img.src = resolverSrcImagen(val);
+        img.alt = 'foto';
         img.style.maxWidth = '64px';
         img.style.maxHeight = '64px';
         img.style.borderRadius = '6px';
         img.style.border = '1px solid var(--border-light)';
+        img.loading = 'lazy';
+        img.onerror = () => { img.src = '/default-user.svg'; };
         td.appendChild(img);
       } else {
         td.textContent = val == null ? '' : String(val);
