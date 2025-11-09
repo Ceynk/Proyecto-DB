@@ -9,6 +9,7 @@
     if(col && (col.type==='number')) { td.textContent = fmtNumber(value); return; }
     if(col && (col.type==='date' || isDateLike(value))) { td.textContent = String(value).slice(0,10); return; }
     td.textContent = String(value);
+    try { td.title = String(value); } catch(_){}
   }
 
   function imageCell(td, src){
