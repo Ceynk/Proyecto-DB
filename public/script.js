@@ -368,16 +368,34 @@ function renderizarTabla(filas) {
   const tabla = crear('table');
   const thead = crear('thead');
   const htr = crear('tr');
+  // Recolección inicial de claves del primer registro
   let encabezados = Object.keys(filas[0]);
-  // Corrección: en Empleado forzamos el orden correcto de columnas
-  // para evitar desalineaciones donde el nombre aparecía como un número (id anterior)
-  // y la foto/proyecto quedaban corridos. Si todas las claves existen, usamos este orden fijo.
-  if (entidadActual === 'empleado') {
-    const ordenEmpleado = ['idEmpleado','Nombre','Correo','Telefono','Asistencia','Especialidad','foto_url','Proyecto'];
-    const tieneTodas = ordenEmpleado.every(k => Object.prototype.hasOwnProperty.call(filas[0], k));
-    if (tieneTodas) encabezados = ordenEmpleado;
+
+  // Mapa de orden preferido para cada entidad. Se incluirán únicamente las claves presentes
+  const ordenPreferidoPorEntidad = {
+    empleado: ['idEmpleado','Nombre','Correo','Telefono','Asistencia','Especialidad','foto_url','Proyecto'],
+    cliente: ['idCliente','Nombre','Correo','Telefono','Proyecto','foto_url'], // Proyecto/foto pueden venir de joins
+    proyecto: ['idProyecto','Nombre','Cliente','Estado','Fecha_inicio','Fecha_fin','Pisos','Apartamentos'],
+    apartamento: ['idApartamento','num_apartamento','num_piso','estado','idProyecto'],
+    piso: ['idPiso','numero','idApartamento','idProyecto'],
+    material: ['idMaterial','Nombre','tipo','costo_unitario','stock','foto_url'],
+    inventario: ['idInventario','tipo_movimiento','cantidad','fecha','Material','Proyecto','idMaterial','idProyecto'],
+    tarea: ['idTarea','Descripcion','Estado','Fecha_inicio','Fecha_fin','Proyecto','Empleado','idProyecto','idEmpleado'],
+    turno: ['idTurno','Hora_inicio','Hora_fin','Tipo_jornada','Empleado','idEmpleado']
+  };
+
+  if (ordenPreferidoPorEntidad[entidadActual]) {
+    const preferidas = ordenPreferidoPorEntidad[entidadActual].filter(k => encabezados.includes(k));
+    // Añadir cualquier otra clave no contemplada al final para no perder datos
+    const restantes = encabezados.filter(k => !preferidas.includes(k));
+    if (preferidas.length) encabezados = [...preferidas, ...restantes];
   }
-  encabezados.forEach((h) => htr.appendChild(crear('th', '', formatearNombreColumna(h))));
+
+  encabezados.forEach((h) => {
+    const th = crear('th', '', formatearNombreColumna(h));
+    th.setAttribute('scope', 'col');
+    htr.appendChild(th);
+  });
   if (usuarioActual?.rol === 'Administrador') {
     htr.appendChild(crear('th', '', 'Acciones'));
   }
@@ -394,10 +412,33 @@ function renderizarTabla(filas) {
   }
 
   filas.forEach((r) => {
+    // Normalización de filas mal mapeadas desde el backend (correcciones defensivas)
+    let row = r;
+    if (entidadActual === 'empleado') {
+      row = { ...r };
+      // Aceptar alias comunes
+      if (row.Foto && !row.foto_url) row.foto_url = row.Foto;
+      const esTel = (v) => typeof v === 'string' && /\d{7,}/.test(v.replace(/\D/g, ''));
+      const esAsistencia = (v) => v === 'Presente' || v === 'Ausente';
+      const esFoto = (v) => typeof v === 'string' && (v.startsWith('http://') || v.startsWith('https://') || v.startsWith('/'));
+      // 1) Telefono ↔ Asistencia si vienen corridos
+      if (!esTel(row.Telefono) && esTel(row.Asistencia)) {
+        const tmp = row.Telefono; row.Telefono = row.Asistencia; row.Asistencia = tmp;
+      }
+      // 2) Asistencia ↔ Especialidad si vienen corridos
+      if (!esAsistencia(row.Asistencia) && esAsistencia(row.Especialidad)) {
+        const tmp = row.Asistencia; row.Asistencia = row.Especialidad; row.Especialidad = tmp;
+      }
+      // 3) foto_url ↔ Proyecto si vienen corridos
+      if (!esFoto(row.foto_url) && esFoto(row.Proyecto)) {
+        const tmp = row.foto_url; row.foto_url = row.Proyecto; row.Proyecto = tmp;
+      }
+    }
+
     const tr = crear('tr');
     encabezados.forEach((h) => {
       const td = crear('td');
-      const val = r[h];
+      const val = row[h];
       if (/foto/i.test(h)) {
         const img = document.createElement('img');
         img.src = resolverSrcImagen(val);
