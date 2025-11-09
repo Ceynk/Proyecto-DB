@@ -922,6 +922,28 @@ async function cargarOpcionesActualizacion() {
   });
 }
 
+// Manejo del formulario de login (restaurado)
+if (formularioLogin) {
+  formularioLogin.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (mensajeLogin) { mensajeLogin.textContent = 'Ingresando...'; mensajeLogin.style.color = ''; }
+    const fd = new FormData(formularioLogin);
+    const payload = { username: fd.get('username'), password: fd.get('password') };
+    try {
+      const r = await solicitarAPI('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      usuarioActual = r.user;
+      formularioLogin.reset();
+      actualizarUIParaAutenticacion();
+    } catch (e) {
+      if (mensajeLogin) { mensajeLogin.style.color = 'salmon'; mensajeLogin.textContent = e.message; }
+    }
+  });
+}
+
 if (btnCerrarSesion) {
   btnCerrarSesion.addEventListener('click', async () => {
     try { await solicitarAPI('/api/auth/logout', { method: 'POST' }); } catch (_) {}
