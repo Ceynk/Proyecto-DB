@@ -537,55 +537,91 @@ function resolverRutaImagen(valor) {
   return limpio;
 }
 
-// Nuevo renderizador genérico usando componente reutilizable renderTable (ui-table.js)
+// Renderizador original de tabla (restaurado)
 function renderizarTabla(filas) {
   contenedorTabla.innerHTML = '';
-  const normalizador = normalizadoresFilas[entidadActual];
-  const datos = Array.isArray(filas) ? filas.map(f => normalizador ? normalizador({ ...f }) : { ...f }) : [];
-  if (!datos.length) {
-    contenedorTabla.innerHTML = '<div class="table-empty">Sin datos para mostrar</div>';
+  if (!filas || filas.length === 0) {
+    contenedorTabla.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Sin datos para mostrar</div>';
     return;
   }
-  const { columnas, claveId } = obtenerColumnasDisponibles(datos);
-  const cols = columnas.map(c => ({
-    key: c.clave,
-    header: c.titulo,
-    type: c.tipo === 'imagen' ? 'image' : 'text',
-    render: c.tipo === 'imagen' ? (td, value) => {
-      const img = document.createElement('img');
-      img.className = 'tbl-img';
-      img.alt = 'foto';
-      img.loading = 'lazy';
-      img.onerror = () => { img.src = '/default-user.svg'; };
-      img.src = resolverRutaImagen(value);
-      td.appendChild(img);
-    } : null
-  }));
-  const acciones = (usuarioActual?.rol === 'Administrador') ? [{
-    label: 'Seleccionar',
-    onClick: (row) => {
-      if (!claveId) return;
-      const valorId = row[claveId];
-      if (valorId == null) return;
-      const textoId = String(valorId);
-      if (entradaIdActualizacion) {
-        let opcion = Array.from(entradaIdActualizacion.options).find(o => o.value === textoId);
-        if (!opcion) {
-          opcion = document.createElement('option');
-          opcion.value = textoId;
-          opcion.textContent = `ID ${textoId}`;
-          entradaIdActualizacion.appendChild(opcion);
+
+  const normalizador = normalizadoresFilas[entidadActual];
+  const filasNorm = filas.map(r => normalizador ? normalizador({ ...r }) : { ...r });
+  const { columnas, claveId } = obtenerColumnasDisponibles(filasNorm);
+
+  const tabla = crear('table');
+  const cabecera = crear('thead');
+  const filaCabecera = crear('tr');
+  columnas.forEach((columna) => {
+    const th = crear('th', '', columna.titulo);
+    th.setAttribute('scope', 'col');
+    filaCabecera.appendChild(th);
+  });
+  if (usuarioActual?.rol === 'Administrador') {
+    filaCabecera.appendChild(crear('th', '', 'Acciones'));
+  }
+  cabecera.appendChild(filaCabecera);
+  tabla.appendChild(cabecera);
+
+  const cuerpo = crear('tbody');
+  filasNorm.forEach((registro, idx) => {
+    const filaTabla = crear('tr');
+    columnas.forEach((columna) => {
+      const celda = crear('td');
+      const valor = registro[columna.clave];
+      if (columna.tipo === 'imagen') {
+        const imagen = document.createElement('img');
+        imagen.src = resolverRutaImagen(valor);
+        imagen.alt = 'foto';
+        imagen.style.maxWidth = '64px';
+        imagen.style.maxHeight = '64px';
+        imagen.style.borderRadius = '6px';
+        imagen.style.border = '1px solid var(--border-light)';
+        imagen.loading = 'lazy';
+        imagen.onerror = () => { imagen.src = '/default-user.svg'; };
+        celda.appendChild(imagen);
+      } else {
+        celda.textContent = valor == null ? '' : String(valor);
+      }
+      // Fallback si columna es ID y valor vacío: intentar mostrar alguna clave alternativa
+      if (columna.esId && (valor == null || valor === '')) {
+        const alt = registro.id || registro.ID || registro.Id;
+        if (alt != null) celda.textContent = String(alt);
+      }
+      filaTabla.appendChild(celda);
+    });
+    if (usuarioActual?.rol === 'Administrador') {
+      const celdaAcciones = crear('td');
+      celdaAcciones.style.whiteSpace = 'nowrap';
+      const botonSeleccionar = crear('button', 'btn-table-action', 'Seleccionar');
+      botonSeleccionar.addEventListener('click', () => {
+        if (!claveId) return;
+        const valorId = registro[claveId];
+        if (valorId == null) return;
+        const textoId = String(valorId);
+        if (entradaIdActualizacion) {
+          let opcion = Array.from(entradaIdActualizacion.options).find((o) => o.value === textoId);
+          if (!opcion) {
+            opcion = document.createElement('option');
+            opcion.value = textoId;
+            opcion.textContent = `ID ${textoId}`;
+            entradaIdActualizacion.appendChild(opcion);
+          }
+          entradaIdActualizacion.value = textoId;
         }
-        entradaIdActualizacion.value = textoId;
-      }
-      if (mensajeActualizacion) {
-        mensajeActualizacion.style.color = 'var(--success)';
-        mensajeActualizacion.textContent = `✓ ID ${textoId} seleccionado`;
-        setTimeout(() => { if (mensajeActualizacion) mensajeActualizacion.style.color = ''; }, 2500);
-      }
+        if (mensajeActualizacion) {
+          mensajeActualizacion.style.color = 'var(--success)';
+          mensajeActualizacion.textContent = `✓ ID ${textoId} seleccionado`;
+          setTimeout(() => { if (mensajeActualizacion) mensajeActualizacion.style.color = ''; }, 3000);
+        }
+      });
+      celdaAcciones.appendChild(botonSeleccionar);
+      filaTabla.appendChild(celdaAcciones);
     }
-  }] : [];
-  renderTable(contenedorTabla, cols, datos, { rowActions: acciones, emptyText: 'Sin datos para mostrar' });
+    cuerpo.appendChild(filaTabla);
+  });
+  tabla.appendChild(cuerpo);
+  contenedorTabla.appendChild(tabla);
 }
 
 // Renderizado especial para inventario tipo catálogo
