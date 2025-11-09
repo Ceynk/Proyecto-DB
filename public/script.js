@@ -269,6 +269,73 @@ function sanitizarDigitos(value) {
   return value.replace(/\D/g, '');
 }
 
+function normalizarClave(nombre) {
+  return String(nombre ?? '')
+    .replace(/([a-z\d])([A-Z])/g, '$1-$2')
+    .replace(/[_\s]+/g, '-')
+    .replace(/-+/g, '-')
+    .toLowerCase()
+    .trim();
+}
+
+const nombresEspecialesNormalizados = {
+  'id-empleado': 'ID Empleado',
+  'id-cliente': 'ID Cliente',
+  'id-proyecto': 'ID Proyecto',
+  'id-material': 'ID Material',
+  'id-asistencia': 'ID Asistencia',
+  'id-usuario': 'ID Usuario',
+  'id-turno': 'ID Turno',
+  'id-tarea': 'ID Tarea',
+  'id-inventario': 'ID Inventario',
+  'id-ingreso': 'ID Ingreso',
+  'id-gasto': 'ID Gasto',
+  'id-pago': 'ID Pago',
+  'nombre-completo': 'Nombre Completo',
+  'correo': 'Correo',
+  'telefono': 'Teléfono',
+  'especialidad': 'Especialidad',
+  'foto-url': 'Foto',
+  'foto': 'Foto',
+  'fecha-inicio': 'Fecha Inicio',
+  'fecha-fin': 'Fecha Fin',
+  'nombre-proyecto': 'Nombre Proyecto',
+  'nombre-material': 'Nombre Material',
+  'costo-total': 'Costo Total',
+  'estado-proyecto': 'Estado',
+  'fecha-registro': 'Fecha Registro',
+  'hora-entrada': 'Hora Entrada',
+  'hora-salida': 'Hora Salida',
+  'usuario': 'Usuario',
+  'rol': 'Rol',
+  'fecha-creacion': 'Fecha Creación'
+};
+
+function encontrarClavePorNorma(obj, referencia) {
+  if (!obj) return null;
+  const objetivo = normalizarClave(referencia);
+  return Object.keys(obj).find((k) => normalizarClave(k) === objetivo) || null;
+}
+
+function obtenerValorCampo(row, referencia) {
+  if (!row) return undefined;
+  if (Object.prototype.hasOwnProperty.call(row, referencia)) {
+    return row[referencia];
+  }
+  const claveReal = encontrarClavePorNorma(row, referencia);
+  return claveReal ? row[claveReal] : undefined;
+}
+
+function establecerValorCampo(row, referencia, valor) {
+  if (!row) return;
+  const claveReal = encontrarClavePorNorma(row, referencia);
+  if (claveReal) {
+    row[claveReal] = valor;
+  } else {
+    row[referencia] = valor;
+  }
+}
+
 function renderizarBarraLateral() {
   listaEntidadesEl.innerHTML = '';
   entidades.forEach((nombre) => {
@@ -297,62 +364,32 @@ function renderizarBarraLateral() {
 }
 
 function detectarClaveId(filas) {
-  if (!filas || !filas.length) return null;
-  const keys = Object.keys(filas[0] || {});
-  // Preferir una clave que empiece por 'id'
-  const idLike = keys.find((k) => /^id/i.test(k));
-  return idLike || keys[0];
+  if (!Array.isArray(filas) || !filas.length) return null;
+  const primeraFila = filas[0] || {};
+  const keys = Object.keys(primeraFila);
+  const directa = keys.find((k) => /^id/i.test(k));
+  if (directa) return directa;
+  const alternativa = keys.find((k) => {
+    const normalizada = normalizarClave(k);
+    return normalizada === 'id' || normalizada.startsWith('id-') || normalizada.endsWith('-id');
+  });
+  return alternativa || keys[0] || null;
 }
 
 // Función para formatear nombres de columnas correctamente
 function formatearNombreColumna(nombre) {
   if (!nombre) return '';
-  
-  // Diccionario de nombres específicos
-  const nombresEspeciales = {
-    'idEmpleado': 'ID Empleado',
-    'idCliente': 'ID Cliente',
-    'idProyecto': 'ID Proyecto',
-    'idMaterial': 'ID Material',
-    'idAsistencia': 'ID Asistencia',
-    'idUsuario': 'ID Usuario',
-    'nombreCompleto': 'Nombre Completo',
-    'correo': 'Correo',
-    'telefono': 'Teléfono',
-    'especialidad': 'Especialidad',
-    'fotoUrl': 'Foto',
-    'foto_url': 'Foto',
-    'fechaInicio': 'Fecha Inicio',
-    'fechaFin': 'Fecha Fin',
-    'nombreProyecto': 'Nombre Proyecto',
-    'nombreMaterial': 'Nombre Material',
-    'costoTotal': 'Costo Total',
-    'estadoProyecto': 'Estado',
-    'fechaRegistro': 'Fecha Registro',
-    'horaEntrada': 'Hora Entrada',
-    'horaSalida': 'Hora Salida',
-    'usuario': 'Usuario',
-    'rol': 'Rol',
-    'fechaCreacion': 'Fecha Creación'
-  };
-  
-  // Si existe en el diccionario, usar ese nombre
-  if (nombresEspeciales[nombre]) {
-    return nombresEspeciales[nombre];
+  const normalizada = normalizarClave(nombre);
+  if (nombresEspecialesNormalizados[normalizada]) {
+    return nombresEspecialesNormalizados[normalizada];
   }
-  
-  // Si empieza con 'id', formatear como "ID Palabra"
-  if (/^id[A-Z]/.test(nombre)) {
-    const resto = nombre.substring(2);
-    return 'ID ' + resto.replace(/([A-Z])/g, ' $1').trim();
-  }
-  
-  // Convertir camelCase a texto con espacios
-  let resultado = nombre.replace(/([A-Z])/g, ' $1').trim();
-  
-  // Capitalizar primera letra
-  resultado = resultado.charAt(0).toUpperCase() + resultado.slice(1);
-  
+  let resultado = String(nombre)
+    .replace(/([a-z\d])([A-Z])/g, '$1 $2')
+    .replace(/[_\-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!resultado) return '';
+  resultado = resultado.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
   return resultado;
 }
 
@@ -363,18 +400,14 @@ function renderizarTabla(filas) {
     return;
   }
 
-  // Inventario es exclusivo del Contador; no se renderiza catálogo aquí
-
   const tabla = crear('table');
   const thead = crear('thead');
   const htr = crear('tr');
-  // Recolección inicial de claves del primer registro
   let encabezados = Object.keys(filas[0]);
 
-  // Mapa de orden preferido para cada entidad. Se incluirán únicamente las claves presentes
   const ordenPreferidoPorEntidad = {
     empleado: ['idEmpleado','Nombre','Correo','Telefono','Asistencia','Especialidad','foto_url','Proyecto'],
-    cliente: ['idCliente','Nombre','Correo','Telefono','Proyecto','foto_url'], // Proyecto/foto pueden venir de joins
+    cliente: ['idCliente','Nombre','Correo','Telefono','Proyecto','foto_url'],
     proyecto: ['idProyecto','Nombre','Cliente','Estado','Fecha_inicio','Fecha_fin','Pisos','Apartamentos'],
     apartamento: ['idApartamento','num_apartamento','num_piso','estado','idProyecto'],
     piso: ['idPiso','numero','idApartamento','idProyecto'],
@@ -385,10 +418,19 @@ function renderizarTabla(filas) {
   };
 
   if (ordenPreferidoPorEntidad[entidadActual]) {
-    const preferidas = ordenPreferidoPorEntidad[entidadActual].filter(k => encabezados.includes(k));
-    // Añadir cualquier otra clave no contemplada al final para no perder datos
-    const restantes = encabezados.filter(k => !preferidas.includes(k));
-    if (preferidas.length) encabezados = [...preferidas, ...restantes];
+    const usados = new Set();
+    const preferidas = [];
+    ordenPreferidoPorEntidad[entidadActual].forEach((referencia) => {
+      const encontrada = encabezados.find((col) => !usados.has(col) && normalizarClave(col) === normalizarClave(referencia));
+      if (encontrada) {
+        preferidas.push(encontrada);
+        usados.add(encontrada);
+      }
+    });
+    const restantes = encabezados.filter((col) => !usados.has(col));
+    if (preferidas.length) {
+      encabezados = [...preferidas, ...restantes];
+    }
   }
 
   encabezados.forEach((h) => {
@@ -400,45 +442,67 @@ function renderizarTabla(filas) {
     htr.appendChild(crear('th', '', 'Acciones'));
   }
   thead.appendChild(htr);
+
   const tbody = crear('tbody');
   const claveId = detectarClaveId(filas);
-  // Helper para resolver src de imágenes (soporta rutas relativas /uploads )
+
   function resolverSrcImagen(val) {
     if (!val) return '/default-user.svg';
     if (typeof val !== 'string') return '/default-user.svg';
-    if (val.startsWith('http://') || val.startsWith('https://')) return val;
-    if (val.startsWith('/')) return (baseAPI || '') + val; // prepend baseAPI si existe
-    return val; // podría ser ya relativo válido
+  const limpio = val.trim().replace(/\\/g, '/');
+    if (limpio.startsWith('http://') || limpio.startsWith('https://')) return limpio;
+    if (limpio.startsWith('/')) {
+      const base = (baseAPI || '').replace(/\/+$/, '');
+      return `${base}${limpio}`;
+    }
+    if (limpio.startsWith('uploads/')) {
+      const base = (baseAPI || '').replace(/\/+$/, '');
+      const path = limpio.replace(/^\/+/, '');
+      return base ? `${base}/${path}` : `/${path}`;
+    }
+    return limpio;
   }
 
-  filas.forEach((r) => {
-    // Normalización de filas mal mapeadas desde el backend (correcciones defensivas)
-    let row = r;
+  filas.forEach((registro) => {
+    const row = { ...registro };
+
     if (entidadActual === 'empleado') {
-      row = { ...r };
-      // Aceptar alias comunes
-      if (row.Foto && !row.foto_url) row.foto_url = row.Foto;
+      const fotoAlterna = obtenerValorCampo(row, 'Foto');
+      if (fotoAlterna && !obtenerValorCampo(row, 'foto_url')) {
+        establecerValorCampo(row, 'foto_url', fotoAlterna);
+      }
+
       const esTel = (v) => typeof v === 'string' && /\d{7,}/.test(v.replace(/\D/g, ''));
-      const esAsistencia = (v) => v === 'Presente' || v === 'Ausente';
-      const esFoto = (v) => typeof v === 'string' && (v.startsWith('http://') || v.startsWith('https://') || v.startsWith('/'));
-      // 1) Telefono ↔ Asistencia si vienen corridos
-      if (!esTel(row.Telefono) && esTel(row.Asistencia)) {
-        const tmp = row.Telefono; row.Telefono = row.Asistencia; row.Asistencia = tmp;
+      const esAsistencia = (v) => typeof v === 'string' && ['presente', 'ausente'].includes(v.trim().toLowerCase());
+      const esFoto = (v) => typeof v === 'string' && v.trim() !== '' && /^(https?:\/\/|\/|uploads\/)/i.test(v.trim());
+
+      const telefonoVal = obtenerValorCampo(row, 'Telefono');
+      const asistenciaVal = obtenerValorCampo(row, 'Asistencia');
+      const especialidadVal = obtenerValorCampo(row, 'Especialidad');
+      const proyectoVal = obtenerValorCampo(row, 'Proyecto');
+      const fotoUrlActual = obtenerValorCampo(row, 'foto_url');
+
+      if (!esTel(telefonoVal) && esTel(asistenciaVal)) {
+        establecerValorCampo(row, 'Telefono', asistenciaVal);
+        establecerValorCampo(row, 'Asistencia', telefonoVal);
       }
-      // 2) Asistencia ↔ Especialidad si vienen corridos
-      if (!esAsistencia(row.Asistencia) && esAsistencia(row.Especialidad)) {
-        const tmp = row.Asistencia; row.Asistencia = row.Especialidad; row.Especialidad = tmp;
+
+      const asistenciaPosterior = obtenerValorCampo(row, 'Asistencia');
+      if (!esAsistencia(asistenciaPosterior) && esAsistencia(especialidadVal)) {
+        establecerValorCampo(row, 'Asistencia', especialidadVal);
+        establecerValorCampo(row, 'Especialidad', asistenciaPosterior);
       }
-      // 3) foto_url ↔ Proyecto si vienen corridos
-      if (!esFoto(row.foto_url) && esFoto(row.Proyecto)) {
-        const tmp = row.foto_url; row.foto_url = row.Proyecto; row.Proyecto = tmp;
+
+      if (!esFoto(fotoUrlActual) && esFoto(proyectoVal)) {
+        establecerValorCampo(row, 'foto_url', proyectoVal);
+        establecerValorCampo(row, 'Proyecto', fotoUrlActual ?? '');
       }
     }
 
     const tr = crear('tr');
     encabezados.forEach((h) => {
       const td = crear('td');
-      const val = row[h];
+      const val = obtenerValorCampo(row, h);
       if (/foto/i.test(h)) {
         const img = document.createElement('img');
         img.src = resolverSrcImagen(val);
@@ -455,36 +519,42 @@ function renderizarTabla(filas) {
       }
       tr.appendChild(td);
     });
-  if (usuarioActual?.rol === 'Administrador') {
+
+    if (usuarioActual?.rol === 'Administrador') {
       const tdAcciones = crear('td');
       tdAcciones.style.whiteSpace = 'nowrap';
       const btnSeleccionarId = crear('button', '', 'Seleccionar');
       btnSeleccionarId.className = 'btn-table-action';
       btnSeleccionarId.addEventListener('click', () => {
-        if (claveId) {
-          const idVal = String(r[claveId]);
-          if (entradaIdActualizacion) {
-            let opt = Array.from(entradaIdActualizacion.options).find(o => o.value === idVal);
-            if (!opt) {
-              opt = document.createElement('option');
-              opt.value = idVal;
-              opt.textContent = `ID ${idVal}`;
-              entradaIdActualizacion.appendChild(opt);
-            }
-            entradaIdActualizacion.value = idVal;
+        if (!claveId) return;
+        const idValRaw = obtenerValorCampo(row, claveId);
+        if (idValRaw == null) return;
+        const idVal = String(idValRaw);
+        if (entradaIdActualizacion) {
+          let opt = Array.from(entradaIdActualizacion.options).find((o) => o.value === idVal);
+          if (!opt) {
+            opt = document.createElement('option');
+            opt.value = idVal;
+            opt.textContent = `ID ${idVal}`;
+            entradaIdActualizacion.appendChild(opt);
           }
+          entradaIdActualizacion.value = idVal;
         }
-        mensajeActualizacion.style.color = 'var(--success)';
-        mensajeActualizacion.textContent = `✓ ID ${r[claveId]} seleccionado`;
-        setTimeout(() => {
-          mensajeActualizacion.style.color = '';
-        }, 3000);
+        if (mensajeActualizacion) {
+          mensajeActualizacion.style.color = 'var(--success)';
+          mensajeActualizacion.textContent = `✓ ID ${idVal} seleccionado`;
+          setTimeout(() => {
+            if (mensajeActualizacion) mensajeActualizacion.style.color = '';
+          }, 3000);
+        }
       });
       tdAcciones.appendChild(btnSeleccionarId);
       tr.appendChild(tdAcciones);
     }
+
     tbody.appendChild(tr);
   });
+
   tabla.appendChild(thead);
   tabla.appendChild(tbody);
   contenedorTabla.appendChild(tabla);
