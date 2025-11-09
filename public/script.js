@@ -286,16 +286,39 @@ function formatearTituloColumna(nombre) {
 }
 
 function resolverClaveDisponible(conjuntoClaves, posibles) {
+  // Primero intentar coincidencia exacta (case-sensitive)
+  for (const candidato of posibles) {
+    if (conjuntoClaves.includes(candidato)) {
+      return candidato;
+    }
+  }
+  
+  // Luego intentar coincidencia sin considerar mayúsculas/minúsculas
+  const mapaMinusculas = {};
+  conjuntoClaves.forEach((clave) => {
+    mapaMinusculas[clave.toLowerCase()] = clave;
+  });
+  
+  for (const candidato of posibles) {
+    const candidatoMin = candidato.toLowerCase();
+    if (mapaMinusculas[candidatoMin]) {
+      return mapaMinusculas[candidatoMin];
+    }
+  }
+  
+  // Finalmente, intentar con normalización completa
   const mapa = {};
   conjuntoClaves.forEach((clave) => {
     mapa[limpiarNombreClave(clave)] = clave;
   });
+  
   for (const candidato of posibles) {
     const claveNormalizada = limpiarNombreClave(candidato);
     if (mapa[claveNormalizada]) {
       return mapa[claveNormalizada];
     }
   }
+  
   return null;
 }
 
@@ -310,25 +333,36 @@ function obtenerColumnasDisponibles(filas) {
     Object.keys(fila).forEach((clave) => todasLasClaves.add(clave));
   });
 
+  const clavesArray = Array.from(todasLasClaves);
+  
+  // Debug: ver qué claves están disponibles en los datos
+  console.log(`[${entidadActual}] Claves disponibles en datos:`, clavesArray);
+
   const columnas = [];
   const clavesUsadas = new Set();
   let claveId = null;
 
   definicion.forEach((columna) => {
-    const claveReal = resolverClaveDisponible(Array.from(todasLasClaves), columna.claves);
-    if (!claveReal) return;
+    const claveReal = resolverClaveDisponible(clavesArray, columna.claves);
+    if (!claveReal) {
+      console.warn(`[${entidadActual}] No se encontró clave para:`, columna.claves, 'en', clavesArray);
+      return;
+    }
+    console.log(`[${entidadActual}] Mapeando ${columna.titulo}:`, columna.claves, '→', claveReal);
     columnas.push({
       clave: claveReal,
       titulo: columna.titulo,
-      tipo: columna.tipo || inferirTipoColumna(claveReal)
+      tipo: columna.tipo || inferirTipoColumna(claveReal),
+      esId: columna.esId || false
     });
     clavesUsadas.add(claveReal);
-    if (!claveId && (columna.esId || /^id/.test(limpiarNombreClave(claveReal)))) {
+    if (!claveId && (columna.esId || /^id/i.test(claveReal))) {
       claveId = claveReal;
     }
   });
 
-  Array.from(todasLasClaves).forEach((clave) => {
+  // Agregar columnas no definidas en la configuración
+  clavesArray.forEach((clave) => {
     if (clavesUsadas.has(clave)) return;
     columnas.push({
       clave,
@@ -336,7 +370,7 @@ function obtenerColumnasDisponibles(filas) {
       tipo: inferirTipoColumna(clave)
     });
     clavesUsadas.add(clave);
-    if (!claveId && /^id/.test(limpiarNombreClave(clave))) {
+    if (!claveId && /^id/i.test(clave)) {
       claveId = clave;
     }
   });
@@ -344,6 +378,9 @@ function obtenerColumnasDisponibles(filas) {
   if (!claveId && columnas.length) {
     claveId = columnas[0].clave;
   }
+
+  console.log(`[${entidadActual}] Columnas finales:`, columnas.map(c => `${c.titulo}(${c.clave})`));
+  console.log(`[${entidadActual}] Clave ID:`, claveId);
 
   return { columnas, claveId };
 }
@@ -453,46 +490,7 @@ const configuracionTablas = {
 };
 
 const normalizadoresFilas = {
-  empleado(filaOriginal) {
-    const fila = { ...filaOriginal };
-    const claveTelefono = resolverClaveEnObjeto(fila, ['Telefono', 'Teléfono']);
-    const claveAsistencia = resolverClaveEnObjeto(fila, ['Asistencia']);
-    const claveEspecialidad = resolverClaveEnObjeto(fila, ['Especialidad']);
-    const claveProyecto = resolverClaveEnObjeto(fila, ['Proyecto', 'NombreProyecto']);
-    const claveFoto = resolverClaveEnObjeto(fila, ['foto_url', 'Foto', 'Imagen']);
-
-    const obtener = (clave) => (clave ? fila[clave] : undefined);
-    const asignar = (clave, valor) => { if (clave) fila[clave] = valor; };
-
-    const esTelefono = (valor) => typeof valor === 'string' && /\d{7,}/.test(valor.replace(/\D/g, ''));
-    const esAsistencia = (valor) => typeof valor === 'string' && ['presente', 'ausente'].includes(valor.trim().toLowerCase());
-    const esFoto = (valor) => typeof valor === 'string' && /^(https?:\/\/|\/|uploads\/)/i.test(valor.trim());
-
-    const valorTelefono = obtener(claveTelefono);
-    const valorAsistencia = obtener(claveAsistencia);
-    const valorEspecialidad = obtener(claveEspecialidad);
-    const valorProyecto = obtener(claveProyecto);
-    const valorFoto = obtener(claveFoto);
-
-    if (!esTelefono(valorTelefono) && esTelefono(valorAsistencia)) {
-      asignar(claveTelefono, valorAsistencia);
-      asignar(claveAsistencia, valorTelefono);
-    }
-
-    const nuevoValorAsistencia = obtener(claveAsistencia);
-    if (!esAsistencia(nuevoValorAsistencia) && esAsistencia(valorEspecialidad)) {
-      asignar(claveAsistencia, valorEspecialidad);
-      asignar(claveEspecialidad, nuevoValorAsistencia);
-    }
-
-    const fotoCorregida = obtener(claveFoto);
-    if (!esFoto(fotoCorregida) && esFoto(valorProyecto)) {
-      asignar(claveFoto, valorProyecto);
-      if (claveProyecto) asignar(claveProyecto, fotoCorregida || '');
-    }
-
-    return fila;
-  }
+  // Removido el normalizador de empleado que causaba intercambio incorrecto de valores
 };
 
 function renderizarBarraLateral() {
@@ -568,13 +566,20 @@ function renderizarTabla(filas) {
   const cuerpo = crear('tbody');
   const normalizador = normalizadoresFilas[entidadActual];
 
-  filas.forEach((registro) => {
+  filas.forEach((registro, idx) => {
     const filaNormalizada = normalizador ? normalizador({ ...registro }) : { ...registro };
     const filaTabla = crear('tr');
+    
+    // Debug primera fila para verificar datos
+    if (idx === 0) {
+      console.log(`[${entidadActual}] Primera fila (original):`, registro);
+      console.log(`[${entidadActual}] Primera fila (normalizada):`, filaNormalizada);
+    }
 
     columnas.forEach((columna) => {
       const celda = crear('td');
       const valor = filaNormalizada[columna.clave];
+      
       if (columna.tipo === 'imagen') {
         const imagen = document.createElement('img');
         imagen.src = resolverRutaImagen(valor);
@@ -589,6 +594,13 @@ function renderizarTabla(filas) {
       } else {
         celda.textContent = valor == null ? '' : String(valor);
       }
+      
+      // Debug valores vacíos en columna ID
+      if (idx === 0 && columna.esId && !valor) {
+        console.warn(`[${entidadActual}] Valor vacío para columna ID '${columna.titulo}' (clave: ${columna.clave})`);
+        console.warn(`[${entidadActual}] Claves disponibles en fila:`, Object.keys(filaNormalizada));
+      }
+      
       filaTabla.appendChild(celda);
     });
 
