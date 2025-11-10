@@ -1098,7 +1098,7 @@ if (formularioLogin) {
 async function cargarModelosFace() {
   if (faceModelsLoaded || cargandoModelo) return;
   cargandoModelo = true;
-  const baseLocal = '/models';
+  const baseLocal = '/models'; // Contiene *.bin y *weights_manifest.json copiados desde node_modules
   async function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
   async function cargarConReintentos(net, nombre){
     const intentos = 10;
@@ -1117,7 +1117,13 @@ async function cargarModelosFace() {
   try {
     faceLoginMsg.textContent = 'Cargando modelos (local)...';
     await cargarConReintentos(faceapi.nets.tinyFaceDetector,'tiny');
-    await cargarConReintentos(faceapi.nets.faceLandmark68Net,'landmarks');
+    // Preferir modelo completo; si falla intentar tiny landmarks
+    try {
+      await cargarConReintentos(faceapi.nets.faceLandmark68Net,'landmarks');
+    } catch (e) {
+      faceLoginMsg.textContent = 'Fallo landmarks completos, intentando versión tiny';
+      await cargarConReintentos(faceapi.nets.faceLandmark68TinyNet,'landmarks-tiny');
+    }
     await cargarConReintentos(faceapi.nets.faceRecognitionNet,'recognition');
     faceModelsLoaded = true;
     faceLoginMsg.textContent = 'Modelos listos';
