@@ -19,6 +19,7 @@ async function verificarSesion() {
       window.location.href = '/';
       return;
     }
+  await cargarInfoContador(me);
   await cargarListasMinimas();
   await cargarResumenProyectos();
     await cargarInventario();
@@ -27,6 +28,51 @@ async function verificarSesion() {
     prepararSelfEnrollmentCont(me.hasFaceDescriptor === true);
   } catch (_) {
     window.location.href = '/';
+  }
+}
+
+// Mi Información: muestra datos básicos del usuario y pequeños KPIs
+async function cargarInfoContador(meResp) {
+  try {
+    const cont = document.getElementById('infoContador');
+    if (!cont) return;
+    const me = meResp || await api('/api/auth/me');
+    const user = me?.user || {};
+    const hasFace = me?.hasFaceDescriptor === true;
+
+    // Cargar algunas métricas rápidas en paralelo (cant. facturas, total facturado reciente, movimientos inventario)
+    const [facturas, inventario] = await Promise.all([
+      api('/api/contador/facturas').catch(()=>[]),
+      api('/api/contador/inventario').catch(()=>[])
+    ]);
+    const totalFacturas = Array.isArray(facturas) ? facturas.length : 0;
+    const sumaFacturado = Array.isArray(facturas)
+      ? facturas.reduce((acc, f) => acc + (Number(f.Valor_total) || 0), 0)
+      : 0;
+    const movsInv = Array.isArray(inventario) ? inventario.length : 0;
+
+    cont.innerHTML = `
+      <div class="info-grid">
+        <div class="info-col">
+          <div class="info-row"><span>Usuario:</span><b>${user.username || '-'}</b></div>
+          <div class="info-row"><span>Nombre:</span><b>${user.Nombre || '-'}</b></div>
+          <div class="info-row"><span>Correo:</span><b>${user.Correo || '-'}</b></div>
+          <div class="info-row"><span>Rol:</span><b>${user.rol || '-'}</b></div>
+          <div class="info-row"><span>Rostro registrado:</span><b style="color:${hasFace?'var(--ok)':'var(--warn)'};">${hasFace ? 'Sí' : 'No'}</b></div>
+        </div>
+        <div class="info-col">
+          <div class="kpi"><div class="kpi-num">${totalFacturas}</div><div class="kpi-label">Facturas</div></div>
+          <div class="kpi"><div class="kpi-num">$ ${sumaFacturado.toLocaleString('es-CO', { minimumFractionDigits: 2 })}</div><div class="kpi-label">Total facturado</div></div>
+          <div class="kpi"><div class="kpi-num">${movsInv}</div><div class="kpi-label">Movimientos inventario</div></div>
+        </div>
+      </div>
+      <div style="margin-top:.5rem; font-size:.9rem; color:var(--text-secondary);">
+        Consejo: si aún no has registrado tu rostro, usa el panel de Reconocimiento Facial de abajo.
+      </div>
+    `;
+  } catch (e) {
+    const cont = document.getElementById('infoContador');
+    if (cont) cont.innerHTML = `<div style="color:salmon;">${e.message}</div>`;
   }
 }
 
