@@ -11,50 +11,45 @@ async function api(ruta, opciones = {}) {
 }
 
 async function verificarSesion() {
-  try {
-    const me = await api('/api/auth/me');
-    usuarioActual = me.user;
-    if (!usuarioActual) throw new Error('No autenticado');
-    if (usuarioActual.rol !== 'Empleado') {
-      window.location.href = '/';
-      return;
-    }
-    cargarInfo();
-    cargarTareas();
-    cargarMaterialesTrabajador();
-    cargarListaMaterialesSelect();
-    prepararSelfEnrollmentTrab(me.hasFaceDescriptor === true);
-  } catch (_) {
-    window.location.href = '/';
-  }
+  let me;
+  try { me = await api('/api/auth/me'); } catch (_) { window.location.href='/'; return; }
+  usuarioActual = me.user;
+  if (!usuarioActual || usuarioActual.rol !== 'Empleado') { window.location.href='/'; return; }
+  prepararSelfEnrollmentTrab(me.hasFaceDescriptor === true);
+  cargarInfo().catch(()=>{});
+  cargarTareas().catch(()=>{});
+  cargarMaterialesTrabajador().catch(()=>{});
+  cargarListaMaterialesSelect().catch(()=>{});
 }
 
 async function cargarInfo() {
   const cont = document.getElementById('infoEmpleado');
-  cont.innerHTML = '<div style="padding:1rem; color: var(--text-muted);">Cargando...</div>';
+  if (!cont) return;
   try {
     const info = await api('/api/empleado/mis-datos');
-    const foto = info.foto_url || '/default-user.svg';
+    const initials = (info.Nombre || '?').split(' ').map(s=>s[0]).filter(Boolean).slice(0,2).join('').toUpperCase();
+    const asistencia = info.Asistencia || '—';
     cont.innerHTML = `
-      <div style="display:flex; gap:1rem; align-items:flex-start; padding:1rem;">
-        <div style="width:120px; min-width:120px; height:120px; border:1px solid var(--border-light); border-radius:10px; overflow:hidden; background:var(--bg-secondary); display:flex; align-items:center; justify-content:center;">
-          <img src="${foto}" onerror="this.src='/default-user.svg'" alt="Foto" style="width:100%; height:100%; object-fit:cover;" />
-        </div>
-        <div style="flex:1;">
-          <div><strong>Nombre:</strong> ${info.Nombre || ''}</div>
-          <div><strong>Correo:</strong> ${info.Correo || ''}</div>
-          <div><strong>Teléfono:</strong> ${info.Telefono || ''}</div>
-          <div><strong>Proyecto:</strong> ${info.Proyecto || '—'}</div>
-          <div><strong>Cliente:</strong> ${info.Cliente || '—'}</div>
-          <div style="display:flex; gap:1rem;">
-            <div><strong>Pisos:</strong> ${info.Pisos ?? 0}</div>
-            <div><strong>Apartamentos:</strong> ${info.Apartamentos ?? 0}</div>
+      <div class="info-card">
+        <div class="info-avatar">${initials}</div>
+        <div class="info-block">
+          <div class="info-fields">
+            <div class="info-line"><span class="lbl">Nombre:</span><b>${info.Nombre || '-'}</b></div>
+            <div class="info-line"><span class="lbl">Correo:</span><b>${info.Correo || '-'}</b></div>
+            <div class="info-line"><span class="lbl">Teléfono:</span><b>${info.Telefono || '-'}</b></div>
+            <div class="info-line"><span class="lbl">Proyecto:</span><b>${info.Proyecto || '—'}</b></div>
+            <div class="info-line"><span class="lbl">Cliente:</span><b>${info.Cliente || '—'}</b></div>
           </div>
-          <div><strong>Asistencia:</strong> ${info.Asistencia || '—'}</div>
+          <div class="kpi-bar">
+            <div class="kpi-item"><div class="kpi-num">${info.Pisos ?? 0}</div><div class="kpi-label">Pisos</div></div>
+            <div class="kpi-item"><div class="kpi-num">${info.Apartamentos ?? 0}</div><div class="kpi-label">Apartamentos</div></div>
+            <div class="kpi-item"><div class="kpi-num">${asistencia}</div><div class="kpi-label">Asistencia</div></div>
+          </div>
+          <div class="info-hint">Puedes registrar/actualizar tu rostro en la sección de Asistencia.</div>
         </div>
       </div>`;
   } catch (e) {
-    cont.innerHTML = `<div style="color:salmon; padding:1rem;">${e.message}</div>`;
+    cont.innerHTML = `<div style="color:salmon;">${e.message}</div>`;
   }
 }
 

@@ -10,16 +10,61 @@ async function api(ruta, opciones = {}) {
 }
 
 async function verificarSesionCliente() {
+  let me;
+  try { me = await api('/api/auth/me'); } catch (_) { window.location.href='/'; return; }
+  usuarioActual = me.user;
+  if (!usuarioActual || usuarioActual.rol !== 'Cliente') { window.location.href='/'; return; }
+  prepararSelfEnrollmentCliente(me.hasFaceDescriptor === true);
+  cargarInfoCliente(me).catch(()=>{});
+  cargarProyectos().catch(()=>{});
+  cargarFacturas().catch(()=>{});
+  cargarPagos().catch(()=>{});
+}
+
+async function cargarInfoCliente(meResp) {
+  const cont = document.getElementById('infoCliente');
+  if (!cont) return;
   try {
-    const me = await api('/api/auth/me');
-    usuarioActual = me.user;
-    if (!usuarioActual || usuarioActual.rol !== 'Cliente') throw new Error('No autorizado');
-    await cargarProyectos();
-    await cargarFacturas();
-    await cargarPagos();
-    prepararSelfEnrollmentCliente(me.hasFaceDescriptor === true);
-  } catch (_) {
-    window.location.href = '/';
+    const me = meResp || await api('/api/auth/me');
+    const user = me?.user || {};
+    const hasFace = me?.hasFaceDescriptor === true;
+
+    // KPIs: proyectos, facturas, pagos
+    const [proyectos, facturas, pagos] = await Promise.all([
+      api('/api/cliente/proyectos').catch(()=>[]),
+      api('/api/cliente/facturas').catch(()=>[]),
+      api('/api/cliente/pagos').catch(()=>[])
+    ]);
+    const kProy = Array.isArray(proyectos) ? proyectos.length : 0;
+    const kFact = Array.isArray(facturas) ? facturas.length : 0;
+    const totalFacturado = Array.isArray(facturas) ? facturas.reduce((a,f)=>a+(Number(f.Valor_total)||0),0) : 0;
+    const totalPagado = Array.isArray(pagos) ? pagos.reduce((a,p)=>a+(Number(p.Monto)||0),0) : 0;
+
+    const initials = (user.Nombre || user.nombre_usuario || '?').split(' ').map(s=>s[0]).filter(Boolean).slice(0,2).join('').toUpperCase();
+
+    cont.innerHTML = `
+      <div class="info-card">
+        <div class="info-avatar">${initials || 'U'}</div>
+        <div class="info-block">
+          <div class="info-fields">
+            <div class="info-line"><span class="lbl">Nombre:</span><b>${user.Nombre || '-'}</b></div>
+            <div class="info-line"><span class="lbl">Correo:</span><b>${user.Correo || '-'}</b></div>
+            <div class="info-line"><span class="lbl">Usuario:</span><b>${user.nombre_usuario || '-'}</b></div>
+            <div class="info-line"><span class="lbl">Rol:</span><b>${user.rol || '-'}</b></div>
+          </div>
+          <div class="kpi-bar">
+            <div class="kpi-item"><div class="kpi-num">${kProy}</div><div class="kpi-label">Proyectos</div></div>
+            <div class="kpi-item"><div class="kpi-num">${kFact}</div><div class="kpi-label">Facturas</div></div>
+            <div class="kpi-item"><div class="kpi-num">$ ${totalFacturado.toLocaleString('es-CO',{minimumFractionDigits:2})}</div><div class="kpi-label">Facturado</div></div>
+            <div class="kpi-item"><div class="kpi-num">$ ${totalPagado.toLocaleString('es-CO',{minimumFractionDigits:2})}</div><div class="kpi-label">Pagado</div></div>
+            <div class="kpi-item"><div class="kpi-num">${hasFace ? '<span class="info-face-ok">Sí</span>' : '<span class="info-face-no">No</span>'}</div><div class="kpi-label">Rostro</div></div>
+          </div>
+          <div class="info-hint">Usa el bloque de Reconocimiento Facial para habilitar login facial.</div>
+        </div>
+      </div>
+    `;
+  } catch (e) {
+    cont.innerHTML = `<div style="color:salmon;">${e.message}</div>`;
   }
 }
 
