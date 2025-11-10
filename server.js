@@ -601,16 +601,31 @@ app.post('/api/auth/logout', (req, res) => {
 
 // Session info
 app.get('/api/auth/me', async (req, res) => {
-  const user = req.session?.user || null;
+  // Base desde la sesión
+  let user = req.session?.user || null;
   let hasFaceDescriptor = false;
+  let extra = {};
   if (user?.idUsuario) {
     try {
-      const [rows] = await pool.query('SELECT face_descriptor FROM usuarios WHERE idUsuario = ? LIMIT 1', [user.idUsuario]);
-      if (rows.length && rows[0].face_descriptor) {
-        hasFaceDescriptor = true;
+      // Traer campos útiles del usuario, incluido si tiene descriptor facial
+      const [rows] = await pool.query(
+        'SELECT face_descriptor, nombre_usuario, rol, Correo, foto_url FROM usuarios WHERE idUsuario = ? LIMIT 1',
+        [user.idUsuario]
+      );
+      if (rows.length) {
+        const u = rows[0];
+        hasFaceDescriptor = !!u.face_descriptor;
+        extra = {
+          nombre_usuario: u.nombre_usuario,
+          rol: u.rol,
+          Correo: u.Correo || null,
+          foto_url: u.foto_url || null
+        };
       }
     } catch (_) { /* silencioso */ }
   }
+  // unir info adicional sin perder ids de la sesión
+  if (user) user = { ...user, ...extra };
   res.json({ user, hasFaceDescriptor });
 });
 
