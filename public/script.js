@@ -1129,7 +1129,19 @@ async function cargarModelosFace() {
     faceLoginMsg.textContent = 'Modelos listos';
   } catch (e) {
     faceLoginMsg.style.color='salmon';
-    faceLoginMsg.textContent = 'Modelos no cargados. Verifica que los archivos *weights_manifest.json y *shard1.bin estén en /public/models y recarga la página.';
+    faceLoginMsg.textContent = 'Modelos no cargados. Verifica manifests y .bin reales (sin shard1).';
+    console.error('Error cargando modelos:', e);
+    try {
+      const dbg = await fetch(`${baseAPI}/api/debug/face-models`, { credentials:'include' });
+      if (dbg.ok) {
+        const info = await dbg.json();
+        console.log('Archivos de modelos visibles en servidor:', info.files);
+      } else {
+        console.warn('No se pudo obtener listado de modelos del servidor');
+      }
+    } catch (err) {
+      console.warn('Fallo petición debug modelos:', err.message);
+    }
   } finally {
     cargandoModelo = false;
   }
@@ -1166,7 +1178,22 @@ async function capturarDescriptorFace() {
     return null;
   }
   const opciones = new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5, inputSize: 160 });
-  const deteccion = await faceapi.detectSingleFace(faceVideo, opciones).withFaceLandmarks().withFaceDescriptor();
+  // Intento principal con landmarks completos si están cargados
+  let deteccion = null;
+  try {
+    if (faceapi.nets.faceLandmark68Net.params) {
+      deteccion = await faceapi.detectSingleFace(faceVideo, opciones).withFaceLandmarks().withFaceDescriptor();
+    } else if (faceapi.nets.faceLandmark68TinyNet.params) {
+      deteccion = await faceapi.detectSingleFace(faceVideo, opciones).withFaceLandmarks(true).withFaceDescriptor();
+    } else {
+      // Fallback sin landmarks (puede degradar descriptor)
+      deteccion = await faceapi.detectSingleFace(faceVideo, opciones).withFaceDescriptor();
+    }
+  } catch (e) {
+    console.warn('Error en detección facial inicial:', e);
+    // Fallback absoluto
+    try { deteccion = await faceapi.detectSingleFace(faceVideo, opciones).withFaceDescriptor(); } catch(_) {}
+  }
   if (!deteccion) {
     faceLoginMsg.style.color = 'salmon';
     faceLoginMsg.textContent = 'No se detectó rostro. Reintenta.';

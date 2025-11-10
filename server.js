@@ -741,6 +741,20 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// Debug: listar archivos de modelos faciales disponibles (para diagnosticar en producción)
+app.get('/api/debug/face-models', (req, res) => {
+  try {
+    const modelosDir = path.join(__dirname, 'public', 'models');
+    const files = fs.readdirSync(modelosDir).map(f => {
+      const st = fs.statSync(path.join(modelosDir, f));
+      return { name: f, size: st.size };
+    });
+    res.json({ ok: true, files });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // List clientes (very basic)
 app.get('/api/clientes', requerirAutenticacion, requerirAdmin, async (req, res) => {
   try {
