@@ -39,14 +39,14 @@
         <div class="form-wrap" style="margin-top:1rem;">
           <div class="form-header"><h3 class="form-heading">Reconocimiento Facial</h3></div>
           <p style="font-size:.75rem; margin:.25rem 0 1rem;">Registra o actualiza tu rostro para poder usar el login facial. El procesamiento ocurre en tu navegador; sólo se envía el descriptor numérico.</p>
-          <div style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
-            <button id="btnEnrollFaceCli" type="button">Registrar mi rostro</button>
-            <button id="btnInitCamCli" type="button" style="display:none;">Activar Cámara</button>
-            <button id="btnCaptureFaceCli" type="button" style="display:none;" disabled>Capturar & Guardar</button>
-            <button id="btnCerrarFaceCli" type="button" style="display:none;">Cerrar</button>
+          <div class="btn-face-group" style="align-items:center;">
+            <button id="btnEnrollFaceCli" type="button" class="btn-outline btn-face">Registrar mi rostro</button>
+            <button id="btnInitCamCli" type="button" class="btn-primary btn-face" style="display:none;">Activar Cámara</button>
+            <button id="btnCaptureFaceCli" type="button" class="btn-secondary btn-face" style="display:none;" disabled>Capturar & Guardar</button>
+            <button id="btnCerrarFaceCli" type="button" class="btn-danger btn-face" style="display:none;">Cerrar</button>
           </div>
           <div id="faceAreaCli" style="display:none; margin-top:.5rem;">
-            <video id="faceVideoCli" width="260" height="200" autoplay muted playsinline style="background:#111; border:1px solid var(--border-color); border-radius:6px;"></video>
+            <video id="faceVideoCli" autoplay muted playsinline class="video-face"></video>
           </div>
           <div id="msgFaceCli" class="form-msg" style="min-height:1.1rem; margin-top:.25rem;"></div>
         </div>

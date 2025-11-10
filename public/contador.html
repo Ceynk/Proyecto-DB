@@ -40,14 +40,14 @@
         </div>
         <div class="form-wrap">
           <p style="font-size:.8rem; margin:.25rem 0 1rem; color: var(--text-secondary);">Registra o actualiza tu rostro para usar el inicio de sesión facial. El procesamiento se realiza en tu navegador; solo se envía el descriptor numérico.</p>
-          <div style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
-            <button id="btnEnrollFaceCont" type="button">Registrar mi rostro</button>
-            <button id="btnInitCamCont" type="button" style="display:none;">Activar Cámara</button>
-            <button id="btnCaptureFaceCont" type="button" style="display:none;" disabled>Capturar & Guardar</button>
-            <button id="btnCerrarFaceCont" type="button" style="display:none;">Cerrar</button>
+          <div class="btn-face-group" style="align-items:center;">
+            <button id="btnEnrollFaceCont" type="button" class="btn-outline btn-face">Registrar mi rostro</button>
+            <button id="btnInitCamCont" type="button" class="btn-primary btn-face" style="display:none;">Activar Cámara</button>
+            <button id="btnCaptureFaceCont" type="button" class="btn-secondary btn-face" style="display:none;" disabled>Capturar & Guardar</button>
+            <button id="btnCerrarFaceCont" type="button" class="btn-danger btn-face" style="display:none;">Cerrar</button>
           </div>
           <div id="faceAreaCont" style="display:none; margin-top:.5rem;">
-            <video id="faceVideoCont" width="260" height="200" autoplay muted playsinline style="background:#111; border:1px solid var(--border-color); border-radius:6px;"></video>
+            <video id="faceVideoCont" autoplay muted playsinline class="video-face"></video>
           </div>
           <div id="msgFaceCont" class="form-msg" style="min-height:1.1rem; margin-top:.25rem;"></div>
         </div>
