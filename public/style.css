@@ -139,6 +139,45 @@ body {
   transition: background var(--transition-smooth), color var(--transition-base);
 }
 
+/* ========================================
+   Modo rendimiento móvil (activado vía JS)
+   ======================================== */
+.perf-mobile * { transition: none !important; }
+.perf-mobile .site-header,
+.perf-mobile .sidebar,
+.perf-mobile .panel,
+.perf-mobile .main .panel,
+.perf-mobile .table-wrap {
+  background: var(--bg-secondary) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+.perf-mobile .panel,
+.perf-mobile .sidebar { contain: content; }
+.perf-mobile .panel { contain-intrinsic-size: 600px 400px; }
+.perf-mobile .brand-text,
+.perf-mobile .form-heading,
+.perf-mobile h1 { text-shadow: none !important; }
+.perf-mobile thead { position: static !important; }
+.perf-mobile .btn-primary:hover,
+.perf-mobile .btn-secondary:hover,
+.perf-mobile .btn-outline:hover,
+.perf-mobile .btn-danger:hover,
+.perf-mobile .btn-icon:hover { transform: none !important; box-shadow: var(--shadow-sm) !important; }
+.perf-mobile .icon,
+.perf-mobile .btn-icon svg { filter: none !important; }
+.perf-mobile .video-face { box-shadow: var(--shadow-sm) !important; }
+
+/* Desactivar efectos pesados en dispositivos táctiles */
+@media (hover: none) and (pointer: coarse) {
+  .btn-primary:hover,
+  .btn-secondary:hover,
+  .btn-outline:hover,
+  .btn-danger:hover,
+  .btn-icon:hover { transform: none; box-shadow: var(--shadow-sm); }
+}
+
 [data-theme="light"] body {
   background: radial-gradient(ellipse at top left, #e5edff 0%, #fafbff 50%, #f0f4ff 100%);
 }
@@ -1036,13 +1075,12 @@ table {
     font-size: 0.875rem;
   }
   
-  .table-wrap {
-    position: relative;
-  }
+  .table-wrap { position: relative; }
   
-  .table-wrap::after {
+  /* Mostrar pista SOLO cuando hay overflow y sin "pegado" al viewport */
+  .table-wrap.show-scroll-hint::after {
     content: '← Desliza →';
-    position: sticky;
+    position: absolute;
     left: 50%;
     bottom: var(--spacing-sm);
     transform: translateX(-50%);
@@ -1053,10 +1091,10 @@ table {
     font-size: 0.75rem;
     font-weight: 600;
     box-shadow: var(--shadow-md);
-    opacity: 0.8;
+    opacity: 0.9;
     pointer-events: none;
     white-space: nowrap;
-    z-index: 5;
+    z-index: 2;
   }
 }
 

@@ -35,6 +35,34 @@ if (interruptorTema) interruptorTema.addEventListener('click', alternarTema);
 iniciarTema();
 
 // ========================================
+// Performance móvil: detectar y aplicar clase
+// ========================================
+function activarModoRendimientoMovil(){
+  const d = document.documentElement;
+  // Criterio: ancho <= 768 o dispositivo táctil + memoria menor a 4GB (aprox via navigator.deviceMemory)
+  const esMovil = window.innerWidth <= 768 || ('ontouchstart' in window);
+  const mem = navigator.deviceMemory || 4;
+  if(esMovil && mem <= 4){
+    if(!d.classList.contains('perf-mobile')) d.classList.add('perf-mobile');
+  }
+}
+window.addEventListener('resize', activarModoRendimientoMovil, { passive:true });
+activarModoRendimientoMovil();
+
+// Reducir listeners scroll costosos (debounce genérico)
+let _rafScroll = false;
+window.addEventListener('scroll', ()=>{
+  if(!document.documentElement.classList.contains('perf-mobile')) return;
+  if(_rafScroll) return;
+  _rafScroll = true;
+  requestAnimationFrame(()=>{ _rafScroll = false; /* se podría añadir lógica liviana aquí */ });
+}, { passive:true });
+
+// Utilidad para medir render pesado (debug)
+window._perfMark = function(label){ performance.mark(label); };
+window._perfMeasure = function(name,start,end){ try { performance.measure(name,start,end); console.log(performance.getEntriesByName(name).pop()); } catch(e){} };
+
+// ========================================
 // Estado global y elementos
 // ========================================
 const baseAPI = (typeof window !== 'undefined' && (window.API_BASE || localStorage.getItem('API_BASE'))) || '';
@@ -169,6 +197,38 @@ async function subirImagenEntidadActual() {
     if (mensajeFoto) { mensajeFoto.style.color = 'salmon'; mensajeFoto.textContent = e.message; }
   }
 }
+
+// ========================================
+// Scroll hint para tablas en móvil
+// ========================================
+function actualizarHintScroll(el){
+  if(!el) return;
+  // Solo mostrar si overflow horizontal real
+  if(el.scrollWidth > el.clientWidth + 16){
+    el.classList.add('show-scroll-hint');
+  } else {
+    el.classList.remove('show-scroll-hint');
+  }
+}
+function refrescarHints(){
+  document.querySelectorAll('.table-wrap').forEach(actualizarHintScroll);
+}
+// Observa inserciones de tablas dinámicas
+const observerTablas = new MutationObserver((muts)=>{
+  let debeRefrescar = false;
+  for(const m of muts){
+    if(Array.from(m.addedNodes).some(n=> n.nodeType===1 && (n.classList?.contains('table-wrap') || n.querySelector?.('.table-wrap')))){
+      debeRefrescar = true; break;
+    }
+  }
+  if(debeRefrescar) requestAnimationFrame(refrescarHints);
+});
+observerTablas.observe(document.body,{childList:true,subtree:true});
+window.addEventListener('resize', ()=>{ if(window.innerWidth < 768) refrescarHints(); });
+// Primer chequeo tras autenticación
+document.addEventListener('DOMContentLoaded', ()=>{ if(window.innerWidth < 768) refrescarHints(); });
+// Exponer para depuración
+window._refreshTableScrollHints = refrescarHints;
 
 // Navegación panel admin
 if (btnPanelAdmin) {
@@ -1282,6 +1342,7 @@ async function cargarAdmins() {
         const img = document.createElement('img');
         img.src = u.foto_url;
         img.alt = 'foto';
+        img.loading = 'lazy';
         img.style.maxWidth = '56px';
         img.style.borderRadius = '6px';
         img.style.border = '1px solid var(--border-light)';
