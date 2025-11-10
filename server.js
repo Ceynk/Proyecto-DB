@@ -46,7 +46,37 @@ app.use(
 
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
-// Servir face-api desde node_modules local
+// Copiar assets de face-api a /public/vendor/face-api para servirlos con el static por si el mapeo directo a node_modules falla en producción
+function asegurarFaceApiVendor() {
+  try {
+    const srcDir = path.join(__dirname, 'node_modules', '@vladmandic', 'face-api', 'dist');
+    const dstDir = path.join(__dirname, 'public', 'vendor', 'face-api');
+    if (!fs.existsSync(srcDir)) {
+      console.warn('face-api dist no encontrado en node_modules, verifique instalación.');
+      return;
+    }
+    fs.mkdirSync(dstDir, { recursive: true });
+    const archivos = ['face-api.min.js', 'face-api.min.js.map', 'face-api.js', 'face-api.js.map'];
+    archivos.forEach((f) => {
+      const src = path.join(srcDir, f);
+      const dst = path.join(dstDir, f);
+      try {
+        if (fs.existsSync(src)) {
+          const necesitaCopiar = !fs.existsSync(dst) || fs.statSync(dst).size === 0;
+          if (necesitaCopiar) {
+            fs.copyFileSync(src, dst);
+          }
+        }
+      } catch (e) {
+        console.warn('No se pudo copiar', f, e.message);
+      }
+    });
+  } catch (e) {
+    console.warn('Error asegurando vendor face-api:', e.message);
+  }
+}
+asegurarFaceApiVendor();
+// Además, intentar servir directamente desde node_modules como fallback
 app.use('/vendor/face-api', express.static(path.join(__dirname, 'node_modules', '@vladmandic', 'face-api', 'dist')));
 // Static uploads
 const dirSubidas = path.join(__dirname, 'uploads');
