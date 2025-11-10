@@ -10,37 +10,39 @@ async function api(ruta, opciones = {}) {
 }
 
 async function verificarSesion() {
+  // 1) Verificar sesión y rol; solo aquí redirigimos si no cumple
+  let me;
   try {
-    const me = await api('/api/auth/me');
-    usuarioActual = me.user;
-    if (!usuarioActual) throw new Error('No autenticado');
-    // Acceso exclusivo del Contador
-    if (usuarioActual.rol !== 'Contador') {
-      window.location.href = '/';
-      return;
-    }
-  await cargarInfoContador(me);
-  await cargarListasMinimas();
-  await cargarResumenProyectos();
-    await cargarInventario();
-    await cargarFacturas();
-    await cargarInventarioCards();
-    prepararSelfEnrollmentCont(me.hasFaceDescriptor === true);
+    me = await api('/api/auth/me');
   } catch (_) {
     window.location.href = '/';
+    return;
   }
+  usuarioActual = me.user;
+  if (!usuarioActual || usuarioActual.rol !== 'Contador') {
+    window.location.href = '/';
+    return;
+  }
+
+  // 2) Cargar vistas en paralelo; errores se muestran localmente sin redirigir
+  prepararSelfEnrollmentCont(me.hasFaceDescriptor === true);
+  cargarInfoContador(me).catch(() => {});
+  cargarListasMinimas().catch(() => {});
+  cargarResumenProyectos().catch(() => {});
+  cargarInventario().catch(() => {});
+  cargarFacturas().catch(() => {});
+  cargarInventarioCards().catch(() => {});
 }
 
-// Mi Información: muestra datos básicos del usuario y pequeños KPIs
+// Mi Información: tarjeta con avatar, campos y KPIs
 async function cargarInfoContador(meResp) {
+  const cont = document.getElementById('infoContador');
+  if (!cont) return;
   try {
-    const cont = document.getElementById('infoContador');
-    if (!cont) return;
     const me = meResp || await api('/api/auth/me');
     const user = me?.user || {};
     const hasFace = me?.hasFaceDescriptor === true;
 
-    // Cargar algunas métricas rápidas en paralelo (cant. facturas, total facturado reciente, movimientos inventario)
     const [facturas, inventario] = await Promise.all([
       api('/api/contador/facturas').catch(()=>[]),
       api('/api/contador/inventario').catch(()=>[])
@@ -51,28 +53,38 @@ async function cargarInfoContador(meResp) {
       : 0;
     const movsInv = Array.isArray(inventario) ? inventario.length : 0;
 
+    const initials = (user.Nombre || user.nombre_usuario || '?')
+      .toString()
+      .split(' ')
+      .map(s => s.trim()[0])
+      .filter(Boolean)
+      .slice(0,2)
+      .join('')
+      .toUpperCase();
+
     cont.innerHTML = `
-      <div class="info-grid">
-        <div class="info-col">
-          <div class="info-row"><span>Usuario:</span><b>${user.username || '-'}</b></div>
-          <div class="info-row"><span>Nombre:</span><b>${user.Nombre || '-'}</b></div>
-          <div class="info-row"><span>Correo:</span><b>${user.Correo || '-'}</b></div>
-          <div class="info-row"><span>Rol:</span><b>${user.rol || '-'}</b></div>
-          <div class="info-row"><span>Rostro registrado:</span><b style="color:${hasFace?'var(--ok)':'var(--warn)'};">${hasFace ? 'Sí' : 'No'}</b></div>
+      <div class="info-card">
+        <div class="info-avatar">${initials || 'U'}</div>
+        <div class="info-block">
+          <div class="info-fields">
+            <div class="info-line"><span class="lbl">Nombre:</span><b>${user.Nombre || '-'}</b></div>
+            <div class="info-line"><span class="lbl">Correo:</span><b>${user.Correo || '-'}</b></div>
+            <div class="info-line"><span class="lbl">Usuario:</span><b>${user.nombre_usuario || '-'}</b></div>
+            <div class="info-line"><span class="lbl">Rol:</span><b>${user.rol || '-'}</b></div>
+            ${user.Telefono ? `<div class="info-line"><span class="lbl">Teléfono:</span><b>${user.Telefono}</b></div>` : ''}
+          </div>
+          <div class="kpi-bar">
+            <div class="kpi-item"><div class="kpi-num">${totalFacturas}</div><div class="kpi-label">Facturas</div></div>
+            <div class="kpi-item"><div class="kpi-num">$ ${sumaFacturado.toLocaleString('es-CO', { minimumFractionDigits: 2 })}</div><div class="kpi-label">Total facturado</div></div>
+            <div class="kpi-item"><div class="kpi-num">${movsInv}</div><div class="kpi-label">Movs. inventario</div></div>
+            <div class="kpi-item"><div class="kpi-num">${hasFace ? '<span class="info-face-ok">Sí</span>' : '<span class="info-face-no">No</span>'}</div><div class="kpi-label">Rostro registrado</div></div>
+          </div>
+          <div class="info-hint">Consejo: si aún no has registrado tu rostro, usa el panel de Reconocimiento Facial de abajo.</div>
         </div>
-        <div class="info-col">
-          <div class="kpi"><div class="kpi-num">${totalFacturas}</div><div class="kpi-label">Facturas</div></div>
-          <div class="kpi"><div class="kpi-num">$ ${sumaFacturado.toLocaleString('es-CO', { minimumFractionDigits: 2 })}</div><div class="kpi-label">Total facturado</div></div>
-          <div class="kpi"><div class="kpi-num">${movsInv}</div><div class="kpi-label">Movimientos inventario</div></div>
-        </div>
-      </div>
-      <div style="margin-top:.5rem; font-size:.9rem; color:var(--text-secondary);">
-        Consejo: si aún no has registrado tu rostro, usa el panel de Reconocimiento Facial de abajo.
       </div>
     `;
   } catch (e) {
-    const cont = document.getElementById('infoContador');
-    if (cont) cont.innerHTML = `<div style="color:salmon;">${e.message}</div>`;
+    cont.innerHTML = `<div style="color:salmon;">${e.message}</div>`;
   }
 }
 
