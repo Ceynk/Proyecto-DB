@@ -316,6 +316,27 @@
   
   <!-- Librerías de reconocimiento facial (face-api.js) desde assets copiados a /public/vendor/face-api -->
   <script src="/vendor/face-api/face-api.min.js" crossorigin="anonymous"></script>
+  <script>
+    // Fallback si no cargó el minificado (por 404 o MIME): intentar versión no minificada
+    (function(){
+      function ensureFaceApi(){
+        if (!window.faceapi) {
+          var s = document.createElement('script');
+          s.src = '/vendor/face-api/face-api.js';
+          s.crossOrigin = 'anonymous';
+          s.onload = function(){ console.log('face-api (fallback) cargado'); };
+          s.onerror = function(){ console.error('No se pudo cargar face-api fallback'); };
+          document.head.appendChild(s);
+        }
+      }
+      // Intentar después del evento load del primer script
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        setTimeout(ensureFaceApi, 0);
+      } else {
+        window.addEventListener('DOMContentLoaded', ensureFaceApi);
+      }
+    })();
+  </script>
   <script src="script.js"></script>
 </body>
 </html>

@@ -60,6 +60,21 @@ app.get('/vendor/face-api/face-api.min.js', (req, res) => {
     res.status(500).type('text/plain').send('Error interno');
   }
 });
+// Ruta adicional para servir la versión no minificada como fallback
+const faceApiJsPath = path.join(__dirname, 'node_modules', '@vladmandic', 'face-api', 'dist', 'face-api.js');
+app.get('/vendor/face-api/face-api.js', (req, res) => {
+  try {
+    if (!fs.existsSync(faceApiJsPath)) {
+      console.warn('face-api.js no encontrado en', faceApiJsPath);
+      return res.status(404).type('text/plain').send('face-api.js not found');
+    }
+    res.type('application/javascript');
+    fs.createReadStream(faceApiJsPath).pipe(res);
+  } catch (e) {
+    console.error('Error sirviendo face-api.js:', e.message);
+    res.status(500).type('text/plain').send('Error interno');
+  }
+});
 app.use(express.static(path.join(__dirname, 'public')));
 // Copiar assets de face-api a /public/vendor/face-api para servirlos con el static por si el mapeo directo a node_modules falla en producción
 function asegurarFaceApiVendor() {
@@ -804,6 +819,21 @@ app.get('/api/debug/face-models', (req, res) => {
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
+});
+
+// Debug: estado de librería face-api
+app.get('/api/debug/face-lib', (req, res) => {
+  const distDir = path.join(__dirname, 'node_modules', '@vladmandic', 'face-api', 'dist');
+  const publicVendorDir = path.join(__dirname, 'public', 'vendor', 'face-api');
+  function listado(dir) {
+    try { return fs.readdirSync(dir).map(f => ({ f, size: fs.statSync(path.join(dir, f)).size })); } catch { return null; }
+  }
+  res.json({
+    distExists: fs.existsSync(distDir),
+    publicVendorExists: fs.existsSync(publicVendorDir),
+    distFiles: listado(distDir),
+    publicVendorFiles: listado(publicVendorDir)
+  });
 });
 
 // List clientes (very basic)
