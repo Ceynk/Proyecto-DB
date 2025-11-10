@@ -18,16 +18,16 @@
         <span class="brand-text">Sistema de Gestión</span>
       </div>
       <div class="header-actions">
-        <button class="btn-icon" id="themeToggle" title="Cambiar tema" aria-label="Cambiar tema">
-          <svg id="iconLight" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <button class="btn-icon" id="interruptorTema" title="Cambiar tema" aria-label="Cambiar tema">
+          <svg id="iconoClaro" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="2"/>
             <path d="M12 1v3m0 16v3M1 12h3m16 0h3m-2.636-8.364l-2.121 2.121M6.757 17.243l-2.121 2.121m0-14.728l2.121 2.121m10.607 10.607l2.121 2.121" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
-          <svg id="iconDark" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:none">
+          <svg id="iconoOscuro" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:none">
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
-        <button class="btn-icon" id="logoutBtn" title="Cerrar sesión" aria-label="Cerrar sesión" style="display:none">
+        <button class="btn-icon" id="btnCerrarSesion" title="Cerrar sesión" aria-label="Cerrar sesión" style="display:none">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M15 12H3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             <path d="M11 8L15 12L11 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -35,7 +35,7 @@
           </svg>
         </button>
       </div>
-      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Menú">
+      <button class="mobile-menu-btn" id="btnMenuMovil" aria-label="Menú">
         <span></span>
         <span></span>
         <span></span>
@@ -46,14 +46,14 @@
   <!-- ========================================
        Área de Login
        ======================================== -->
-  <div class="container" id="loginArea" style="display:none; padding-top: 2rem;">
+  <div class="container" id="areaLogin" style="display:none; padding-top: 2rem;">
     <div class="panel" style="max-width:480px; margin:0 auto;">
       <div class="panel-header">
         <h1>Iniciar sesión</h1>
       </div>
       
       <!-- Formulario de Login -->
-      <form id="loginForm" class="dyn-form" style="display:grid; gap: 12px;">
+      <form id="formularioLogin" class="dyn-form" style="display:grid; gap: 12px;">
         <div>
           <label>Usuario</label>
           <input name="username" type="text" autocomplete="username" required />
@@ -63,7 +63,7 @@
           <input name="password" type="password" autocomplete="current-password" required />
         </div>
         <button type="submit">Entrar</button>
-        <div id="loginMsg" class="form-msg"></div>
+        <div id="mensajeLogin" class="form-msg"></div>
       </form>
 
       <!-- Login con Rostro -->
@@ -73,17 +73,17 @@
         <div style="display:flex; flex-direction:column; gap:.75rem;">
           <div>
             <label style="display:block; font-weight:500;">Usuario</label>
-            <input id="faceLoginUsername" type="text" placeholder="Nombre de usuario" autocomplete="off" />
+            <input id="usuarioLoginRostro" type="text" placeholder="Nombre de usuario" autocomplete="off" />
           </div>
           <div style="display:flex; flex-direction:column; gap:.5rem; align-items:flex-start;">
-            <video id="faceVideo" width="280" height="210" autoplay muted playsinline style="background:#111; border:1px solid var(--border-color); border-radius: var(--radius-sm);"></video>
-            <canvas id="faceCanvas" width="280" height="210" style="display:none"></canvas>
+            <video id="videoRostro" width="280" height="210" autoplay muted playsinline style="background:#111; border:1px solid var(--border-color); border-radius: var(--radius-sm);"></video>
+            <canvas id="lienzoRostro" width="280" height="210" style="display:none"></canvas>
             <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
-              <button id="btnInitFace" type="button">Activar Cámara</button>
-              <button id="btnFaceLogin" type="button" disabled>Login con Rostro</button>
+              <button id="btnIniciarRostro" type="button">Activar Cámara</button>
+              <button id="btnLoginRostro" type="button" disabled>Login con Rostro</button>
             </div>
           </div>
-          <div id="faceLoginMsg" class="form-msg" style="min-height:1.2rem;"></div>
+          <div id="mensajeLoginRostro" class="form-msg" style="min-height:1.2rem;"></div>
         </div>
         <details style="margin-top:.75rem;">
           <summary style="cursor:pointer;">Privacidad</summary>
@@ -100,13 +100,13 @@
   <!-- ========================================
        Área Principal de la Aplicación
        ======================================== -->
-  <div class="container" id="appArea" style="display:none;">
+  <div class="container" id="areaApp" style="display:none;">
     <div class="layout">
       
       <!-- ========================================
            Sidebar - Navegación
            ======================================== -->
-      <aside class="sidebar" id="sidebar" role="complementary" aria-label="Navegación de entidades">
+  <aside class="sidebar" id="barraLateral" role="complementary" aria-label="Navegación de entidades">
         <div class="sb-header">
           <div class="sb-title">
             <svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -173,11 +173,11 @@
         </div>
         
         <!-- Panel de Datos Principal (Para Admin) -->
-        <div class="panel" id="dataPanel">
+        <div class="panel" id="panelDatos">
           <div class="panel-header">
             <h1 id="titulo">Empleado</h1>
             <div class="header-actions">
-              <button class="btn-icon" id="refreshBtn" aria-label="Actualizar" title="Actualizar datos">
+              <button class="btn-icon" id="btnRefrescar" aria-label="Actualizar" title="Actualizar datos">
                
               </button>
             </div>

@@ -1,52 +1,42 @@
 // ========================================
-// Funcionalidad de Tema (Modo Oscuro/Claro)
+// Tema (Oscuro/Claro)
 // ========================================
-const themeToggle = document.getElementById('themeToggle');
-const iconLight = document.getElementById('iconLight');
-const iconDark = document.getElementById('iconDark');
+const interruptorTema = document.getElementById('interruptorTema');
+const iconoClaro = document.getElementById('iconoClaro');
+const iconoOscuro = document.getElementById('iconoOscuro');
 
-// Cargar tema guardado o usar el del sistema
-function initTheme() {
-  const savedTheme = localStorage.getItem('theme');
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  
-  if (savedTheme === 'light' || (!savedTheme && !prefersDark)) {
-    setTheme('light');
+function iniciarTema() {
+  const temaGuardado = localStorage.getItem('theme');
+  const prefiereOscuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (temaGuardado === 'light' || (!temaGuardado && !prefiereOscuro)) {
+    establecerTema('light');
   } else {
-    setTheme('dark');
+    establecerTema('dark');
   }
 }
-
-function setTheme(theme) {
-  if (theme === 'light') {
+function establecerTema(tema) {
+  if (tema === 'light') {
     document.documentElement.setAttribute('data-theme', 'light');
-    iconLight.style.display = 'none';
-    iconDark.style.display = 'block';
+    if (iconoClaro) iconoClaro.style.display = 'none';
+    if (iconoOscuro) iconoOscuro.style.display = 'block';
     localStorage.setItem('theme', 'light');
   } else {
     document.documentElement.removeAttribute('data-theme');
-    iconLight.style.display = 'block';
-    iconDark.style.display = 'none';
+    if (iconoClaro) iconoClaro.style.display = 'block';
+    if (iconoOscuro) iconoOscuro.style.display = 'none';
     localStorage.setItem('theme', 'dark');
   }
 }
-
-function toggleTheme() {
-  const currentTheme = document.documentElement.getAttribute('data-theme');
-  setTheme(currentTheme === 'light' ? 'dark' : 'light');
+function alternarTema() {
+  const temaActual = document.documentElement.getAttribute('data-theme');
+  establecerTema(temaActual === 'light' ? 'dark' : 'light');
 }
-
-if (themeToggle) {
-  themeToggle.addEventListener('click', toggleTheme);
-}
-
-// Inicializar tema al cargar
-initTheme();
+if (interruptorTema) interruptorTema.addEventListener('click', alternarTema);
+iniciarTema();
 
 // ========================================
-// Variables de elementos del DOM
+// Estado global y elementos
 // ========================================
-// Base de la API y sesión actual para todo el panel principal
 const baseAPI = (typeof window !== 'undefined' && (window.API_BASE || localStorage.getItem('API_BASE'))) || '';
 let usuarioActual = null;
 
@@ -58,55 +48,34 @@ const contenedorFormulario = document.getElementById('formWrap');
 const formularioDinamico = document.getElementById('dynForm');
 const tituloFormulario = document.getElementById('formTitle');
 const mensajeFormulario = document.getElementById('formMsg');
-const botonMenuMovil = document.getElementById('mobileMenuBtn');
-const botonActualizar = document.getElementById('refreshBtn');
-// Paneles / navegación admin
-const panelDatos = document.getElementById('dataPanel');
+const botonMenuMovil = document.getElementById('btnMenuMovil');
+const botonActualizar = document.getElementById('btnRefrescar');
+
+const panelDatos = document.getElementById('panelDatos');
 const panelAdmin = document.getElementById('adminPanel');
 const navAdmin = document.getElementById('adminNav');
-// Contenedor para UI de enrolamiento en panel admin
 let contenedorEnroll = null;
 const btnPanelAdmin = document.getElementById('btnAdminPanel');
-const barraLateral = document.getElementById('sidebar');
+const barraLateral = document.getElementById('barraLateral');
 let modoActual = 'entidades'; // 'entidades' | 'admin'
 
-// Elementos de Autenticación/UI
-const areaLogin = document.getElementById('loginArea');
-const areaApp = document.getElementById('appArea');
-const formularioLogin = document.getElementById('loginForm');
-const mensajeLogin = document.getElementById('loginMsg');
-// (Eliminado) formulario de verificación por email
-const btnCerrarSesion = document.getElementById('logoutBtn');
-// Face login elements
-const faceVideo = document.getElementById('faceVideo');
-const faceCanvas = document.getElementById('faceCanvas');
-const btnInitFace = document.getElementById('btnInitFace');
-const btnFaceLogin = document.getElementById('btnFaceLogin');
-const faceLoginMsg = document.getElementById('faceLoginMsg');
-const faceLoginUsername = document.getElementById('faceLoginUsername');
-let faceStream = null;
-let faceModelsLoaded = false;
-let cargandoModelo = false;
+// Autenticación
+const areaLogin = document.getElementById('areaLogin');
+const areaApp = document.getElementById('areaApp');
+const formularioLogin = document.getElementById('formularioLogin');
+const mensajeLogin = document.getElementById('mensajeLogin');
+const btnCerrarSesion = document.getElementById('btnCerrarSesion');
 
-// ---
-
-// Forzar login al abrir una pestaña nueva:
-// Usamos sessionStorage (por pestaña). Si es la primera carga de esta pestaña,
-// invalidamos cualquier sesión previa en el servidor para que pida login.
-(async function initTabSession() {
-  try {
-    if (!sessionStorage.getItem('TAB_SESSION_INIT')) {
-      sessionStorage.setItem('TAB_SESSION_INIT', '1');
-      try { await solicitarAPI('/api/auth/logout', { method: 'POST' }); } catch (_) {}
-    }
-  } catch (_) { /* ignorar */ }
-})();
-
-// Empleado-only panel
-const empleadoPanel = document.getElementById('empleadoPanel');
-const empleadoInfo = document.getElementById('empleadoInfo');
-const btnMarcarAsistencia = document.getElementById('btnMarcarAsistencia');
-const asistenciaMsg = document.getElementById('asistenciaMsg');
+// Login con rostro
+const videoRostro = document.getElementById('videoRostro');
+const lienzoRostro = document.getElementById('lienzoRostro');
+const btnIniciarRostro = document.getElementById('btnIniciarRostro');
+const btnLoginRostro = document.getElementById('btnLoginRostro');
+const mensajeLoginRostro = document.getElementById('mensajeLoginRostro');
+const usuarioLoginRostro = document.getElementById('usuarioLoginRostro');
+let flujoRostro = null;
+let modelosRostroCargados = false;
+let cargandoModeloRostro = false;
 
 // Controles de Actualización/Eliminación
 const controlesActualizacion = document.getElementById('updateControls');
@@ -120,6 +89,7 @@ let contenedorSubidaFoto = null;
 let inputSubidaFoto = null;
 let btnSubirFoto = null;
 let mensajeFoto = null;
+
 function inicializarControlesFoto() {
   if (!controlesActualizacion || contenedorSubidaFoto) return;
   contenedorSubidaFoto = document.createElement('div');
@@ -168,7 +138,6 @@ function inicializarControlesFoto() {
 
   btnSubirFoto.addEventListener('click', subirImagenEntidadActual);
 }
-
 function actualizarVisibilidadControlesFoto() {
   if (!contenedorSubidaFoto) return;
   const esEntidadConFoto = entidadActual === 'empleado' || entidadActual === 'material';
@@ -177,7 +146,6 @@ function actualizarVisibilidadControlesFoto() {
   if (!esEntidadConFoto && inputSubidaFoto) inputSubidaFoto.value = '';
   if (mensajeFoto) { mensajeFoto.textContent = ''; mensajeFoto.style.color = ''; }
 }
-
 async function subirImagenEntidadActual() {
   if (!inputSubidaFoto || !inputSubidaFoto.files || inputSubidaFoto.files.length === 0) {
     if (mensajeFoto) { mensajeFoto.style.color = 'salmon'; mensajeFoto.textContent = 'Selecciona una imagen'; }
@@ -201,7 +169,8 @@ async function subirImagenEntidadActual() {
     if (mensajeFoto) { mensajeFoto.style.color = 'salmon'; mensajeFoto.textContent = e.message; }
   }
 }
-// Admin panel navigation
+
+// Navegación panel admin
 if (btnPanelAdmin) {
   btnPanelAdmin.addEventListener('click', () => {
     if (usuarioActual?.rol !== 'Administrador') return;
@@ -214,7 +183,6 @@ if (btnPanelAdmin) {
     construirUIEnrollFace();
   });
 }
-
 function construirUIEnrollFace() {
   if (!panelAdmin || contenedorEnroll) return;
   contenedorEnroll = document.createElement('div');
@@ -244,15 +212,10 @@ function construirUIEnrollFace() {
         <div id="faceEnrollMsg" class="form-msg" style="min-height:1.1rem"></div>
       </div>
     </div>
-    <details style="margin-top:.75rem;">
-      <summary>Ayuda</summary>
-      <p style="font-size:.75rem;">El descriptor se guarda como vector numérico (no la imagen). Asegúrate de una sola cara visible y buena iluminación. Repite si la distancia en login es alta.</p>
-    </details>
   `;
   panelAdmin.appendChild(contenedorEnroll);
   inicializarEnrollFace();
 }
-
 async function inicializarEnrollFace() {
   const sel = document.getElementById('selUsuarioFace');
   const btnInit = document.getElementById('btnInitEnrollCam');
@@ -326,9 +289,7 @@ async function inicializarEnrollFace() {
       await cargarModelosFace();
       const img = new Image();
       img.crossOrigin = 'anonymous';
-      const cargada = new Promise((res, rej) => {
-        img.onload = res; img.onerror = () => rej(new Error('No se pudo cargar la foto'));
-      });
+      const cargada = new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('No se pudo cargar la foto')); });
       img.src = url;
       await cargada;
       if (imgPreview) { imgPreview.src = url; imgPreview.style.display = ''; }
@@ -350,18 +311,18 @@ async function inicializarEnrollFace() {
   if (btnFromPhoto) btnFromPhoto.addEventListener('click', capturarDesdeFoto);
 }
 
+// Admin: crear/listar/eliminar
 const envoltorioCrearAdmin = document.getElementById('adminCreateWrap');
 const formularioCrearAdmin = document.getElementById('adminCreateForm');
 const mensajeCrearAdmin = document.getElementById('adminCreateMsg');
-// Lista/eliminación de usuarios admin
 const envoltorioUsuariosAdmin = document.getElementById('adminUsersWrap');
 const tablaUsuariosAdmin = document.getElementById('adminUsersTable');
 const mensajeUsuariosAdmin = document.getElementById('adminUsersMsg');
 const btnRefrescarAdmins = document.getElementById('btnRefreshAdmins');
 
-
-// en index.html o guarda una clave `API_BASE` en localStorage con la URL del backend en Railway.
-// Nota: `baseAPI` y `usuarioActual` ya están declaradas al inicio del archivo.
+// ========================================
+// Helper fetch
+// ========================================
 async function solicitarAPI(ruta, opciones = {}) {
   const opcionesFinales = Object.assign({ credentials: 'include' }, opciones);
   const res = await fetch(`${baseAPI}${ruta}`, opcionesFinales);
@@ -374,33 +335,22 @@ async function solicitarAPI(ruta, opciones = {}) {
   return cuerpo;
 }
 
-// Menú de entidades para Administrador (excluye módulos del Contador)
+// ========================================
+// Menú de entidades (Admin)
+// ========================================
 const entidades = [
-  'empleado', 'cliente', 'proyecto', 'apartamento', 'piso', 'material',
-  // Exclusivo del Contador: 'inventario', 'ingreso', 'gasto', 'pago', 'factura'
-  'tarea', 'turno'
+  'empleado', 'cliente', 'proyecto', 'apartamento', 'piso', 'material', 'tarea', 'turno'
 ];
-
 let entidadActual = 'empleado';
 let ultimoControlAbortar = null;
 
 if (botonMenuMovil && barraLateral) {
-  botonMenuMovil.addEventListener('click', () => {
-    barraLateral.classList.toggle('mobile-open');
-  });
-  
+  botonMenuMovil.addEventListener('click', () => { barraLateral.classList.toggle('mobile-open'); });
   barraLateral.addEventListener('click', (e) => {
-    if (e.target.tagName === 'BUTTON' && window.innerWidth < 768) {
-      barraLateral.classList.remove('mobile-open');
-    }
+    if (e.target.tagName === 'BUTTON' && window.innerWidth < 768) barraLateral.classList.remove('mobile-open');
   });
 }
-
-if (botonActualizar) {
-  botonActualizar.addEventListener('click', () => {
-    cargarDatos();
-  });
-}
+if (botonActualizar) botonActualizar.addEventListener('click', () => { cargarDatos(); });
 
 function crear(etiqueta, clase, texto) {
   const el = document.createElement(etiqueta);
@@ -408,21 +358,9 @@ function crear(etiqueta, clase, texto) {
   if (texto) el.textContent = texto;
   return el;
 }
-
-function sanitizarLetrasYEspacios(value) {
-  return value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '');
-}
-
-function sanitizarDigitos(value) {
-  return value.replace(/\D/g, '');
-}
-
-function limpiarNombreClave(nombre) {
-  return String(nombre ?? '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '');
-}
-
+function sanitizarLetrasYEspacios(value) { return value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, ''); }
+function sanitizarDigitos(value) { return value.replace(/\D/g, ''); }
+function limpiarNombreClave(nombre) { return String(nombre ?? '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
 function formatearTituloColumna(nombre) {
   return String(nombre ?? '')
     .replace(/([a-z\d])([A-Z])/g, '$1 $2')
@@ -432,59 +370,27 @@ function formatearTituloColumna(nombre) {
     .toLowerCase()
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
-
 function resolverClaveDisponible(conjuntoClaves, posibles) {
-  // Primero intentar coincidencia exacta (case-sensitive)
-  for (const candidato of posibles) {
-    if (conjuntoClaves.includes(candidato)) {
-      return candidato;
-    }
-  }
-  
-  // Luego intentar coincidencia sin considerar mayúsculas/minúsculas
+  for (const candidato of posibles) if (conjuntoClaves.includes(candidato)) return candidato;
   const mapaMinusculas = {};
-  conjuntoClaves.forEach((clave) => {
-    mapaMinusculas[clave.toLowerCase()] = clave;
-  });
-  
+  conjuntoClaves.forEach((clave) => { mapaMinusculas[clave.toLowerCase()] = clave; });
   for (const candidato of posibles) {
-    const candidatoMin = candidato.toLowerCase();
-    if (mapaMinusculas[candidatoMin]) {
-      return mapaMinusculas[candidatoMin];
-    }
+    const r = mapaMinusculas[candidato.toLowerCase()];
+    if (r) return r;
   }
-  
-  // Finalmente, intentar con normalización completa
   const mapa = {};
-  conjuntoClaves.forEach((clave) => {
-    mapa[limpiarNombreClave(clave)] = clave;
-  });
-  
+  conjuntoClaves.forEach((clave) => { mapa[limpiarNombreClave(clave)] = clave; });
   for (const candidato of posibles) {
     const claveNormalizada = limpiarNombreClave(candidato);
-    if (mapa[claveNormalizada]) {
-      return mapa[claveNormalizada];
-    }
+    if (mapa[claveNormalizada]) return mapa[claveNormalizada];
   }
-  
   return null;
 }
-
-function resolverClaveEnObjeto(objeto, posibles) {
-  return resolverClaveDisponible(Object.keys(objeto || {}), posibles);
-}
-
 function obtenerColumnasDisponibles(filas) {
   const definicion = configuracionTablas[entidadActual] || [];
   const todasLasClaves = new Set();
-  filas.forEach((fila) => {
-    Object.keys(fila).forEach((clave) => todasLasClaves.add(clave));
-  });
-
+  filas.forEach((f) => Object.keys(f).forEach((k) => todasLasClaves.add(k)));
   const clavesArray = Array.from(todasLasClaves);
-  
-  // Debug: ver qué claves están disponibles en los datos
-  console.log(`[${entidadActual}] Claves disponibles en datos:`, clavesArray);
 
   const columnas = [];
   const clavesUsadas = new Set();
@@ -492,11 +398,7 @@ function obtenerColumnasDisponibles(filas) {
 
   definicion.forEach((columna) => {
     const claveReal = resolverClaveDisponible(clavesArray, columna.claves);
-    if (!claveReal) {
-      console.warn(`[${entidadActual}] No se encontró clave para:`, columna.claves, 'en', clavesArray);
-      return;
-    }
-    console.log(`[${entidadActual}] Mapeando ${columna.titulo}:`, columna.claves, '→', claveReal);
+    if (!claveReal) return;
     columnas.push({
       clave: claveReal,
       titulo: columna.titulo,
@@ -504,43 +406,25 @@ function obtenerColumnasDisponibles(filas) {
       esId: columna.esId || false
     });
     clavesUsadas.add(claveReal);
-    if (!claveId && (columna.esId || /^id/i.test(claveReal))) {
-      claveId = claveReal;
-    }
+    if (!claveId && (columna.esId || /^id/i.test(claveReal))) claveId = claveReal;
   });
 
-  // Agregar columnas no definidas en la configuración
   clavesArray.forEach((clave) => {
     if (clavesUsadas.has(clave)) return;
-    columnas.push({
-      clave,
-      titulo: formatearTituloColumna(clave),
-      tipo: inferirTipoColumna(clave)
-    });
-    clavesUsadas.add(clave);
-    if (!claveId && /^id/i.test(clave)) {
-      claveId = clave;
-    }
+    columnas.push({ clave, titulo: formatearTituloColumna(clave), tipo: inferirTipoColumna(clave) });
+    if (!claveId && /^id/i.test(clave)) claveId = clave;
   });
 
-  if (!claveId && columnas.length) {
-    claveId = columnas[0].clave;
-  }
-
-  console.log(`[${entidadActual}] Columnas finales:`, columnas.map(c => `${c.titulo}(${c.clave})`));
-  console.log(`[${entidadActual}] Clave ID:`, claveId);
-
+  if (!claveId && columnas.length) claveId = columnas[0].clave;
   return { columnas, claveId };
 }
-
 function inferirTipoColumna(nombreClave) {
   const limpio = limpiarNombreClave(nombreClave);
-  if (limpio.includes('foto') || limpio.includes('imagen')) {
-    return 'imagen';
-  }
+  if (limpio.includes('foto') || limpio.includes('imagen')) return 'imagen';
   return 'texto';
 }
 
+// Columnas visibles por entidad (solo las usadas aquí)
 const configuracionTablas = {
   empleado: [
     { claves: ['idEmpleado','id_empleado','idempleado','empleado_id','id','ID','Id'], titulo: 'ID Empleado', esId: true },
@@ -584,14 +468,6 @@ const configuracionTablas = {
     { claves: ['stock'], titulo: 'Stock' },
     { claves: ['foto_url', 'Foto', 'Imagen'], titulo: 'Foto', tipo: 'imagen' }
   ],
-  inventario: [
-    { claves: ['idInventario'], titulo: 'ID Inventario', esId: true },
-    { claves: ['tipo_movimiento'], titulo: 'Movimiento' },
-    { claves: ['cantidad'], titulo: 'Cantidad' },
-    { claves: ['fecha'], titulo: 'Fecha' },
-    { claves: ['Material', 'NombreMaterial', 'idMaterial'], titulo: 'Material' },
-    { claves: ['Proyecto', 'NombreProyecto', 'idProyecto'], titulo: 'Proyecto' }
-  ],
   tarea: [
     { claves: ['idTarea'], titulo: 'ID Tarea', esId: true },
     { claves: ['Descripcion'], titulo: 'Descripción' },
@@ -607,40 +483,10 @@ const configuracionTablas = {
     { claves: ['Hora_fin'], titulo: 'Hora Fin' },
     { claves: ['Tipo_jornada'], titulo: 'Tipo Jornada' },
     { claves: ['Empleado', 'NombreEmpleado'], titulo: 'Empleado' }
-  ],
-  ingreso: [
-    { claves: ['idIngreso'], titulo: 'ID Ingreso', esId: true },
-    { claves: ['fecha'], titulo: 'Fecha' },
-    { claves: ['Valor'], titulo: 'Valor' },
-    { claves: ['Descripcion'], titulo: 'Descripción' },
-    { claves: ['Proyecto', 'NombreProyecto'], titulo: 'Proyecto' }
-  ],
-  gasto: [
-    { claves: ['idGasto'], titulo: 'ID Gasto', esId: true },
-    { claves: ['Valor'], titulo: 'Valor' },
-    { claves: ['Descripcion'], titulo: 'Descripción' },
-    { claves: ['fecha'], titulo: 'Fecha' },
-    { claves: ['Proyecto', 'NombreProyecto'], titulo: 'Proyecto' }
-  ],
-  factura: [
-    { claves: ['idFactura'], titulo: 'ID Factura', esId: true },
-    { claves: ['Fecha'], titulo: 'Fecha' },
-    { claves: ['Valor_total'], titulo: 'Valor Total' },
-    { claves: ['Proyecto', 'NombreProyecto'], titulo: 'Proyecto' },
-    { claves: ['Cliente', 'NombreCliente'], titulo: 'Cliente' }
-  ],
-  pago: [
-    { claves: ['idPago'], titulo: 'ID Pago', esId: true },
-    { claves: ['Fecha'], titulo: 'Fecha' },
-    { claves: ['Monto'], titulo: 'Monto' },
-    { claves: ['Factura', 'idFactura'], titulo: 'Factura' }
   ]
 };
 
-const normalizadoresFilas = {
-  // Removido el normalizador de empleado que causaba intercambio incorrecto de valores
-};
-
+// Render barra lateral
 function renderizarBarraLateral() {
   listaEntidadesEl.innerHTML = '';
   entidades.forEach((nombre) => {
@@ -649,14 +495,8 @@ function renderizarBarraLateral() {
       entidadActual = nombre;
       modoActual = 'entidades';
       renderizarBarraLateral();
-      // Título especial para inventario
-      if (nombre === 'inventario') {
-        tituloEl.textContent = 'Catálogo de Materiales';
-      } else {
-        tituloEl.textContent = nombre.charAt(0).toUpperCase() + nombre.slice(1);
-      }
+      tituloEl.textContent = nombre.charAt(0).toUpperCase() + nombre.slice(1);
       buscarEl.value = '';
-      window.terminoBusquedaInventario = null;
       cargarDatos();
       construirFormulario();
       cargarOpcionesActualizacion();
@@ -685,20 +525,17 @@ function resolverRutaImagen(valor) {
   return limpio;
 }
 
-// Renderizador original de tabla (restaurado)
+// Tabla
 function renderizarTabla(filas) {
   contenedorTabla.innerHTML = '';
   if (!filas || filas.length === 0) {
     contenedorTabla.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Sin datos para mostrar</div>';
     return;
   }
-
-  const normalizador = normalizadoresFilas[entidadActual];
-  const filasNorm = filas.map(r => normalizador ? normalizador({ ...r }) : { ...r });
+  const filasNorm = filas.map(r => ({ ...r }));
   const { columnas, claveId } = obtenerColumnasDisponibles(filasNorm);
 
-  const tabla = crear('table');
-  tabla.className = 'data-table';
+  const tabla = crear('table'); tabla.className = 'data-table';
   const cabecera = crear('thead');
   const filaCabecera = crear('tr');
   columnas.forEach((columna) => {
@@ -707,19 +544,15 @@ function renderizarTabla(filas) {
     filaCabecera.appendChild(th);
   });
   if (usuarioActual?.rol === 'Administrador') {
-    const thAcc = crear('th', '', 'Acciones');
-    thAcc.setAttribute('scope', 'col');
-    filaCabecera.appendChild(thAcc);
+    const thAcc = crear('th', '', 'Acciones'); thAcc.setAttribute('scope', 'col'); filaCabecera.appendChild(thAcc);
   }
-  cabecera.appendChild(filaCabecera);
-  tabla.appendChild(cabecera);
+  cabecera.appendChild(filaCabecera); tabla.appendChild(cabecera);
 
   const cuerpo = crear('tbody');
-  filasNorm.forEach((registro, idx) => {
+  filasNorm.forEach((registro) => {
     const filaTabla = crear('tr');
     columnas.forEach((columna) => {
-      const celda = crear('td');
-      celda.setAttribute('data-label', columna.titulo);
+      const celda = crear('td'); celda.setAttribute('data-label', columna.titulo);
       const valor = registro[columna.clave];
       if (columna.tipo === 'imagen') {
         const imagen = document.createElement('img');
@@ -735,7 +568,6 @@ function renderizarTabla(filas) {
       } else {
         celda.textContent = valor == null ? '' : String(valor);
       }
-      // Fallback si columna es ID y valor vacío: intentar mostrar alguna clave alternativa
       if (columna.esId && (valor == null || valor === '')) {
         const alt = registro.id || registro.ID || registro.Id;
         if (alt != null) celda.textContent = String(alt);
@@ -778,183 +610,9 @@ function renderizarTabla(filas) {
   contenedorTabla.appendChild(tabla);
 }
 
-// Renderizado especial para inventario tipo catálogo
-async function renderizarInventarioCatalogo(filas) {
-  contenedorTabla.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Cargando materiales...</div>';
-  
-  try {
-    // Obtener todos los materiales con sus fotos
-    const materiales = await solicitarAPI('/api/list/material');
-    
-    if (!materiales || materiales.length === 0) {
-      contenedorTabla.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">No hay materiales disponibles</div>';
-      return;
-    }
-
-    // Crear un mapa de materiales por ID
-    const materialMap = {};
-    materiales.forEach(m => {
-      materialMap[m.idMaterial] = m;
-    });
-
-    // Agrupar inventario por material
-    const inventarioPorMaterial = {};
-    
-    // Primero, agregar todos los materiales existentes
-    materiales.forEach(material => {
-      inventarioPorMaterial[material.idMaterial] = {
-        nombre: material.Nombre || 'Sin nombre',
-        idMaterial: material.idMaterial,
-        movimientos: [],
-        cantidadTotal: 0,
-        material: material
-      };
-    });
-    
-    // Luego agregar los movimientos de inventario
-    filas.forEach(item => {
-      const idMaterial = item.idMaterial;
-      
-      if (idMaterial && inventarioPorMaterial[idMaterial]) {
-        inventarioPorMaterial[idMaterial].movimientos.push(item);
-        // Calcular cantidad total (entradas - salidas)
-        const cantidad = parseInt(item.cantidad) || 0;
-        if (item.tipo_movimiento === 'Entrada') {
-          inventarioPorMaterial[idMaterial].cantidadTotal += cantidad;
-        } else if (item.tipo_movimiento === 'Salida') {
-          inventarioPorMaterial[idMaterial].cantidadTotal -= cantidad;
-        }
-      }
-    });
-
-    // Filtrar materiales según término de búsqueda
-    const terminoBusqueda = window.terminoBusquedaInventario;
-    const materialesFiltrados = Object.values(inventarioPorMaterial).filter(grupo => {
-      if (!terminoBusqueda) return true;
-      const material = grupo.material;
-      return (
-        grupo.nombre.toLowerCase().includes(terminoBusqueda) ||
-        (material.tipo && material.tipo.toLowerCase().includes(terminoBusqueda)) ||
-        (material.costo_unitario && material.costo_unitario.toString().includes(terminoBusqueda))
-      );
-    });
-
-    if (materialesFiltrados.length === 0) {
-      contenedorTabla.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">No se encontraron materiales con ese criterio</div>';
-      return;
-    }
-
-    // Crear contenedor principal con header
-    const mainContainer = document.createElement('div');
-    mainContainer.style.width = '100%';
-    
-    // Header informativo
-    const headerInfo = document.createElement('div');
-    headerInfo.className = 'catalogo-header';
-    headerInfo.innerHTML = `
-      <div class="catalogo-stats">
-        <div class="stat-item">
-          <span class="stat-number">${materialesFiltrados.length}</span>
-          <span class="stat-label">Materiales</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-number">${materialesFiltrados.filter(g => g.cantidadTotal > 0).length}</span>
-          <span class="stat-label">Disponibles</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-number">${materialesFiltrados.filter(g => g.cantidadTotal === 0).length}</span>
-          <span class="stat-label">Agotados</span>
-        </div>
-      </div>
-    `;
-    mainContainer.appendChild(headerInfo);
-
-    // Crear grid de tarjetas
-    const catalogoContainer = document.createElement('div');
-    catalogoContainer.className = 'catalogo-inventario';
-
-    materialesFiltrados.forEach(grupo => {
-      const card = document.createElement('div');
-      card.className = 'material-card';
-      
-      const material = grupo.material;
-      const fotoUrl = material.foto_url || '/default-material.svg';
-      
-      card.innerHTML = `
-        <div class="material-card-image">
-          <img src="${fotoUrl}" alt="${grupo.nombre}" onerror="this.src='/default-material.svg'">
-          <div class="material-badge ${grupo.cantidadTotal > 0 ? 'badge-success' : 'badge-warning'}">
-            ${grupo.cantidadTotal > 0 ? 'Disponible' : 'Agotado'}
-          </div>
-        </div>
-        <div class="material-card-content">
-          <h3 class="material-card-title">${grupo.nombre}</h3>
-          <div class="material-card-info">
-            <div class="info-item">
-              <span class="info-label">Cantidad:</span>
-              <span class="info-value">${grupo.cantidadTotal} unidades</span>
-            </div>
-            ${material.costo_unitario ? `
-            <div class="info-item">
-              <span class="info-label">Costo Unitario:</span>
-              <span class="info-value">$${parseFloat(material.costo_unitario).toLocaleString('es-CO', {minimumFractionDigits: 2})}</span>
-            </div>
-            ` : ''}
-            ${material.tipo ? `
-            <div class="info-item">
-              <span class="info-label">Tipo:</span>
-              <span class="info-value">${material.tipo}</span>
-            </div>
-            ` : ''}
-            <div class="info-item">
-              <span class="info-label">Movimientos:</span>
-              <span class="info-value">${grupo.movimientos.length} registros</span>
-            </div>
-          </div>
-          ${usuarioActual?.rol === 'Administrador' ? `
-          <div class="material-card-actions">
-            <button class="btn-card-action" onclick="seleccionarMaterialInventario('${grupo.idMaterial}')">
-              📋 Ver detalles
-            </button>
-          </div>
-          ` : ''}
-        </div>
-      `;
-      
-      catalogoContainer.appendChild(card);
-    });
-
-    mainContainer.appendChild(catalogoContainer);
-    contenedorTabla.innerHTML = '';
-    contenedorTabla.appendChild(mainContainer);
-
-  } catch (e) {
-    contenedorTabla.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--error);">Error al cargar inventario: ${e.message}</div>`;
-  }
-}
-
-// Función global para seleccionar material desde las tarjetas
-window.seleccionarMaterialInventario = function(idMaterial) {
-  if (entradaIdActualizacion) {
-    // Buscar el ID de inventario correspondiente
-    const select = entradaIdActualizacion;
-    for (let i = 0; i < select.options.length; i++) {
-      if (select.options[i].textContent.includes(`Material: ${idMaterial}`) || 
-          select.options[i].value.includes(idMaterial)) {
-        select.selectedIndex = i;
-        break;
-      }
-    }
-  }
-  // Scroll al formulario
-  document.getElementById('formWrap')?.scrollIntoView({ behavior: 'smooth' });
-  mensajeActualizacion.textContent = `Material ID ${idMaterial} seleccionado`;
-  mensajeActualizacion.style.color = '';
-};
-
 async function cargarDatos() {
   if (modoActual !== 'entidades') return;
-  if (!usuarioActual || usuarioActual.rol !== 'Administrador') return; // solo admin lista
+  if (!usuarioActual || usuarioActual.rol !== 'Administrador') return;
   const q = buscarEl.value.trim();
   const url = q ? `/api/list/${entidadActual}?q=${encodeURIComponent(q)}` : `/api/list/${entidadActual}`;
   contenedorTabla.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Cargando...</div>';
@@ -963,30 +621,20 @@ async function cargarDatos() {
     const ctrl = new AbortController();
     ultimoControlAbortar = ctrl;
     const datos = await solicitarAPI(url, { signal: ctrl.signal });
-    if (Array.isArray(datos) && datos[0]) {
-      console.log(`[DEBUG ${entidadActual}] Claves primera fila:`, Object.keys(datos[0]));
-    }
-    
-    // Aplicar filtrado local para inventario (búsqueda en catálogo)
-    if (entidadActual === 'inventario' && q) {
-      window.terminoBusquedaInventario = q.toLowerCase();
-    } else {
-      window.terminoBusquedaInventario = null;
-    }
-    
     renderizarTabla(datos);
   } catch (e) {
-    if (e.name === 'AbortError') return; // ignore
+    if (e.name === 'AbortError') return;
     contenedorTabla.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--error);">Error: ${e.message}</div>`;
   }
 }
-
 buscarEl.addEventListener('input', () => {
   if (buscarEl._t) clearTimeout(buscarEl._t);
   buscarEl._t = setTimeout(cargarDatos, 300);
 });
 
-// Auth flow
+// ========================================
+// Auth/UI
+// ========================================
 async function verificarAutenticacion() {
   try {
     const me = await solicitarAPI('/api/auth/me');
@@ -996,7 +644,6 @@ async function verificarAutenticacion() {
   }
   actualizarUIParaAutenticacion();
 }
-
 function actualizarUIParaAutenticacion() {
   if (!usuarioActual) {
     // Show login
@@ -1009,7 +656,6 @@ function actualizarUIParaAutenticacion() {
     areaLogin.style.display = 'none';
     areaApp.style.display = '';
     btnCerrarSesion.style.display = '';
-    empleadoPanel.style.display = 'none';
     contenedorFormulario.style.display = '';
     document.querySelector('.toolbar').style.display = '';
     document.getElementById('formWrap').style.display = '';
@@ -1038,9 +684,7 @@ function actualizarUIParaAutenticacion() {
   }
 }
 
-// ---
-
-// Map singular entity to plural route for /api/min/*
+// Pluralización mínima para /api/min/*
 const mapaPlural = {
   empleado: 'empleados',
   cliente: 'clientes',
@@ -1048,37 +692,19 @@ const mapaPlural = {
   apartamento: 'apartamentos',
   piso: 'pisos',
   material: 'materiales',
-  inventario: 'inventarios',
-  ingreso: 'ingresos',
-  gasto: 'gastos',
-  factura: 'facturas',
-  pago: 'pagos',
   tarea: 'tareas',
   turno: 'turnos'
 };
+function obtenerPlural(nombre) { return mapaPlural[nombre] || `${nombre}s`; }
 
-function obtenerPlural(nombre) {
-  return mapaPlural[nombre] || `${nombre}s`;
-}
-
-// No todos los recursos tienen endpoint /api/min/* en el backend.
-// Para evitar 404 innecesarios en la consola, solo usaremos /api/min
-// para las entidades que sabemos que están soportadas.
-const entidadesConMin = new Set([
-  'empleado',
-  'cliente',
-  'proyecto',
-  'material',
-  'factura' // usado para seleccionar pagos
-  // Nota: apartamentos, pisos, tareas, turnos generalmente no tienen /min
-]);
+// Entidades con endpoint /api/min/*
+const entidadesConMin = new Set(['empleado','cliente','proyecto','material']);
 
 function textoParaOpcionItem(item) {
-  const id = item.id ?? item.ID ?? item.Id ?? item.idEmpleado ?? item.idCliente ?? item.idProyecto ?? item.idMaterial ?? item.idFactura ?? item.idTurno ?? item.idTarea ?? item.idInventario ?? item.idIngreso ?? item.idGasto ?? item.idPago;
+  const id = item.id ?? item.ID ?? item.Id ?? item.idEmpleado ?? item.idCliente ?? item.idProyecto ?? item.idMaterial ?? item.idTurno ?? item.idTarea;
   const candidates = [
     item.nombre, item.Nombre, item.descripcion, item.Descripcion,
-    item.Correo, item.Telefono, item.tipo_movimiento,
-    item.Fecha, item.fecha, item.numero, item.num_apartamento, item.num_piso
+    item.Correo, item.Telefono, item.Tipo_jornada, item.numero, item.num_apartamento, item.num_piso
   ];
   const label = candidates.find(v => v != null && v !== '') || '';
   return `${id != null ? id : ''}${label ? ' - ' + label : ''}`.trim();
@@ -1086,13 +712,11 @@ function textoParaOpcionItem(item) {
 
 async function cargarOpcionesActualizacion() {
   if (!entradaIdActualizacion) return;
-  // Limpiar opciones existentes
   entradaIdActualizacion.innerHTML = '';
   const marcadorPosicion = document.createElement('option');
   marcadorPosicion.value = '';
   marcadorPosicion.textContent = '-- Selecciona --';
   entradaIdActualizacion.appendChild(marcadorPosicion);
-  // Obtener plural y cargar elementos (preferir /api/min si existe)
   const plural = obtenerPlural(entidadActual);
   let elementos = [];
   try {
@@ -1107,7 +731,7 @@ async function cargarOpcionesActualizacion() {
   if (!Array.isArray(elementos)) elementos = [];
   elementos.forEach((it) => {
     const opt = document.createElement('option');
-    const id = it.id ?? it.ID ?? it.Id ?? it.idEmpleado ?? it.idCliente ?? it.idProyecto ?? it.idMaterial ?? it.idFactura ?? it.idTurno ?? it.idTarea ?? it.idInventario ?? it.idIngreso ?? it.idGasto ?? it.idPago;
+    const id = it.id ?? it.ID ?? it.Id ?? it.idEmpleado ?? it.idCliente ?? it.idProyecto ?? it.idMaterial ?? it.idTurno ?? it.idTarea;
     if (id == null) return;
     opt.value = String(id);
     opt.textContent = textoParaOpcionItem(it) || `ID ${id}`;
@@ -1115,7 +739,7 @@ async function cargarOpcionesActualizacion() {
   });
 }
 
-// Prefill form inputs with existing record data when selecting an ID to update
+// Prefill form al seleccionar ID
 if (entradaIdActualizacion) {
   entradaIdActualizacion.addEventListener('change', async () => {
     if (!usuarioActual || usuarioActual.rol !== 'Administrador') return;
@@ -1158,7 +782,7 @@ if (entradaIdActualizacion) {
         setTimeout(() => el.classList.remove('prefilled'), 1800);
       });
       mensajeActualizacion.style.color = '';
-      mensajeActualizacion.textContent = 'Datos cargados. Modifica los campos y presiona Actualizar.';
+      mensajeActualizacion.textContent = 'Datos cargados. Modifica y presiona Actualizar.';
       actualizarVisibilidadControlesFoto();
     } catch (e) {
       mensajeActualizacion.style.color = 'salmon';
@@ -1189,332 +813,111 @@ if (formularioLogin) {
   });
 }
 
-// Inicializar modelos de face-api (solo cuando se solicita cámara)
+// Face-api: carga simplificada de modelos
 async function cargarModelosFace() {
-  if (faceModelsLoaded || cargandoModelo) return;
-  cargandoModelo = true;
-  const baseLocal = '/models'; // Contiene *.bin y *weights_manifest.json copiados desde node_modules
-
-  // Verificación previa: face-api cargado y archivos presentes
-  async function comprobarArchivosModelos() {
-    if (typeof window.faceapi === 'undefined') {
-      throw new Error('Biblioteca face-api no cargada (/vendor/face-api/face-api.min.js)');
-    }
-    const reqs = [
-      `${baseLocal}/tiny_face_detector_model-weights_manifest.json`,
-      `${baseLocal}/tiny_face_detector_model.bin`,
-      `${baseLocal}/face_landmark_68_model-weights_manifest.json`,
-      `${baseLocal}/face_landmark_68_model.bin`,
-      `${baseLocal}/face_recognition_model-weights_manifest.json`,
-      `${baseLocal}/face_recognition_model.bin`
-    ];
-    const faltantes = [];
-    await Promise.all(reqs.map(async (url) => {
-      try {
-        const r = await fetch(url, { method: 'HEAD', cache: 'no-store' });
-        if (!r.ok) faltantes.push({ url, status: r.status });
-      } catch (e) {
-        faltantes.push({ url, status: 'ERR' });
-      }
-    }));
-    if (faltantes.length) {
-      const lista = faltantes.map(f => `${f.url} [${f.status}]`).join(', ');
-      throw new Error('Faltan archivos de modelos en /models: ' + lista);
-    }
-  }
-  async function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
-  async function cargarConReintentos(net, nombre){
-    const intentos = 10;
-    for (let i=1;i<=intentos;i++) {
-      try {
-        // La librería busca los manifests JSON y luego los shards .bin; mantenemos nombres por defecto.
-        await net.loadFromUri(baseLocal);
-        return;
-      } catch (e) {
-        if (i===intentos) throw e;
-        faceLoginMsg.textContent = `Esperando modelos (${nombre}) intento ${i}/${intentos}...`;
-        await sleep(600);
-      }
-    }
-  }
+  if (modelosRostroCargados || cargandoModeloRostro) return;
+  cargandoModeloRostro = true;
   try {
-    faceLoginMsg.textContent = 'Comprobando archivos de modelos...';
-    await comprobarArchivosModelos();
-    faceLoginMsg.textContent = 'Cargando modelos (local)...';
-    await cargarConReintentos(faceapi.nets.tinyFaceDetector,'tiny');
-    // Preferir modelo completo; si falla intentar tiny landmarks
+    if (typeof window.faceapi === 'undefined') throw new Error('Biblioteca face-api no cargada');
+    const baseLocal = '/models';
+    if (mensajeLoginRostro) mensajeLoginRostro.textContent = 'Cargando modelos...';
+    await faceapi.nets.tinyFaceDetector.loadFromUri(baseLocal);
     try {
-      await cargarConReintentos(faceapi.nets.faceLandmark68Net,'landmarks');
-    } catch (e) {
-      faceLoginMsg.textContent = 'Fallo landmarks completos, intentando versión tiny';
-      await cargarConReintentos(faceapi.nets.faceLandmark68TinyNet,'landmarks-tiny');
+      await faceapi.nets.faceLandmark68Net.loadFromUri(baseLocal);
+    } catch {
+      await faceapi.nets.faceLandmark68TinyNet.loadFromUri(baseLocal);
     }
-    await cargarConReintentos(faceapi.nets.faceRecognitionNet,'recognition');
-    faceModelsLoaded = true;
-    faceLoginMsg.textContent = 'Modelos listos';
+    await faceapi.nets.faceRecognitionNet.loadFromUri(baseLocal);
+    modelosRostroCargados = true;
+    if (mensajeLoginRostro) mensajeLoginRostro.textContent = 'Modelos listos';
   } catch (e) {
-    faceLoginMsg.style.color='salmon';
-    faceLoginMsg.textContent = 'Modelos no cargados: ' + (e && e.message ? e.message : e);
+    if (mensajeLoginRostro) { mensajeLoginRostro.style.color='salmon'; mensajeLoginRostro.textContent = 'Modelos no cargados: ' + e.message; }
     console.error('Error cargando modelos:', e);
-    try {
-      const dbg = await fetch(`${baseAPI}/api/debug/face-models`, { credentials:'include' });
-      if (dbg.ok) {
-        const info = await dbg.json();
-        console.log('Archivos de modelos visibles en servidor:', info.files);
-      } else {
-        console.warn('No se pudo obtener listado de modelos del servidor');
-      }
-    } catch (err) {
-      console.warn('Fallo petición debug modelos:', err.message);
-    }
   } finally {
-    cargandoModelo = false;
+    cargandoModeloRostro = false;
   }
 }
-
 async function iniciarCamaraFace() {
   if (!navigator.mediaDevices?.getUserMedia) {
-    faceLoginMsg.style.color = 'salmon';
-    faceLoginMsg.textContent = 'getUserMedia no soportado en este navegador';
+    if (mensajeLoginRostro) { mensajeLoginRostro.style.color = 'salmon'; mensajeLoginRostro.textContent = 'getUserMedia no soportado'; }
     return;
   }
   try {
     await cargarModelosFace();
-    faceLoginMsg.textContent = 'Activando cámara...'; faceLoginMsg.style.color = '';
-    faceStream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } });
-    faceVideo.srcObject = faceStream;
-    btnFaceLogin.disabled = false;
-    faceLoginMsg.textContent = 'Cámara lista';
+    if (mensajeLoginRostro) { mensajeLoginRostro.textContent = 'Activando cámara...'; mensajeLoginRostro.style.color = ''; }
+    flujoRostro = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } });
+    if (videoRostro) videoRostro.srcObject = flujoRostro;
+    if (btnLoginRostro) btnLoginRostro.disabled = false;
+    if (mensajeLoginRostro) mensajeLoginRostro.textContent = 'Cámara lista';
   } catch (e) {
-    faceLoginMsg.style.color = 'salmon';
-    faceLoginMsg.textContent = 'Error al activar cámara: ' + e.message;
+    if (mensajeLoginRostro) { mensajeLoginRostro.style.color = 'salmon'; mensajeLoginRostro.textContent = 'Error al activar cámara: ' + e.message; }
   }
 }
-
 async function capturarDescriptorFace() {
-  if (!faceModelsLoaded) {
-    faceLoginMsg.style.color = 'salmon';
-    faceLoginMsg.textContent = 'Modelos no cargados';
+  if (!modelosRostroCargados) {
+    if (mensajeLoginRostro) { mensajeLoginRostro.style.color = 'salmon'; mensajeLoginRostro.textContent = 'Modelos no cargados'; }
     return null;
   }
-  if (!faceVideo || faceVideo.readyState < 2) {
-    faceLoginMsg.style.color = 'salmon';
-    faceLoginMsg.textContent = 'Video no listo';
+  if (!videoRostro || videoRostro.readyState < 2) {
+    if (mensajeLoginRostro) { mensajeLoginRostro.style.color = 'salmon'; mensajeLoginRostro.textContent = 'Video no listo'; }
     return null;
   }
   const opciones = new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5, inputSize: 160 });
-  // Intento principal con landmarks completos si están cargados
   let deteccion = null;
   try {
     if (faceapi.nets.faceLandmark68Net.params) {
-      deteccion = await faceapi.detectSingleFace(faceVideo, opciones).withFaceLandmarks().withFaceDescriptor();
+      deteccion = await faceapi.detectSingleFace(videoRostro, opciones).withFaceLandmarks().withFaceDescriptor();
     } else if (faceapi.nets.faceLandmark68TinyNet.params) {
-      deteccion = await faceapi.detectSingleFace(faceVideo, opciones).withFaceLandmarks(true).withFaceDescriptor();
+      deteccion = await faceapi.detectSingleFace(videoRostro, opciones).withFaceLandmarks(true).withFaceDescriptor();
     } else {
-      // Fallback sin landmarks (puede degradar descriptor)
-      deteccion = await faceapi.detectSingleFace(faceVideo, opciones).withFaceDescriptor();
+      deteccion = await faceapi.detectSingleFace(videoRostro, opciones).withFaceDescriptor();
     }
-  } catch (e) {
-    console.warn('Error en detección facial inicial:', e);
-    // Fallback absoluto
-    try { deteccion = await faceapi.detectSingleFace(faceVideo, opciones).withFaceDescriptor(); } catch(_) {}
+  } catch {
+    try { deteccion = await faceapi.detectSingleFace(videoRostro, opciones).withFaceDescriptor(); } catch(_) {}
   }
   if (!deteccion) {
-    faceLoginMsg.style.color = 'salmon';
-    faceLoginMsg.textContent = 'No se detectó rostro. Reintenta.';
+    if (mensajeLoginRostro) { mensajeLoginRostro.style.color = 'salmon'; mensajeLoginRostro.textContent = 'No se detectó rostro. Reintenta.'; }
     return null;
   }
-  faceLoginMsg.style.color = '';
-  faceLoginMsg.textContent = 'Rostro detectado';
-  return Array.from(deteccion.descriptor); // Float32Array -> Array
+  if (mensajeLoginRostro) { mensajeLoginRostro.style.color = ''; mensajeLoginRostro.textContent = 'Rostro detectado'; }
+  return Array.from(deteccion.descriptor);
 }
-
 async function ejecutarLoginFace() {
-  const username = (faceLoginUsername?.value || '').trim();
+  const username = (usuarioLoginRostro?.value || '').trim();
   if (!username) {
-    faceLoginMsg.style.color = 'salmon'; faceLoginMsg.textContent = 'Ingresa el usuario'; return;
+    if (mensajeLoginRostro) { mensajeLoginRostro.style.color = 'salmon'; mensajeLoginRostro.textContent = 'Ingresa el usuario'; }
+    return;
   }
-  faceLoginMsg.style.color = ''; faceLoginMsg.textContent = 'Capturando rostro...';
+  if (mensajeLoginRostro) { mensajeLoginRostro.style.color = ''; mensajeLoginRostro.textContent = 'Capturando rostro...'; }
   try {
     const descriptor = await capturarDescriptorFace();
     if (!descriptor) return;
-    faceLoginMsg.textContent = 'Comparando...';
+    if (mensajeLoginRostro) mensajeLoginRostro.textContent = 'Comparando...';
     const r = await solicitarAPI('/api/auth/login-face', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, descriptor })
     });
     usuarioActual = r.user;
-    faceLoginMsg.textContent = 'Login facial exitoso (distancia ' + r.distancia.toFixed(3) + ')';
+    if (mensajeLoginRostro) mensajeLoginRostro.textContent = 'Login facial exitoso (distancia ' + r.distancia.toFixed(3) + ')';
     actualizarUIParaAutenticacion();
   } catch (e) {
-    faceLoginMsg.style.color = 'salmon'; faceLoginMsg.textContent = e.message;
+    if (mensajeLoginRostro) { mensajeLoginRostro.style.color = 'salmon'; mensajeLoginRostro.textContent = e.message; }
   }
 }
-
-if (btnInitFace) btnInitFace.addEventListener('click', iniciarCamaraFace);
-if (btnFaceLogin) btnFaceLogin.addEventListener('click', ejecutarLoginFace);
+if (btnIniciarRostro) btnIniciarRostro.addEventListener('click', iniciarCamaraFace);
+if (btnLoginRostro) btnLoginRostro.addEventListener('click', ejecutarLoginFace);
 
 if (btnCerrarSesion) {
   btnCerrarSesion.addEventListener('click', async () => {
     try { await solicitarAPI('/api/auth/logout', { method: 'POST' }); } catch (_) {}
     usuarioActual = null;
-    // Reset view to defaults
     barraLateral.style.display = '';
     actualizarUIParaAutenticacion();
   });
 }
 
-if (btnMarcarAsistencia) {
-  btnMarcarAsistencia.addEventListener('click', async () => {
-    asistenciaMsg.textContent = 'Marcando...';
-    try {
-      await solicitarAPI('/api/empleado/asistencia', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ estado: 'Presente' })
-      });
-      asistenciaMsg.style.color = '';
-      asistenciaMsg.textContent = 'Asistencia marcada';
-      cargarMisDatos();
-    } catch (e) {
-      asistenciaMsg.style.color = 'salmon';
-      asistenciaMsg.textContent = e.message;
-    }
-  });
-}
-
-verificarAutenticacion();
-
-// ====== Inventario (dashboard) ======
-
-function formateaMoneda(valor) {
-  if (valor == null || isNaN(Number(valor))) return '$0';
-  try {
-    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(Number(valor));
-  } catch {
-    return '$' + Number(valor).toFixed(2);
-  }
-}
-
-function formateaNumero(n) {
-  try { return new Intl.NumberFormat('es-CO').format(Number(n || 0)); } catch { return String(n || 0); }
-}
-
-async function cargarInventario() {
-  const q = buscarEl.value.trim();
-  contenedorTabla.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)">Cargando inventario...</div>';
-  try {
-    const [ovwResp, cardsResp] = await Promise.all([
-      fetch(`${baseAPI}/api/inventory/overview`, { credentials: 'include' }),
-      fetch(`${baseAPI}/api/inventory/cards${q ? `?q=${encodeURIComponent(q)}` : ''}`, { credentials: 'include' })
-    ]);
-    const overview = await ovwResp.json();
-    const cards = await cardsResp.json();
-    renderInventario(overview, cards);
-  } catch (e) {
-    contenedorTabla.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--error)">Error: ${e.message}</div>`;
-  }
-}
-
-function renderInventario(overview, items) {
-  const wrap = document.createElement('div');
-  wrap.className = 'inv-wrap';
-
-  // Resumen superior
-  const resumen = document.createElement('div');
-  resumen.className = 'inv-summary';
-  resumen.innerHTML = `
-    <div class="inv-kpi"><div class="inv-kpi-num">${formateaNumero(overview?.materiales || 0)}</div><div class="inv-kpi-label">Materiales</div></div>
-    <div class="inv-kpi"><div class="inv-kpi-num">${formateaNumero(overview?.disponibles || 0)}</div><div class="inv-kpi-label">Disponibles</div></div>
-    <div class="inv-kpi"><div class="inv-kpi-num">${formateaNumero(overview?.agotados || 0)}</div><div class="inv-kpi-label">Agotados</div></div>
-  `;
-  wrap.appendChild(resumen);
-
-  // Grid de tarjetas
-  const grid = document.createElement('div');
-  grid.className = 'inv-grid';
-  (items || []).forEach((it) => {
-    const agotado = Number(it.stock || 0) <= 0;
-    const card = document.createElement('div');
-    card.className = 'inv-card';
-    card.innerHTML = `
-      <div class="inv-card-img">
-        <img src="https://images.unsplash.com/photo-1556735979-89b03e0b5b51?auto=format&fit=crop&w=900&q=60" alt="${it.Nombre}">
-        ${agotado ? '<span class="inv-badge inv-badge-warn">Agotado</span>' : '<span class="inv-badge inv-badge-ok">Disponible</span>'}
-      </div>
-      <div class="inv-card-body">
-        <h3 class="inv-card-title">${it.Nombre}</h3>
-        <ul class="inv-meta">
-          <li><span>Cantidad:</span><b>${formateaNumero(it.stock || 0)} unidades</b></li>
-          <li><span>Costo Unitario:</span><b>${formateaMoneda(it.costo_unitario)}</b></li>
-          <li><span>Tipo:</span><b>${it.tipo || '-'}</b></li>
-          <li><span>Movimientos:</span><b>${formateaNumero(it.movimientos)} registros</b></li>
-        </ul>
-        <button class="inv-btn-detalles" data-id="${it.idMaterial}">Ver detalles</button>
-      </div>
-    `;
-    grid.appendChild(card);
-  });
-  wrap.appendChild(grid);
-
-  // Sección de detalle
-  const detail = document.createElement('div');
-  detail.className = 'inv-detail';
-  detail.id = 'invDetail';
-  wrap.appendChild(detail);
-
-  contenedorTabla.innerHTML = '';
-  contenedorTabla.appendChild(wrap);
-
-  // Delegación para botón "Ver detalles"
-  contenedorTabla.querySelectorAll('.inv-btn-detalles').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const id = btn.getAttribute('data-id');
-      await cargarDetalleMaterial(id);
-      // scroll al detalle
-      document.getElementById('invDetail')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-  });
-}
-
-async function cargarDetalleMaterial(id) {
-  const cont = document.getElementById('invDetail');
-  if (!cont) return;
-  cont.innerHTML = '<div class="inv-detail-loading">Cargando detalle...</div>';
-  try {
-  const resp = await fetch(`${baseAPI}/api/inventory/material/${id}`, { credentials: 'include' });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.error || 'Error');
-    const m = data.material || {};
-    const movs = data.movimientos || [];
-    let html = `
-      <div class="inv-detail-head">
-        <div>
-          <h3>${m.Nombre || 'Material'}</h3>
-          <div class="inv-detail-sub">Stock actual: <b>${formateaNumero(m.stock || 0)}</b> — Costo unitario: <b>${formateaMoneda(m.costo_unitario)}</b> — Tipo: <b>${m.tipo || '-'}</b></div>
-        </div>
-        <button class="inv-btn-cerrar" id="cerrarDetalle">Cerrar</button>
-      </div>
-    `;
-    if (!movs.length) {
-      html += '<div class="inv-detail-empty">No hay movimientos para este material.</div>';
-    } else {
-      html += '<div class="table-wrap">';
-      html += '<table><thead><tr><th>ID</th><th>Movimiento</th><th>Cantidad</th><th>Fecha</th><th>Proyecto</th></tr></thead><tbody>';
-      movs.forEach((r) => {
-        html += `<tr><td>${r.idInventario}</td><td>${r.tipo_movimiento}</td><td>${formateaNumero(r.cantidad)}</td><td>${r.fecha || ''}</td><td>${r.Proyecto || ''}</td></tr>`;
-      });
-      html += '</tbody></table></div>';
-    }
-    cont.innerHTML = html;
-    const cerrar = document.getElementById('cerrarDetalle');
-    if (cerrar) cerrar.addEventListener('click', () => { cont.innerHTML = ''; });
-  } catch (e) {
-    cont.innerHTML = `<div class="inv-detail-error">Error: ${e.message}</div>`;
-  }
-}
-
+// Construcción de formularios (solo entidades visibles)
 const camposFormulario = {
   cliente: [
     { name: 'Nombre', type: 'text', req: true, pattern: '[A-Za-zÁÉÍÓÚáéíóúÑñ\\s]+' },
@@ -1561,36 +964,6 @@ const camposFormulario = {
     { name: 'Fecha_fin', type: 'date' },
     { name: 'idProyecto', type: 'select', source: '/api/min/proyectos' },
     { name: 'idEmpleado', type: 'select', source: '/api/min/empleados' }
-  ],
-  inventario: [
-    { name: 'tipo_movimiento', type: 'select', options: ['Entrada','Salida'] },
-    { name: 'cantidad', type: 'number', req: true },
-    { name: 'fecha', type: 'date', req: true },
-    { name: 'idMaterial', type: 'select', source: '/api/min/materiales' },
-    { name: 'idProyecto', type: 'select', source: '/api/min/proyectos' }
-  ],
-  ingreso: [
-    { name: 'fecha', type: 'date', req: true },
-    { name: 'Valor', type: 'number', step: '0.01', req: true },
-    { name: 'Descripcion', type: 'text' },
-    { name: 'idProyecto', type: 'select', source: '/api/min/proyectos' }
-  ],
-  gasto: [
-    { name: 'Valor', type: 'number', step: '0.01', req: true },
-    { name: 'Descripcion', type: 'text' },
-    { name: 'fecha', type: 'date', req: true },
-    { name: 'idProyecto', type: 'select', source: '/api/min/proyectos' }
-  ],
-  factura: [
-    { name: 'Fecha', type: 'date', req: true },
-    { name: 'Valor_total', type: 'number', step: '0.01', req: true },
-    { name: 'idProyecto', type: 'select', source: '/api/min/proyectos' },
-    { name: 'idCliente', type: 'select', source: '/api/min/clientes' }
-  ],
-  pago: [
-    { name: 'Fecha', type: 'date', req: true },
-    { name: 'Monto', type: 'number', step: '0.01', req: true },
-    { name: 'idFactura', type: 'select', source: '/api/min/facturas' }
   ]
 };
 
@@ -1603,40 +976,27 @@ async function construirFormulario() {
     const etiqueta = crear('label', '', f.name);
     formularioDinamico.appendChild(etiqueta);
     if (f.type === 'select') {
-      const selectEl = crear('select');
-      selectEl.name = f.name;
-      const opcionVacia = crear('option', '', '--');
-      opcionVacia.value = '';
-      selectEl.appendChild(opcionVacia);
+      const selectEl = crear('select'); selectEl.name = f.name;
+      const opcionVacia = crear('option', '', '--'); opcionVacia.value = ''; selectEl.appendChild(opcionVacia);
       if (f.options) {
-        f.options.forEach((v) => {
-          const op = crear('option', '', v);
-          op.value = v;
-          selectEl.appendChild(op);
-        });
+        f.options.forEach((v) => { const op = crear('option', '', v); op.value = v; selectEl.appendChild(op); });
       }
       if (f.source) {
         try {
           const resp = await fetch(`${baseAPI}${f.source}`);
           const datos = await resp.json();
           datos.forEach((item) => {
-            const op = crear('option', '', `${item.id} - ${item.nombre}`);
-            op.value = item.id;
-            selectEl.appendChild(op);
+            const op = crear('option', '', `${item.id} - ${item.nombre}`); op.value = item.id; selectEl.appendChild(op);
           });
-        } catch (e) {  }
+        } catch (_) {}
       }
       formularioDinamico.appendChild(selectEl);
     } else {
-      const inputEl = crear('input');
-      inputEl.name = f.name;
-      inputEl.type = f.type || 'text';
+      const inputEl = crear('input'); inputEl.name = f.name; inputEl.type = f.type || 'text';
       if (f.step) inputEl.step = f.step;
       if (f.req) inputEl.required = true;
-
       const nombreEnMinusculas = (f.name || '').toLowerCase();
-      if (inputEl.type === 'email') {
-      } else if (inputEl.type === 'tel' || nombreEnMinusculas.includes('telefono')) {
+      if (inputEl.type === 'tel' || nombreEnMinusculas.includes('telefono')) {
         inputEl.setAttribute('pattern', '\\d{10}');
         inputEl.setAttribute('inputmode', 'numeric');
         inputEl.setAttribute('maxlength', '10');
@@ -1648,11 +1008,8 @@ async function construirFormulario() {
           if (inputEl.value !== limpio) inputEl.value = limpio;
         });
       } else if (inputEl.type === 'text') {
-        if (f.pattern) {
-          inputEl.setAttribute('pattern', f.pattern);
-        } else {
-          inputEl.setAttribute('pattern', '[A-Za-zÁÉÍÓÚáéíóúÑñ\\s]+');
-        }
+        if (f.pattern) inputEl.setAttribute('pattern', f.pattern);
+        else inputEl.setAttribute('pattern', '[A-Za-zÁÉÍÓÚáéíóúÑñ\\s]+');
         inputEl.addEventListener('input', () => {
           const limpio = sanitizarLetrasYEspacios(inputEl.value);
           if (inputEl.value !== limpio) inputEl.value = limpio;
@@ -1661,15 +1018,13 @@ async function construirFormulario() {
       formularioDinamico.appendChild(inputEl);
     }
   }
-  const boton = crear('button', '', 'Guardar');
-  boton.type = 'submit';
-  formularioDinamico.appendChild(boton);
+  const boton = crear('button', '', 'Guardar'); boton.type = 'submit'; formularioDinamico.appendChild(boton);
   // Reset update ID when changing entity
   if (entradaIdActualizacion) entradaIdActualizacion.value = '';
   inicializarControlesFoto();
   actualizarVisibilidadControlesFoto();
 
-  // Bloque adicional para Empleado: crear cuenta de acceso
+  // Bloque adicional: crear cuenta para Empleado
   if (entidadActual === 'empleado') {
     const bloque = document.createElement('div');
     bloque.style.gridColumn = '1 / -1';
@@ -1704,18 +1059,16 @@ async function construirFormulario() {
       </div>
     `;
     formularioDinamico.appendChild(bloque);
-
     const chk = bloque.querySelector('#chkCrearUsuario');
     const dependientes = ['nombre_usuario','contraseña','rol_usuario','correo_usuario'].map(n => bloque.querySelector(`[name="${n}"]`));
     const actualizar = () => { dependientes.forEach(el => { el.disabled = !chk.checked; }); };
     chk.addEventListener('change', actualizar);
     actualizar();
-    // Mover el botón Guardar al final del bloque extendido
     const botonGuardar = Array.from(formularioDinamico.querySelectorAll('button')).find(b => b.type === 'submit');
     if (botonGuardar) formularioDinamico.appendChild(botonGuardar);
   }
 
-  // Bloque adicional para Cliente: crear cuenta de acceso
+  // Bloque adicional: crear cuenta para Cliente (opcional)
   if (entidadActual === 'cliente') {
     const bloque = document.createElement('div');
     bloque.style.gridColumn = '1 / -1';
@@ -1749,6 +1102,7 @@ async function construirFormulario() {
   }
 }
 
+// Submit create
 formularioDinamico.addEventListener('submit', async (ev) => {
   ev.preventDefault();
   mensajeFormulario.style.color = '#89ff9f';
@@ -1758,14 +1112,11 @@ formularioDinamico.addEventListener('submit', async (ev) => {
     if (!el.name) return;
     if (el.type === 'submit') return;
     if (el.tagName === 'SELECT' || el.type !== 'checkbox') datos[el.name] = el.value === '' ? null : el.value;
-    if (el.type === 'checkbox') {
-      datos[el.name] = el.checked ? '1' : '0';
-    }
+    if (el.type === 'checkbox') datos[el.name] = el.checked ? '1' : '0';
   });
   try {
     let r;
     if (entidadActual === 'empleado' && (datos.crear_usuario === '1' || datos.crear_usuario === 1 || datos.crear_usuario === true)) {
-      // Mapear datos para endpoint especial
       const payload = {
         Nombre: datos.Nombre || null,
         Correo: datos.Correo || null,
@@ -1816,7 +1167,7 @@ formularioDinamico.addEventListener('submit', async (ev) => {
   }
 });
 
-// Update by ID using current form fields (admin)
+// Update por ID
 if (btnActualizar) {
   btnActualizar.addEventListener('click', async () => {
     mensajeActualizacion.textContent = '';
@@ -1826,7 +1177,7 @@ if (btnActualizar) {
     Array.from(formularioDinamico.elements).forEach((el) => {
       if (!el.name || el.type === 'submit') return;
       if (el.tagName === 'SELECT' || el.type !== 'checkbox') {
-        if (el.value !== '') datos[el.name] = el.value; // solo campos llenos
+        if (el.value !== '') datos[el.name] = el.value;
       }
     });
     if (Object.keys(datos).length === 0) {
@@ -1851,7 +1202,7 @@ if (btnActualizar) {
   });
 }
 
-// Delete by ID (admin)
+// Delete por ID
 if (btnEliminar) {
   btnEliminar.addEventListener('click', async () => {
     mensajeActualizacion.textContent = '';
@@ -1874,7 +1225,7 @@ if (btnEliminar) {
   });
 }
 
-// Admin create form submit (multipart)
+// Admin: crear con foto (multipart)
 if (formularioCrearAdmin) {
   formularioCrearAdmin.addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -1882,17 +1233,12 @@ if (formularioCrearAdmin) {
     mensajeCrearAdmin.style.color = '';
     const fd = new FormData(formularioCrearAdmin);
     try {
-      const res = await fetch(`${baseAPI}/api/admin/create`, {
-        method: 'POST',
-        credentials: 'include',
-        body: fd
-      });
+      const res = await fetch(`${baseAPI}/api/admin/create`, { method: 'POST', credentials: 'include', body: fd });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || 'Error');
       mensajeCrearAdmin.textContent = `Admin creado (id ${body.idUsuario})`;
       formularioCrearAdmin.reset();
       cargarAdminsSeguro();
-      // Intento automático de generar descriptor si se subió foto
       if (body.idUsuario && body.foto_url) {
         intentarAutoDescriptor(body.idUsuario, body.foto_url).catch(e => console.warn('Auto descriptor falló:', e.message));
       }
@@ -1903,7 +1249,7 @@ if (formularioCrearAdmin) {
   });
 }
 
-// ===== Administradores: listar y eliminar =====
+// Listar/eliminar administradores
 async function cargarAdmins() {
   if (!tablaUsuariosAdmin) return;
   tablaUsuariosAdmin.innerHTML = '<div style="text-align:center; padding:1rem; color: var(--text-muted);">Cargando...</div>';
@@ -1916,16 +1262,14 @@ async function cargarAdmins() {
     const tabla = document.createElement('table');
     const thead = document.createElement('thead');
     const trh = document.createElement('tr');
-    ['ID','Usuario','Correo','Foto','Acciones'].forEach(h => {
-      const th = document.createElement('th'); th.textContent = h; trh.appendChild(th);
-    });
+    ['ID','Usuario','Correo','Foto','Acciones'].forEach(h => { const th = document.createElement('th'); th.textContent = h; trh.appendChild(th); });
     thead.appendChild(trh);
     const tbody = document.createElement('tbody');
     lista.forEach(u => {
       const tr = document.createElement('tr');
       const tdId = document.createElement('td'); tdId.textContent = u.idUsuario; tr.appendChild(tdId);
-  const tdUser = document.createElement('td'); tdUser.textContent = u.nombre_usuario; tr.appendChild(tdUser);
-  const tdCorreo = document.createElement('td'); tdCorreo.textContent = u.Correo || '—'; tr.appendChild(tdCorreo);
+      const tdUser = document.createElement('td'); tdUser.textContent = u.nombre_usuario; tr.appendChild(tdUser);
+      const tdCorreo = document.createElement('td'); tdCorreo.textContent = u.Correo || '—'; tr.appendChild(tdCorreo);
       const tdFoto = document.createElement('td');
       if (u.foto_url) {
         const img = document.createElement('img');
@@ -1935,18 +1279,13 @@ async function cargarAdmins() {
         img.style.borderRadius = '6px';
         img.style.border = '1px solid var(--border-light)';
         tdFoto.appendChild(img);
-      } else {
-        tdFoto.textContent = '—';
-      }
+      } else { tdFoto.textContent = '—'; }
       tr.appendChild(tdFoto);
-
       const tdAcc = document.createElement('td');
       const btnDel = document.createElement('button');
       btnDel.textContent = 'Eliminar';
       btnDel.style.background = '#ef4444';
-      btnDel.addEventListener('click', async () => {
-        await eliminarAdmin(u.idUsuario);
-      });
+      btnDel.addEventListener('click', async () => { await eliminarAdmin(u.idUsuario); });
       tdAcc.appendChild(btnDel);
       tr.appendChild(tdAcc);
       tbody.appendChild(tr);
@@ -1959,13 +1298,12 @@ async function cargarAdmins() {
     tablaUsuariosAdmin.innerHTML = `<div style="color:salmon; padding:1rem;">Error: ${e.message}</div>`;
   }
 }
-
 async function eliminarAdmin(id) {
   mensajeUsuariosAdmin.textContent = '';
   if (!id) return;
   if (!confirm('¿Eliminar administrador ' + id + '?')) return;
   try {
-    const res = await solicitarAPI(`/api/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    await solicitarAPI(`/api/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
     mensajeUsuariosAdmin.style.color = '';
     mensajeUsuariosAdmin.textContent = 'Administrador eliminado';
     await cargarAdmins();
@@ -1974,22 +1312,19 @@ async function eliminarAdmin(id) {
     mensajeUsuariosAdmin.textContent = e.message;
   }
 }
-
 function cargarAdminsSeguro() {
   if (usuarioActual?.rol === 'Administrador' && envoltorioUsuariosAdmin && tablaUsuariosAdmin) {
     cargarAdmins();
   }
 }
+if (btnRefrescarAdmins) btnRefrescarAdmins.addEventListener('click', () => cargarAdminsSeguro());
 
-if (btnRefrescarAdmins) {
-  btnRefrescarAdmins.addEventListener('click', () => cargarAdminsSeguro());
-}
-
-// Inicializar controles de foto al cargar
+// Inicial
 inicializarControlesFoto();
+verificarAutenticacion();
 
 // ==========================
-// Auto descriptor y self-enrollment helpers
+// Auto descriptor (post-subida de foto)
 // ==========================
 async function intentarAutoDescriptor(idUsuario, fotoUrl) {
   try {
@@ -2011,40 +1346,3 @@ async function intentarAutoDescriptor(idUsuario, fotoUrl) {
     throw e;
   }
 }
-
-// Self enrollment (para usuario ya autenticado) - botón opcional
-let btnSelfEnroll = null;
-function prepararSelfEnrollment() {
-  if (!usuarioActual || usuarioActual.rol === 'Administrador') return; // Admin ya tiene panel avanzado
-  if (btnSelfEnroll) return;
-  const cont = document.getElementById('loginArea');
-  if (!cont) return;
-  btnSelfEnroll = document.createElement('button');
-  btnSelfEnroll.textContent = 'Registrar mi rostro';
-  btnSelfEnroll.type = 'button';
-  btnSelfEnroll.style.marginTop = '1rem';
-  btnSelfEnroll.addEventListener('click', async () => {
-    try {
-      faceLoginMsg.style.color=''; faceLoginMsg.textContent='Activando cámara...';
-      await iniciarCamaraFace();
-      faceLoginMsg.textContent='Capturando...';
-      const descriptor = await capturarDescriptorFace();
-      if (!descriptor) return;
-      faceLoginMsg.textContent='Guardando descriptor...';
-      await solicitarAPI('/api/users/me/face', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ descriptor }) });
-      faceLoginMsg.textContent='Descriptor registrado. Ahora puedes usar Login con Rostro.';
-    } catch (e) {
-      faceLoginMsg.style.color='salmon'; faceLoginMsg.textContent=e.message;
-    }
-  });
-  cont.querySelector('.panel')?.appendChild(btnSelfEnroll);
-}
-
-// Llamar tras verificar autenticación para roles no admin
-const _origActualizarUI = actualizarUIParaAutenticacion;
-actualizarUIParaAutenticacion = function() {
-  _origActualizarUI();
-  if (usuarioActual && usuarioActual.rol !== 'Administrador') {
-    prepararSelfEnrollment();
-  }
-};
