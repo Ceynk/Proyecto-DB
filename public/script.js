@@ -610,6 +610,24 @@ function renderizarTabla(filas) {
       columnasParaRender.unshift(colId);
     }
   }
+  // Forzar el orden explícito para Empleado para evitar cualquier corrimiento
+  if (entidadActual === 'empleado') {
+    const preferido = [
+      { clave: 'idEmpleado', titulo: 'ID Empleado', esId: true },
+      { clave: 'Nombre', titulo: 'Nombre' },
+      { clave: 'Correo', titulo: 'Correo' },
+      { clave: 'Telefono', titulo: 'Teléfono' },
+      { clave: 'Asistencia', titulo: 'Asistencia' },
+      { clave: 'Especialidad', titulo: 'Especialidad' }
+      // Puedes agregar { clave: 'Proyecto', titulo: 'Proyecto' } o 'foto_url' si quieres mostrarlos aquí
+    ];
+    const mapa = Object.create(null);
+    columnasParaRender.forEach(c => { mapa[c.clave.toLowerCase()] = c; });
+    columnasParaRender = preferido.map(def => {
+      const found = mapa[def.clave.toLowerCase()];
+      return found ? { ...found, titulo: def.titulo, esId: def.esId || found.esId } : def;
+    });
+  }
 
   const tabla = crear('table'); tabla.className = 'data-table';
   const cabecera = crear('thead');
