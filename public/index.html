@@ -315,7 +315,8 @@
 
   
   <!-- Librerías de reconocimiento facial (face-api.js) desde assets copiados a /public/vendor/face-api -->
-  <script src="/vendor/face-api/face-api.min.js" crossorigin="anonymous"></script>
+  <!-- Cargar versión no minificada (en producción el minificado puede 404); el servidor expone esta ruta explícita -->
+  <script src="/vendor/face-api/face-api.js" crossorigin="anonymous"></script>
   <script>
     // Fallback si no cargó el minificado (por 404 o MIME): intentar versión no minificada
     (function(){
