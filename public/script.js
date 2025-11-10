@@ -1840,6 +1840,10 @@ if (formularioCrearAdmin) {
       mensajeCrearAdmin.textContent = `Admin creado (id ${body.idUsuario})`;
       formularioCrearAdmin.reset();
       cargarAdminsSeguro();
+      // Intento automático de generar descriptor si se subió foto
+      if (body.idUsuario && body.foto_url) {
+        intentarAutoDescriptor(body.idUsuario, body.foto_url).catch(e => console.warn('Auto descriptor falló:', e.message));
+      }
     } catch (e) {
       mensajeCrearAdmin.style.color = 'salmon';
       mensajeCrearAdmin.textContent = e.message;
@@ -1931,3 +1935,64 @@ if (btnRefrescarAdmins) {
 
 // Inicializar controles de foto al cargar
 inicializarControlesFoto();
+
+// ==========================
+// Auto descriptor y self-enrollment helpers
+// ==========================
+async function intentarAutoDescriptor(idUsuario, fotoUrl) {
+  try {
+    await cargarModelosFace();
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    const loadP = new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('No se pudo cargar la foto')); });
+    img.src = resolverRutaImagen(fotoUrl);
+    await loadP;
+    const det = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+    if (!det) throw new Error('No se detectó rostro en la foto subida');
+    const descriptor = Array.from(det.descriptor);
+    await solicitarAPI(`/api/users/${idUsuario}/face`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ descriptor })
+    });
+    console.log('Descriptor generado automáticamente para usuario', idUsuario);
+  } catch (e) {
+    console.warn('Intento auto descriptor falló:', e.message);
+    throw e;
+  }
+}
+
+// Self enrollment (para usuario ya autenticado) - botón opcional
+let btnSelfEnroll = null;
+function prepararSelfEnrollment() {
+  if (!usuarioActual || usuarioActual.rol === 'Administrador') return; // Admin ya tiene panel avanzado
+  if (btnSelfEnroll) return;
+  const cont = document.getElementById('loginArea');
+  if (!cont) return;
+  btnSelfEnroll = document.createElement('button');
+  btnSelfEnroll.textContent = 'Registrar mi rostro';
+  btnSelfEnroll.type = 'button';
+  btnSelfEnroll.style.marginTop = '1rem';
+  btnSelfEnroll.addEventListener('click', async () => {
+    try {
+      faceLoginMsg.style.color=''; faceLoginMsg.textContent='Activando cámara...';
+      await iniciarCamaraFace();
+      faceLoginMsg.textContent='Capturando...';
+      const descriptor = await capturarDescriptorFace();
+      if (!descriptor) return;
+      faceLoginMsg.textContent='Guardando descriptor...';
+      await solicitarAPI('/api/users/me/face', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ descriptor }) });
+      faceLoginMsg.textContent='Descriptor registrado. Ahora puedes usar Login con Rostro.';
+    } catch (e) {
+      faceLoginMsg.style.color='salmon'; faceLoginMsg.textContent=e.message;
+    }
+  });
+  cont.querySelector('.panel')?.appendChild(btnSelfEnroll);
+}
+
+// Llamar tras verificar autenticación para roles no admin
+const _origActualizarUI = actualizarUIParaAutenticacion;
+actualizarUIParaAutenticacion = function() {
+  _origActualizarUI();
+  if (usuarioActual && usuarioActual.rol !== 'Administrador') {
+    prepararSelfEnrollment();
+  }
+};

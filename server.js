@@ -600,8 +600,18 @@ app.post('/api/auth/logout', (req, res) => {
 });
 
 // Session info
-app.get('/api/auth/me', (req, res) => {
-  res.json({ user: req.session?.user || null });
+app.get('/api/auth/me', async (req, res) => {
+  const user = req.session?.user || null;
+  let hasFaceDescriptor = false;
+  if (user?.idUsuario) {
+    try {
+      const [rows] = await pool.query('SELECT face_descriptor FROM usuarios WHERE idUsuario = ? LIMIT 1', [user.idUsuario]);
+      if (rows.length && rows[0].face_descriptor) {
+        hasFaceDescriptor = true;
+      }
+    } catch (_) { /* silencioso */ }
+  }
+  res.json({ user, hasFaceDescriptor });
 });
 
 // Eliminado: endpoint de verificación por correo/2FA
@@ -1033,6 +1043,30 @@ app.post('/api/users/:id/face', requerirAutenticacion, requerirAdmin, async (req
       return res.status(400).json({ error: 'Descriptor facial inválido' });
     }
     // Validar que todos sean números finitos y limitar a 512 elementos
+    const lim = Math.min(descriptor.length, 512);
+    const limpio = [];
+    for (let i = 0; i < lim; i++) {
+      const v = Number(descriptor[i]);
+      if (!Number.isFinite(v)) return res.status(400).json({ error: 'Descriptor contiene valores inválidos' });
+      limpio.push(v);
+    }
+    const json = JSON.stringify(limpio);
+    const [r] = await pool.query('UPDATE usuarios SET face_descriptor = ? WHERE idUsuario = ?', [json, id]);
+    res.json({ ok: true, affectedRows: r.affectedRows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Self-enrollment de rostro para el usuario autenticado (sin requerir rol admin)
+app.post('/api/users/me/face', requerirAutenticacion, async (req, res) => {
+  const id = Number(req.session?.user?.idUsuario);
+  if (!id) return res.status(400).json({ error: 'Sesión inválida' });
+  try {
+    const descriptor = req.body?.descriptor;
+    if (!descriptor || !Array.isArray(descriptor) || descriptor.length < 64) {
+      return res.status(400).json({ error: 'Descriptor facial inválido' });
+    }
     const lim = Math.min(descriptor.length, 512);
     const limpio = [];
     for (let i = 0; i < lim; i++) {
