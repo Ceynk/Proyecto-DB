@@ -64,6 +64,8 @@ const botonActualizar = document.getElementById('refreshBtn');
 const panelDatos = document.getElementById('dataPanel');
 const panelAdmin = document.getElementById('adminPanel');
 const navAdmin = document.getElementById('adminNav');
+// Contenedor para UI de enrolamiento en panel admin
+let contenedorEnroll = null;
 const btnPanelAdmin = document.getElementById('btnAdminPanel');
 const barraLateral = document.getElementById('sidebar');
 let modoActual = 'entidades'; // 'entidades' | 'admin'
