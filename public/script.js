@@ -232,7 +232,12 @@ function construirUIEnrollFace() {
         <video id="faceEnrollVideo" width="280" height="210" autoplay muted playsinline style="background:#111; border:1px solid var(--border-color); border-radius: var(--radius-sm);"></video>
         <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
           <button id="btnInitEnrollCam" type="button">Activar Cámara</button>
-          <button id="btnCaptureDescriptor" type="button" disabled>Capturar & Guardar Descriptor</button>
+          <button id="btnCaptureDescriptor" type="button" disabled>Capturar & Guardar (Cámara)</button>
+          <button id="btnCaptureFromPhoto" type="button">Usar Foto Guardada</button>
+        </div>
+        <div style="display:flex; align-items:center; gap:.5rem;">
+          <img id="faceEnrollPreview" alt="preview" style="display:none; max-height:120px; border:1px solid var(--border-color); border-radius:6px;" />
+          <span id="faceEnrollPreviewMsg" class="form-msg" style="min-width:220px;"></span>
         </div>
         <div id="faceEnrollMsg" class="form-msg" style="min-height:1.1rem"></div>
       </div>
@@ -250,17 +255,22 @@ async function inicializarEnrollFace() {
   const sel = document.getElementById('selUsuarioFace');
   const btnInit = document.getElementById('btnInitEnrollCam');
   const btnCapture = document.getElementById('btnCaptureDescriptor');
+  const btnFromPhoto = document.getElementById('btnCaptureFromPhoto');
   const msg = document.getElementById('faceEnrollMsg');
   const video = document.getElementById('faceEnrollVideo');
   const btnRefresh = document.getElementById('btnRefreshUsersFace');
+  const imgPreview = document.getElementById('faceEnrollPreview');
+  const imgPrevMsg = document.getElementById('faceEnrollPreviewMsg');
   let stream = null;
+  let usuariosCache = [];
 
   async function cargarUsuarios() {
     if (!sel) return;
     sel.innerHTML = '<option value="">--</option>';
     try {
       const usuarios = await solicitarAPI('/api/users');
-      usuarios.forEach(u => {
+      usuariosCache = usuarios || [];
+      usuariosCache.forEach(u => {
         const opt = document.createElement('option');
         opt.value = u.idUsuario;
         opt.textContent = `${u.idUsuario} - ${u.nombre_usuario} (${u.rol})`;
@@ -303,8 +313,39 @@ async function inicializarEnrollFace() {
       msg.style.color='salmon'; msg.textContent=e.message;
     }
   }
+  async function capturarDesdeFoto() {
+    const id = sel.value.trim();
+    if (!id) { msg.style.color='salmon'; msg.textContent='Selecciona usuario'; return; }
+    const u = usuariosCache.find(x => String(x.idUsuario) === id);
+    if (!u || !u.foto_url) { msg.style.color='salmon'; msg.textContent='Ese usuario no tiene foto guardada'; return; }
+    const url = resolverRutaImagen(u.foto_url);
+    try {
+      imgPrevMsg.textContent = 'Cargando foto...'; imgPrevMsg.style.color='';
+      await cargarModelosFace();
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      const cargada = new Promise((res, rej) => {
+        img.onload = res; img.onerror = () => rej(new Error('No se pudo cargar la foto'));
+      });
+      img.src = url;
+      await cargada;
+      if (imgPreview) { imgPreview.src = url; imgPreview.style.display = ''; }
+      const det = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+      if (!det) { msg.style.color='salmon'; msg.textContent='No se detectó rostro en la foto'; return; }
+      const descriptor = Array.from(det.descriptor);
+      imgPrevMsg.textContent = 'Rostro detectado en la foto';
+      msg.textContent='Guardando descriptor...'; msg.style.color='';
+      await solicitarAPI(`/api/users/${id}/face`, {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ descriptor })
+      });
+      msg.textContent='Descriptor guardado desde foto'; msg.style.color='';
+    } catch (e) {
+      msg.style.color='salmon'; msg.textContent = e.message;
+    }
+  }
   if (btnInit) btnInit.addEventListener('click', activarCamara);
   if (btnCapture) btnCapture.addEventListener('click', capturar);
+  if (btnFromPhoto) btnFromPhoto.addEventListener('click', capturarDesdeFoto);
 }
 
 const envoltorioCrearAdmin = document.getElementById('adminCreateWrap');
