@@ -28,7 +28,8 @@ async function cargarInfo() {
   try {
     const info = await api('/api/empleado/mis-datos');
     const initials = (info.Nombre || '?').split(' ').map(s=>s[0]).filter(Boolean).slice(0,2).join('').toUpperCase();
-    const asistencia = info.Asistencia || '—';
+    // Mostrar asistencia sólo si existe fecha (marcada alguna vez)
+    const asistencia = info.Asistencia_fecha ? `${info.Asistencia || 'Presente'}\n${new Date(info.Asistencia_fecha).toLocaleString('es-CO', { hour12:false })}` : null;
     cont.innerHTML = `
       <div class="info-card">
         <div class="info-avatar">${initials}</div>
@@ -43,7 +44,7 @@ async function cargarInfo() {
           <div class="kpi-bar">
             <div class="kpi-item"><div class="kpi-num">${info.Pisos ?? 0}</div><div class="kpi-label">Pisos</div></div>
             <div class="kpi-item"><div class="kpi-num">${info.Apartamentos ?? 0}</div><div class="kpi-label">Apartamentos</div></div>
-            <div class="kpi-item"><div class="kpi-num">${asistencia}</div><div class="kpi-label">Asistencia</div></div>
+            ${asistencia ? `<div class="kpi-item"><div class="kpi-num" style="white-space:pre-line">${asistencia}</div><div class="kpi-label">Asistencia</div></div>` : ''}
           </div>
           <div class="info-hint">Puedes registrar/actualizar tu rostro en la sección de Asistencia.</div>
         </div>
@@ -95,8 +96,9 @@ if (btnAsistencia) {
   btnAsistencia.addEventListener('click', async () => {
     msgAsistencia.textContent = 'Marcando...'; msgAsistencia.style.color = '';
     try {
-      await api('/api/empleado/asistencia', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ estado: 'Presente' }) });
-      msgAsistencia.textContent = 'Asistencia marcada';
+      const r = await api('/api/empleado/asistencia', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ estado: 'Presente' }) });
+      const fechaFmt = r.fecha ? new Date(r.fecha).toLocaleString('es-CO',{ hour12:false }) : '';
+      msgAsistencia.textContent = 'Asistencia marcada ' + (fechaFmt ? `(${fechaFmt})` : '');
       cargarInfo();
     } catch (e) {
       msgAsistencia.style.color = 'salmon'; msgAsistencia.textContent = e.message;

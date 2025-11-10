@@ -167,6 +167,15 @@ async function asegurarEsquemaYSemilla() {
   } catch (e) {
     console.warn('No se pudo verificar/agregar empleados.foto_url:', e.message);
   }
+  // Nueva columna: fecha/hora de última marcación de asistencia
+  try {
+    const [caf] = await pool.query("SHOW COLUMNS FROM empleados LIKE 'Asistencia_fecha'");
+    if (caf.length === 0) {
+      await pool.query("ALTER TABLE empleados ADD COLUMN Asistencia_fecha DATETIME NULL");
+    }
+  } catch (e) {
+    console.warn('No se pudo verificar/agregar empleados.Asistencia_fecha:', e.message);
+  }
   try {
     const [cm] = await pool.query("SHOW COLUMNS FROM materials LIKE 'foto_url'");
     if (cm.length === 0) {
@@ -1193,7 +1202,7 @@ app.get('/api/empleado/mis-datos', requerirAutenticacion, requerirEmpleado, asyn
   if (!idEmp) return res.status(400).json({ error: 'Usuario sin empleado asociado' });
   try {
     const [rows] = await pool.query(
-      `SELECT e.idEmpleado, e.Nombre, e.Correo, e.Telefono, e.Asistencia, e.Especialidad, e.foto_url AS foto_url,
+      `SELECT e.idEmpleado, e.Nombre, e.Correo, e.Telefono, e.Asistencia, e.Asistencia_fecha, e.Especialidad, e.foto_url AS foto_url,
               p.idProyecto, p.Nombre AS Proyecto, c.Nombre AS Cliente,
               (SELECT COUNT(*) FROM pisos s WHERE s.idProyecto = p.idProyecto) AS Pisos,
               (SELECT COUNT(*) FROM apartamentos a WHERE a.idProyecto = p.idProyecto) AS Apartamentos
@@ -1214,10 +1223,13 @@ app.post('/api/empleado/asistencia', requerirAutenticacion, requerirEmpleado, as
   const estado = (req.body?.estado || 'Presente').toString().slice(0, 20);
   try {
     const [resultado] = await pool.query(
-      'UPDATE empleados SET Asistencia = ? WHERE idEmpleado = ?',
+      'UPDATE empleados SET Asistencia = ?, Asistencia_fecha = NOW() WHERE idEmpleado = ?',
       [estado, idEmp]
     );
-    res.json({ ok: true, estado, affectedRows: resultado.affectedRows });
+    // Devolver la fecha/hora exacta guardada desde la BD
+    const [row] = await pool.query('SELECT Asistencia, Asistencia_fecha FROM empleados WHERE idEmpleado = ? LIMIT 1', [idEmp]);
+    const info = row?.[0] || { Asistencia: estado, Asistencia_fecha: null };
+    res.json({ ok: true, estado: info.Asistencia, fecha: info.Asistencia_fecha, affectedRows: resultado.affectedRows });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 

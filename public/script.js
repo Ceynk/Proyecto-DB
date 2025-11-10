@@ -1015,7 +1015,20 @@ const camposFormulario = {
     { name: 'Nombre', type: 'text', req: true, pattern: '[A-Za-zÁÉÍÓÚáéíóúÑñ\\s]+'},
     { name: 'Correo', type: 'email' },
     { name: 'Telefono', type: 'tel' },
-    { name: 'Especialidad', type: 'text' },
+    { name: 'Especialidad', type: 'select', options: [
+      'Oficial de acabados',
+      'Instalador de drywall y cielorrasos',
+      'Pintor',
+      'Enchapador',
+      'Carpintero',
+      'Vidriero',
+      'Carpintero metálico o de aluminio',
+      'Electricista',
+      'Plomero',
+      'Estucador',
+      'Diseñador interior',
+      'Instalador de cielos falsos acústicos'
+    ] },
     { name: 'idProyecto', type: 'select', source: '/api/min/proyectos' }
   ],
   turno: [
