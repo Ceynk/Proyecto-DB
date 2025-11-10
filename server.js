@@ -45,6 +45,21 @@ app.use(
 );
 
 // Static files
+// Ruta directa para servir face-api.min.js aunque falle la copia a /public/vendor
+const faceApiMinPath = path.join(__dirname, 'node_modules', '@vladmandic', 'face-api', 'dist', 'face-api.min.js');
+app.get('/vendor/face-api/face-api.min.js', (req, res) => {
+  try {
+    if (!fs.existsSync(faceApiMinPath)) {
+      console.warn('face-api.min.js no encontrado en', faceApiMinPath);
+      return res.status(404).type('text/plain').send('face-api.min.js not found');
+    }
+    res.type('application/javascript');
+    fs.createReadStream(faceApiMinPath).pipe(res);
+  } catch (e) {
+    console.error('Error sirviendo face-api.min.js:', e.message);
+    res.status(500).type('text/plain').send('Error interno');
+  }
+});
 app.use(express.static(path.join(__dirname, 'public')));
 // Copiar assets de face-api a /public/vendor/face-api para servirlos con el static por si el mapeo directo a node_modules falla en producción
 function asegurarFaceApiVendor() {
@@ -65,12 +80,18 @@ function asegurarFaceApiVendor() {
           const necesitaCopiar = !fs.existsSync(dst) || fs.statSync(dst).size === 0;
           if (necesitaCopiar) {
             fs.copyFileSync(src, dst);
+            console.log('[face-api] Copiado', f, 'a', dst);
           }
         }
       } catch (e) {
         console.warn('No se pudo copiar', f, e.message);
       }
     });
+    // Log listado final
+    try {
+      const lista = fs.readdirSync(dstDir);
+      console.log('[face-api] Archivos en /public/vendor/face-api:', lista);
+    } catch (_) {}
   } catch (e) {
     console.warn('Error asegurando vendor face-api:', e.message);
   }
