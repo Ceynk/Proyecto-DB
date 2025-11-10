@@ -1597,9 +1597,8 @@ app.post('/api/clientes/crear-con-usuario', requerirAutenticacion, requerirAdmin
 });
 
 // Ensure unknown /api routes return JSON instead of HTML
-app.use('/api', (req, res) => {
-  res.status(404).json({ error: 'Ruta no encontrada', path: req.originalUrl });
-});
+// Fallback 404 para rutas /api. IMPORTANTE: debe ir DESPUÉS de todas las rutas /api.
+// Se reubica al final del archivo para no interceptar rutas válidas definidas abajo.
 // Función para calcular stock usando CASE
 function stockCaseExpr(prefix = 'i') {
   return `SUM(CASE 
@@ -1758,6 +1757,11 @@ app.get('/api/inventory/material/:id', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// Fallback 404 para cualquier otra ruta /api no encontrada
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Ruta no encontrada', path: req.originalUrl });
 });
 
 const PORT = Number(process.env.PORT || 8080);
