@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url';
 import multer from 'multer';
 // Eliminado: autenticación por correo/2FA
 import PDFDocument from 'pdfkit';
-// Descarga opcional de modelos de face-api para hosting local
+// Descarga opcional de modelos de face-api para hosting local (corrige nombres reales .bin)
 import https from 'https';
 
 dotenv.config();
@@ -19,11 +19,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+const isProd = process.env.NODE_ENV === 'production';
+if (isProd) {
+  // Detrás de proxy (Railway) para que secure cookies funcionen
+  app.set('trust proxy', 1);
+}
 app.use(cors());
 app.options('*', cors());
 app.use(express.json());
 
-// Sessions (in-memory store for dev)
+// Sessions (in-memory store para dev; en producción usar store persistente)
 app.use(
   session({
     name: 'sid',
@@ -32,7 +37,8 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite: isProd ? 'none' : 'lax',
+      secure: isProd, // requiere HTTPS (Railway lo ofrece)
       // Sin maxAge: cookie de sesión (se borra al cerrar el navegador)
     }
   })
@@ -1632,14 +1638,14 @@ asegurarEsquemaYSemilla().finally(() => {
   });
 });
 
-// Descarga automática de modelos face-api si faltan (para uso local sin CDN). Si no hay internet, se omite y el cliente mostrará reintentos.
+// Verificación/descarga opcional de modelos face-api (corrige nombres). En Railway ya deben estar incluidos en la imagen.
 const archivosModelos = [
   'tiny_face_detector_model-weights_manifest.json',
-  'tiny_face_detector_model-shard1.bin',
+  'tiny_face_detector_model.bin',
   'face_landmark_68_model-weights_manifest.json',
-  'face_landmark_68_model-shard1.bin',
+  'face_landmark_68_model.bin',
   'face_recognition_model-weights_manifest.json',
-  'face_recognition_model-shard1.bin'
+  'face_recognition_model.bin'
 ];
 const modelosDir = path.join(__dirname, 'public', 'models');
 function asegurarModelosFace() {
@@ -1648,8 +1654,9 @@ function asegurarModelosFace() {
   archivosModelos.forEach((fname) => {
     const destino = path.join(modelosDir, fname);
     if (fs.existsSync(destino) && fs.statSync(destino).size > 0) return;
+    // Intento de descarga sólo si falta; no es crítico en producción.
     const url = baseCDN + fname;
-    console.log('Descargando modelo facial:', fname);
+    console.log('Descargando modelo facial faltante:', fname);
     const file = fs.createWriteStream(destino);
     https.get(url, (resp) => {
       if (resp.statusCode !== 200) {
