@@ -1115,6 +1115,58 @@ async function cargarOpcionesActualizacion() {
   });
 }
 
+// Prefill form inputs with existing record data when selecting an ID to update
+if (entradaIdActualizacion) {
+  entradaIdActualizacion.addEventListener('change', async () => {
+    if (!usuarioActual || usuarioActual.rol !== 'Administrador') return;
+    mensajeActualizacion.textContent = '';
+    const id = (entradaIdActualizacion.value || '').trim();
+    // Limpiar mensajes y no rellenar si no hay ID
+    if (!id) {
+      mensajeActualizacion.textContent = '';
+      return;
+    }
+    mensajeActualizacion.style.color = '';
+    mensajeActualizacion.textContent = 'Cargando datos...';
+    try {
+      const registro = await solicitarAPI(`/api/get/${entidadActual}/${encodeURIComponent(id)}`);
+      // Rellenar campos existentes
+      Array.from(formularioDinamico.elements).forEach((el) => {
+        if (!el.name) return;
+        if (el.type === 'submit') return;
+        // No sobreescribir campos especiales de creación de usuario
+        if (['crear_usuario','nombre_usuario','contraseña','rol_usuario','correo_usuario'].includes(el.name)) return;
+        const valor = registro[el.name];
+        if (valor == null || valor === '') return; // dejar vacío para permitir cambios
+        if (el.tagName === 'SELECT') {
+          // Asegurar que la opción exista
+          const existe = Array.from(el.options).some(o => o.value === String(valor));
+            if (!existe) {
+              const op = document.createElement('option');
+              op.value = String(valor);
+              op.textContent = `Actual: ${valor}`;
+              el.appendChild(op);
+            }
+          el.value = String(valor);
+        } else if (el.type === 'checkbox') {
+          el.checked = valor === true || valor === 1 || valor === '1';
+        } else {
+          el.value = String(valor);
+        }
+        // Breve highlight visual
+        el.classList.add('prefilled');
+        setTimeout(() => el.classList.remove('prefilled'), 1800);
+      });
+      mensajeActualizacion.style.color = '';
+      mensajeActualizacion.textContent = 'Datos cargados. Modifica los campos y presiona Actualizar.';
+      actualizarVisibilidadControlesFoto();
+    } catch (e) {
+      mensajeActualizacion.style.color = 'salmon';
+      mensajeActualizacion.textContent = e.message;
+    }
+  });
+}
+
 // Manejo del formulario de login (restaurado)
 if (formularioLogin) {
   formularioLogin.addEventListener('submit', async (ev) => {

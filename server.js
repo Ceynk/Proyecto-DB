@@ -666,6 +666,28 @@ app.get('/api/list/:entity', requerirAutenticacion, requerirAdmin, async (req, r
   }
 });
 
+// Obtener un registro individual para prellenar formulario de edición
+// Devuelve sólo columnas base (primary key + columnasCrear) para evitar ambigüedades con alias
+app.get('/api/get/:entity/:id', requerirAutenticacion, requerirAdmin, async (req, res) => {
+  const entidad = String(req.params.entity || '').toLowerCase();
+  const definicion = entidades[entidad];
+  const colsCreate = columnasCrear[entidad];
+  const id = req.params.id;
+  if (!definicion || !colsCreate) return res.status(400).json({ error: 'Entidad no valida' });
+  if (entidadesExclusivasContador.has(entidad)) return res.status(403).json({ error: 'Entidad exclusiva del Contador' });
+  if (!id) return res.status(400).json({ error: 'ID requerido' });
+  try {
+    // Construir lista de columnas: llave primaria + columnasCreate (evitar duplicados)
+    const baseCols = [definicion.llavePrimaria, ...colsCreate.filter(c => c !== definicion.llavePrimaria)];
+    const sql = `SELECT ${baseCols.join(', ')} FROM ${definicion.tabla} WHERE ${definicion.llavePrimaria} = ? LIMIT 1`;
+    const [rows] = await pool.query(sql, [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Registro no encontrado' });
+    res.json(rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Mapa de columnas permitidas para crear registros
 const columnasCrear = {
   cliente: ['Nombre','Telefono','Correo'],
