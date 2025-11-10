@@ -24,6 +24,7 @@ async function verificarSesion() {
     await cargarInventario();
     await cargarFacturas();
     await cargarInventarioCards();
+    prepararSelfEnrollmentCont(me.hasFaceDescriptor === true);
   } catch (_) {
     window.location.href = '/';
   }
@@ -252,4 +253,94 @@ async function cargarInventarioCards() {
 const buscarInvCards = document.getElementById('buscarInvCards');
 if (buscarInvCards) {
   buscarInvCards.addEventListener('input', () => { if (buscarInvCards._t) clearTimeout(buscarInvCards._t); buscarInvCards._t = setTimeout(cargarInventarioCards, 300); });
+}
+
+// ===================== Enrolamiento facial (Contador) =====================
+let modelosCargadosCont = false;
+let cargandoModeloCont = false;
+let streamCont = null;
+
+async function cargarModelosFaceCont() {
+  if (modelosCargadosCont || cargandoModeloCont) return;
+  cargandoModeloCont = true;
+  const baseLocal = '/models';
+  try {
+    const reqs = [
+      `${baseLocal}/tiny_face_detector_model-weights_manifest.json`,
+      `${baseLocal}/tiny_face_detector_model.bin`,
+      `${baseLocal}/face_landmark_68_model-weights_manifest.json`,
+      `${baseLocal}/face_landmark_68_model.bin`,
+      `${baseLocal}/face_recognition_model-weights_manifest.json`,
+      `${baseLocal}/face_recognition_model.bin`
+    ];
+    await Promise.all(reqs.map(u => fetch(u, { method: 'HEAD', cache: 'no-store' })));
+    await faceapi.nets.tinyFaceDetector.loadFromUri(baseLocal);
+    try { await faceapi.nets.faceLandmark68Net.loadFromUri(baseLocal); }
+    catch { await faceapi.nets.faceLandmark68TinyNet.loadFromUri(baseLocal); }
+    await faceapi.nets.faceRecognitionNet.loadFromUri(baseLocal);
+    modelosCargadosCont = true;
+  } finally {
+    cargandoModeloCont = false;
+  }
+}
+
+function prepararSelfEnrollmentCont(yaTiene) {
+  const btn = document.getElementById('btnEnrollFaceCont');
+  const btnInit = document.getElementById('btnInitCamCont');
+  const btnCap = document.getElementById('btnCaptureFaceCont');
+  const btnCerrar = document.getElementById('btnCerrarFaceCont');
+  const area = document.getElementById('faceAreaCont');
+  const video = document.getElementById('faceVideoCont');
+  const msg = document.getElementById('msgFaceCont');
+  if (!btn || !btnInit || !btnCap || !btnCerrar || !area || !video || !msg) return;
+
+  if (yaTiene) btn.textContent = 'Actualizar mi rostro';
+
+  btn.addEventListener('click', () => {
+    area.style.display = '';
+    btnInit.style.display = '';
+    btnCap.style.display = '';
+    btnCerrar.style.display = '';
+  });
+  btnCerrar.addEventListener('click', () => {
+    area.style.display = 'none';
+    btnInit.style.display = 'none';
+    btnCap.style.display = 'none';
+    btnCerrar.style.display = 'none';
+    msg.textContent = '';
+    btnCap.disabled = true;
+    if (streamCont) { streamCont.getTracks().forEach(t => t.stop()); streamCont = null; }
+  });
+  btnInit.addEventListener('click', async () => {
+    try {
+      msg.style.color = ''; msg.textContent = 'Cargando modelos...';
+      await cargarModelosFaceCont();
+      msg.textContent = 'Activando cámara...';
+      streamCont = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } });
+      video.srcObject = streamCont;
+      btnCap.disabled = false;
+      msg.textContent = 'Cámara lista';
+    } catch (e) {
+      msg.style.color = 'salmon'; msg.textContent = e.message;
+    }
+  });
+  btnCap.addEventListener('click', async () => {
+    try {
+      msg.style.color = ''; msg.textContent = 'Detectando...';
+      const opts = new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5, inputSize: 160 });
+      let det = null;
+      try {
+        if (faceapi.nets.faceLandmark68Net.params) det = await faceapi.detectSingleFace(video, opts).withFaceLandmarks().withFaceDescriptor();
+        else if (faceapi.nets.faceLandmark68TinyNet.params) det = await faceapi.detectSingleFace(video, opts).withFaceLandmarks(true).withFaceDescriptor();
+        else det = await faceapi.detectSingleFace(video, opts).withFaceDescriptor();
+      } catch (_) {}
+      if (!det) { msg.style.color = 'salmon'; msg.textContent = 'No se detectó rostro'; return; }
+      const descriptor = Array.from(det.descriptor);
+      msg.textContent = 'Guardando...';
+      await api('/api/users/me/face', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ descriptor }) });
+      msg.textContent = 'Rostro registrado. Ya puedes usar login facial.';
+    } catch (e) {
+      msg.style.color = 'salmon'; msg.textContent = e.message;
+    }
+  });
 }
