@@ -1493,7 +1493,6 @@ const camposFormulario = {
     { name: 'Nombre', type: 'text', req: true, pattern: '[A-Za-zÁÉÍÓÚáéíóúÑñ\\s]+'},
     { name: 'Correo', type: 'email' },
     { name: 'Telefono', type: 'tel' },
-    { name: 'Asistencia', type: 'select', options: ['Presente','Ausente'] },
     { name: 'Especialidad', type: 'text' },
     { name: 'idProyecto', type: 'select', source: '/api/min/proyectos' }
   ],
@@ -1719,7 +1718,6 @@ formularioDinamico.addEventListener('submit', async (ev) => {
         Nombre: datos.Nombre || null,
         Correo: datos.Correo || null,
         Telefono: datos.Telefono || null,
-        Asistencia: datos.Asistencia || null,
         Especialidad: datos.Especialidad || null,
         idProyecto: datos.idProyecto || null,
         crear_usuario: true,

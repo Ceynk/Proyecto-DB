@@ -23,6 +23,26 @@
   <div class="container" style="padding: 1.5rem 0;">
     <main class="main">
 
+      <!-- Enrolamiento facial (para Contador) -->
+      <div class="panel">
+        <div class="panel-header">
+          <h1>Reconocimiento Facial</h1>
+        </div>
+        <div class="form-wrap">
+          <p style="font-size:.8rem; margin:.25rem 0 1rem; color: var(--text-secondary);">Registra o actualiza tu rostro para usar el inicio de sesión facial. El procesamiento se realiza en tu navegador; solo se envía el descriptor numérico.</p>
+          <div style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
+            <button id="btnEnrollFaceCont" type="button">Registrar mi rostro</button>
+            <button id="btnInitCamCont" type="button" style="display:none;">Activar Cámara</button>
+            <button id="btnCaptureFaceCont" type="button" style="display:none;" disabled>Capturar & Guardar</button>
+            <button id="btnCerrarFaceCont" type="button" style="display:none;">Cerrar</button>
+          </div>
+          <div id="faceAreaCont" style="display:none; margin-top:.5rem;">
+            <video id="faceVideoCont" width="260" height="200" autoplay muted playsinline style="background:#111; border:1px solid var(--border-color); border-radius:6px;"></video>
+          </div>
+          <div id="msgFaceCont" class="form-msg" style="min-height:1.1rem; margin-top:.25rem;"></div>
+        </div>
+      </div>
+
       <div class="panel">
         <div class="panel-header">
           <h1>Resumen de Proyectos</h1>
@@ -118,6 +138,7 @@
     </main>
   </div>
 
+  <script src="/vendor/face-api/face-api.js" crossorigin="anonymous"></script>
   <script src="/contador.js"></script>
 </body>
 </html>

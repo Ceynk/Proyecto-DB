@@ -658,7 +658,7 @@ const columnasCrear = {
   apartamento: ['num_apartamento','num_piso','estado','idProyecto'],
   piso: ['idProyecto','numero','idApartamento'],
   material: ['Nombre','costo_unitario','tipo'],
-  empleado: ['Nombre','Correo','Telefono','Asistencia','Especialidad','idProyecto'],
+  empleado: ['Nombre','Correo','Telefono','Especialidad','idProyecto'],
   turno: ['Hora_inicio','Hora_fin','Tipo_jornada','idEmpleado'],
   tarea: ['Descripcion','Estado','Fecha_inicio','Fecha_fin','idProyecto','idEmpleado'],
   inventario: ['tipo_movimiento','cantidad','fecha','idMaterial','idProyecto'],
@@ -1187,7 +1187,7 @@ app.post('/api/empleado/asistencia', requerirAutenticacion, requerirEmpleado, as
 // Crear empleado y (opcional) su usuario de acceso
 app.post('/api/empleados/crear-con-usuario', requerirAutenticacion, requerirAdmin, async (req, res) => {
   const {
-    Nombre, Correo, Telefono, Asistencia, Especialidad, idProyecto,
+    Nombre, Correo, Telefono, Especialidad, idProyecto,
     crear_usuario, nombre_usuario, contraseña, rol_usuario, correo_usuario
   } = req.body || {};
 
@@ -1197,8 +1197,8 @@ app.post('/api/empleados/crear-con-usuario', requerirAutenticacion, requerirAdmi
   try {
     await conn.beginTransaction();
     const [emp] = await conn.query(
-      'INSERT INTO empleados (Nombre, Correo, Telefono, Asistencia, Especialidad, idProyecto) VALUES (?, ?, ?, ?, ?, ?)',
-      [Nombre, Correo || null, Telefono || null, Asistencia || null, Especialidad || null, idProyecto || null]
+      'INSERT INTO empleados (Nombre, Correo, Telefono, Especialidad, idProyecto) VALUES (?, ?, ?, ?, ?)',
+      [Nombre, Correo || null, Telefono || null, Especialidad || null, idProyecto || null]
     );
     const idEmpleado = emp.insertId;
 
