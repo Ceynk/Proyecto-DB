@@ -601,11 +601,20 @@ function renderizarTabla(filas) {
   }
   const filasNorm = filas.map(r => ({ ...r }));
   const { columnas, claveId } = obtenerColumnasDisponibles(filasNorm);
+  // Asegurar que la columna ID esté presente y sea la primera para evitar desalineaciones
+  let columnasParaRender = columnas.slice();
+  if (claveId) {
+    const idxId = columnasParaRender.findIndex(c => c.clave === claveId || c.esId === true || /^id/i.test(c.clave));
+    if (idxId > 0) {
+      const [colId] = columnasParaRender.splice(idxId, 1);
+      columnasParaRender.unshift(colId);
+    }
+  }
 
   const tabla = crear('table'); tabla.className = 'data-table';
   const cabecera = crear('thead');
   const filaCabecera = crear('tr');
-  columnas.forEach((columna) => {
+  columnasParaRender.forEach((columna) => {
     const th = crear('th', '', columna.titulo);
     th.setAttribute('scope', 'col');
     filaCabecera.appendChild(th);
@@ -618,7 +627,7 @@ function renderizarTabla(filas) {
   const cuerpo = crear('tbody');
   filasNorm.forEach((registro) => {
     const filaTabla = crear('tr');
-    columnas.forEach((columna) => {
+    columnasParaRender.forEach((columna) => {
       const celda = crear('td'); celda.setAttribute('data-label', columna.titulo);
       const valor = registro[columna.clave];
       if (columna.tipo === 'imagen') {
