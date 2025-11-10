@@ -1099,6 +1099,34 @@ async function cargarModelosFace() {
   if (faceModelsLoaded || cargandoModelo) return;
   cargandoModelo = true;
   const baseLocal = '/models'; // Contiene *.bin y *weights_manifest.json copiados desde node_modules
+
+  // Verificación previa: face-api cargado y archivos presentes
+  async function comprobarArchivosModelos() {
+    if (typeof window.faceapi === 'undefined') {
+      throw new Error('Biblioteca face-api no cargada (/vendor/face-api/face-api.min.js)');
+    }
+    const reqs = [
+      `${baseLocal}/tiny_face_detector_model-weights_manifest.json`,
+      `${baseLocal}/tiny_face_detector_model.bin`,
+      `${baseLocal}/face_landmark_68_model-weights_manifest.json`,
+      `${baseLocal}/face_landmark_68_model.bin`,
+      `${baseLocal}/face_recognition_model-weights_manifest.json`,
+      `${baseLocal}/face_recognition_model.bin`
+    ];
+    const faltantes = [];
+    await Promise.all(reqs.map(async (url) => {
+      try {
+        const r = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+        if (!r.ok) faltantes.push({ url, status: r.status });
+      } catch (e) {
+        faltantes.push({ url, status: 'ERR' });
+      }
+    }));
+    if (faltantes.length) {
+      const lista = faltantes.map(f => `${f.url} [${f.status}]`).join(', ');
+      throw new Error('Faltan archivos de modelos en /models: ' + lista);
+    }
+  }
   async function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
   async function cargarConReintentos(net, nombre){
     const intentos = 10;
@@ -1115,6 +1143,8 @@ async function cargarModelosFace() {
     }
   }
   try {
+    faceLoginMsg.textContent = 'Comprobando archivos de modelos...';
+    await comprobarArchivosModelos();
     faceLoginMsg.textContent = 'Cargando modelos (local)...';
     await cargarConReintentos(faceapi.nets.tinyFaceDetector,'tiny');
     // Preferir modelo completo; si falla intentar tiny landmarks
@@ -1129,7 +1159,7 @@ async function cargarModelosFace() {
     faceLoginMsg.textContent = 'Modelos listos';
   } catch (e) {
     faceLoginMsg.style.color='salmon';
-    faceLoginMsg.textContent = 'Modelos no cargados. Verifica manifests y .bin reales (sin shard1).';
+    faceLoginMsg.textContent = 'Modelos no cargados: ' + (e && e.message ? e.message : e);
     console.error('Error cargando modelos:', e);
     try {
       const dbg = await fetch(`${baseAPI}/api/debug/face-models`, { credentials:'include' });
