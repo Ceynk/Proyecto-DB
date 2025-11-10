@@ -1558,6 +1558,7 @@ img, svg, video, canvas, iframe {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center center; /* centrar recorte */
   transition: transform var(--transition-base);
 }
 
@@ -1711,7 +1712,7 @@ img, svg, video, canvas, iframe {
 
 .inv-card { background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-md); display: flex; flex-direction: column; }
 .inv-card-img { position: relative; background: #0b1027; aspect-ratio: 16/9; display: grid; place-items: center; overflow: hidden; }
-.inv-card-img img { width: 100%; height: 100%; object-fit: cover; opacity: .95; }
+.inv-card-img img { width: 100%; height: 100%; object-fit: cover; object-position: center center; opacity: .95; }
 .inv-badge { position: absolute; top: 12px; right: 12px; padding: 6px 10px; border-radius: 999px; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
 .inv-badge-warn { background: rgba(245, 158, 11, .2); color: #fbbf24; border: 1px solid #f59e0b; }
 .inv-badge-ok { background: rgba(16, 185, 129, .2); color: #34d399; border: 1px solid #10b981; }
