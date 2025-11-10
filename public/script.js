@@ -189,24 +189,24 @@ function construirUIEnrollFace() {
   contenedorEnroll.className = 'form-wrap';
   contenedorEnroll.style.marginTop = '2rem';
   contenedorEnroll.innerHTML = `
-    <div class="form-header" style="display:flex; justify-content:space-between; align-items:center; gap:.5rem;">
+    <div class="form-header face-enroll-header">
       <h3 class="form-heading">Enrolar Rostro de Usuario</h3>
       <button type="button" id="btnRefreshUsersFace" class="btn-icon" title="Actualizar usuarios"></button>
     </div>
-    <div class="dyn-form" style="display:grid; gap: .75rem; max-width:600px;">
-      <div>
+    <div class="dyn-form face-enroll-form">
+      <div class="form-block">
         <label>Seleccionar Usuario</label>
-        <select id="selUsuarioFace" style="width:100%"><option value="">--</option></select>
+        <select id="selUsuarioFace"><option value="">--</option></select>
       </div>
-      <div style="display:flex; flex-direction:column; gap:.5rem;">
-        <video id="faceEnrollVideo" width="280" height="210" autoplay muted playsinline style="background:#111; border:1px solid var(--border-color); border-radius: var(--radius-sm);"></video>
-        <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
-          <button id="btnInitEnrollCam" type="button">Activar Cámara</button>
-          <button id="btnCaptureDescriptor" type="button" disabled>Capturar & Guardar (Cámara)</button>
-          <button id="btnCaptureFromPhoto" type="button">Usar Foto Guardada</button>
+      <div class="face-media">
+        <video id="faceEnrollVideo" autoplay muted playsinline class="video-face"></video>
+        <div class="btn-face-group">
+          <button id="btnInitEnrollCam" type="button" class="btn-primary btn-face">Activar Cámara</button>
+          <button id="btnCaptureDescriptor" type="button" class="btn-secondary btn-face" disabled>Capturar & Guardar (Cámara)</button>
+          <button id="btnCaptureFromPhoto" type="button" class="btn-outline btn-face">Usar Foto Guardada</button>
         </div>
-        <div style="display:flex; align-items:center; gap:.5rem;">
-          <img id="faceEnrollPreview" alt="preview" style="display:none; max-height:120px; border:1px solid var(--border-color); border-radius:6px;" />
+        <div class="face-preview-wrap">
+          <img id="faceEnrollPreview" alt="preview" class="face-preview" style="display:none;" />
           <span id="faceEnrollPreviewMsg" class="form-msg" style="min-width:220px;"></span>
         </div>
         <div id="faceEnrollMsg" class="form-msg" style="min-height:1.1rem"></div>

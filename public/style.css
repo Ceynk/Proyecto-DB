@@ -1450,6 +1450,69 @@ tbody tr:last-child td {
   white-space: nowrap;
 }
 
+/* Botón base reutilizable para login/enrolamiento facial */
+.btn-face-group { display:flex; gap:var(--spacing-sm); flex-wrap:wrap; width:100%; }
+.btn-face { flex:1 1 160px; min-height:48px; }
+
+.btn-secondary {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: #fff;
+  box-shadow: var(--shadow-md), 0 0 0 1px rgba(255,255,255,0.1) inset;
+  border:none;
+  border-radius: var(--radius-lg);
+  position:relative;
+  overflow:hidden;
+  font-weight:600;
+  transition:all var(--transition-base);
+  padding:1rem 1.75rem;
+}
+.btn-secondary::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,#4f46e5 0%, #4338ca 100%); opacity:0; transition:opacity var(--transition-base); }
+.btn-secondary:hover { transform:translateY(-4px) scale(1.02); box-shadow: var(--shadow-lg), 0 0 16px rgba(99,102,241,.4); }
+.btn-secondary:hover::before { opacity:1; }
+.btn-secondary:active { transform:translateY(-2px); }
+
+.btn-outline {
+  background: transparent;
+  color: var(--accent-light);
+  border:2px solid var(--accent-primary);
+  border-radius: var(--radius-lg);
+  font-weight:600;
+  padding:1rem 1.75rem;
+  position:relative;
+  overflow:hidden;
+  transition:all var(--transition-base);
+}
+.btn-outline::before { content:''; position:absolute; inset:0; background:var(--accent-gradient); opacity:0; transition:opacity var(--transition-base); }
+.btn-outline:hover { color:#fff; box-shadow: var(--shadow-md), 0 0 14px rgba(139,92,246,.4); }
+.btn-outline:hover::before { opacity:.15; }
+.btn-outline:active { transform:translateY(-2px); }
+
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-outline:disabled,
+.btn-danger:disabled { opacity:.55; cursor:not-allowed; filter:grayscale(30%); box-shadow:none; transform:none; }
+
+/* Login facial card refinements */
+.login-face-card { margin-top:1.75rem; padding:1.5rem 1.75rem; border:1px solid var(--glass-border); border-radius: var(--radius-xl); background: var(--surface); box-shadow: var(--shadow-md); }
+.login-face-title { margin-top:0; font-size:1.25rem; background: var(--accent-gradient); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; font-weight:600; }
+.login-face-desc { font-size:.9rem; line-height:1.4; color: var(--text-secondary); margin:.5rem 0 1rem; }
+.login-face-body { display:flex; flex-direction:column; gap:1rem; }
+.video-face { width:100%; max-width:340px; aspect-ratio:4/3; background:#111; border:2px solid var(--border-light); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); }
+.face-media { display:flex; flex-direction:column; gap:.75rem; align-items:flex-start; }
+.face-privacy { margin-top: .75rem; }
+.face-preview-wrap { display:flex; align-items:center; gap:.75rem; }
+.face-preview { max-height:120px; border:2px solid var(--border-light); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); }
+
+@media (max-width:640px){
+  .btn-face { flex:1 1 100%; }
+  .face-media { align-items:stretch; }
+  .video-face { max-width:100%; }
+}
+
+/* Enrolamiento facial en panel admin */
+.face-enroll-form { display:grid; gap: .75rem; max-width:600px; }
+.face-enroll-header { display:flex; justify-content:space-between; align-items:center; gap:.5rem; }
+
 .btn-primary {
   background: var(--accent-gradient);
   color: white;

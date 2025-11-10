@@ -67,27 +67,27 @@
       </form>
 
       <!-- Login con Rostro -->
-      <div class="panel" style="margin-top:1.75rem; padding:1rem; border:1px solid var(--border-color); border-radius: var(--radius-sm);">
-        <h2 style="margin-top:0; font-size:1.1rem;">Acceso con Reconocimiento Facial</h2>
-        <p style="margin:.5rem 0 1rem; font-size:.85rem; line-height:1.3;">Requiere haber registrado previamente tu rostro (foto subida y descriptor generado). Usa un fondo claro y buena iluminación. Solo se procesa localmente en tu navegador.</p>
-        <div style="display:flex; flex-direction:column; gap:.75rem;">
-          <div>
-            <label style="display:block; font-weight:500;">Usuario</label>
+      <div class="panel login-face-card">
+        <h2 class="login-face-title">Acceso con Reconocimiento Facial</h2>
+        <p class="login-face-desc">Requiere haber registrado previamente tu rostro (foto subida y descriptor generado). Usa un fondo claro y buena iluminación. Solo se procesa localmente en tu navegador.</p>
+        <div class="login-face-body">
+          <div class="form-block">
+            <label>Usuario</label>
             <input id="usuarioLoginRostro" type="text" placeholder="Nombre de usuario" autocomplete="off" />
           </div>
-          <div style="display:flex; flex-direction:column; gap:.5rem; align-items:flex-start;">
-            <video id="videoRostro" width="280" height="210" autoplay muted playsinline style="background:#111; border:1px solid var(--border-color); border-radius: var(--radius-sm);"></video>
-            <canvas id="lienzoRostro" width="280" height="210" style="display:none"></canvas>
-            <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
-              <button id="btnIniciarRostro" type="button">Activar Cámara</button>
-              <button id="btnLoginRostro" type="button" disabled>Login con Rostro</button>
+          <div class="face-media">
+            <video id="videoRostro" autoplay muted playsinline class="video-face"></video>
+            <canvas id="lienzoRostro" class="video-face" style="display:none"></canvas>
+            <div class="btn-face-group">
+              <button id="btnIniciarRostro" type="button" class="btn-primary btn-face">Activar Cámara</button>
+              <button id="btnLoginRostro" type="button" class="btn-secondary btn-face" disabled>Login con Rostro</button>
             </div>
           </div>
           <div id="mensajeLoginRostro" class="form-msg" style="min-height:1.2rem;"></div>
         </div>
-        <details style="margin-top:.75rem;">
-          <summary style="cursor:pointer;">Privacidad</summary>
-          <p style="font-size:.7rem; line-height:1.2;">El modelo y el cálculo del descriptor se realizan en tu navegador. Solo se envía al servidor el vector numérico final para comparar (no se envía la imagen).</p>
+        <details class="face-privacy">
+          <summary>Privacidad</summary>
+          <p>El modelo y el cálculo del descriptor se realizan en tu navegador. Solo se envía al servidor el vector numérico final para comparar (no se envía la imagen).</p>
         </details>
       </div>
 
