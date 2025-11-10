@@ -32,6 +32,16 @@
           <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
             <button id="btnAsistencia">Marcar asistencia</button>
             <div id="msgAsistencia" class="form-msg" style="margin:0;"></div>
+            <button id="btnEnrollFaceTrab" type="button" style="display:none">Registrar mi rostro</button>
+          </div>
+          <div id="faceEnrollAreaTrab" style="display:none; margin-top:.75rem;">
+            <video id="faceVideoTrab" width="260" height="200" autoplay muted playsinline style="background:#111; border:1px solid var(--border-color); border-radius:6px;"></video>
+            <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.5rem;">
+              <button id="btnInitCamTrab" type="button">Activar Cámara</button>
+              <button id="btnCaptureFaceTrab" type="button" disabled>Capturar & Guardar</button>
+              <button id="btnCerrarFaceTrab" type="button">Cerrar</button>
+            </div>
+            <div id="msgFaceTrab" class="form-msg" style="min-height:1.1rem; margin-top:.25rem;"></div>
           </div>
         </div>
       </div>
@@ -71,6 +81,8 @@
     </main>
   </div>
 
+  <!-- Librería face-api local -->
+  <script src="/vendor/face-api/face-api.js" crossorigin="anonymous"></script>
   <script src="/trabajador.js"></script>
 </body>
 </html>
