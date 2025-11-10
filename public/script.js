@@ -645,29 +645,51 @@ function renderizarTabla(filas) {
   const cuerpo = crear('tbody');
   filasNorm.forEach((registro) => {
     const filaTabla = crear('tr');
-    columnasParaRender.forEach((columna) => {
-      const celda = crear('td'); celda.setAttribute('data-label', columna.titulo);
-      const valor = registro[columna.clave];
-      if (columna.tipo === 'imagen') {
-        const imagen = document.createElement('img');
-        imagen.src = resolverRutaImagen(valor);
-        imagen.alt = 'foto';
-        imagen.style.maxWidth = '64px';
-        imagen.style.maxHeight = '64px';
-        imagen.style.borderRadius = '6px';
-        imagen.style.border = '1px solid var(--border-light)';
-        imagen.loading = 'lazy';
-        imagen.onerror = () => { imagen.src = '/default-user.svg'; };
-        celda.appendChild(imagen);
-      } else {
+    if (entidadActual === 'empleado') {
+      // Render fijo para evitar desalineaciones: ID, Nombre, Correo, Teléfono, Asistencia, Especialidad
+      const ordenFijo = [
+        { clave: 'idEmpleado', titulo: 'ID Empleado' },
+        { clave: 'Nombre', titulo: 'Nombre' },
+        { clave: 'Correo', titulo: 'Correo' },
+        { clave: 'Telefono', titulo: 'Teléfono' },
+        { clave: 'Asistencia', titulo: 'Asistencia' },
+        { clave: 'Especialidad', titulo: 'Especialidad' }
+      ];
+      ordenFijo.forEach(def => {
+        const celda = crear('td');
+        celda.setAttribute('data-label', def.titulo);
+        let valor = registro[def.clave];
+        if (def.clave === 'idEmpleado' && (valor == null || valor === '')) {
+          valor = registro.idEmpleado || registro.id || registro.ID || registro.Id || '';
+        }
         celda.textContent = valor == null ? '' : String(valor);
-      }
-      if (columna.esId && (valor == null || valor === '')) {
-        const alt = registro.id || registro.ID || registro.Id;
-        if (alt != null) celda.textContent = String(alt);
-      }
-      filaTabla.appendChild(celda);
-    });
+        filaTabla.appendChild(celda);
+      });
+    } else {
+      columnasParaRender.forEach((columna) => {
+        const celda = crear('td'); celda.setAttribute('data-label', columna.titulo);
+        const valor = registro[columna.clave];
+        if (columna.tipo === 'imagen') {
+          const imagen = document.createElement('img');
+          imagen.src = resolverRutaImagen(valor);
+          imagen.alt = 'foto';
+          imagen.style.maxWidth = '64px';
+          imagen.style.maxHeight = '64px';
+          imagen.style.borderRadius = '6px';
+          imagen.style.border = '1px solid var(--border-light)';
+          imagen.loading = 'lazy';
+          imagen.onerror = () => { imagen.src = '/default-user.svg'; };
+          celda.appendChild(imagen);
+        } else {
+          celda.textContent = valor == null ? '' : String(valor);
+        }
+        if (columna.esId && (valor == null || valor === '')) {
+          const alt = registro.id || registro.ID || registro.Id;
+          if (alt != null) celda.textContent = String(alt);
+        }
+        filaTabla.appendChild(celda);
+      });
+    }
     if (usuarioActual?.rol === 'Administrador') {
       const celdaAcciones = crear('td');
       celdaAcciones.className = 'actions-cell';
