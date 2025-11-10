@@ -1230,7 +1230,25 @@ app.post('/api/empleado/asistencia', requerirAutenticacion, requerirEmpleado, as
     const [row] = await pool.query('SELECT Asistencia, Asistencia_fecha FROM empleados WHERE idEmpleado = ? LIMIT 1', [idEmp]);
     const info = row?.[0] || { Asistencia: estado, Asistencia_fecha: null };
     res.json({ ok: true, estado: info.Asistencia, fecha: info.Asistencia_fecha, affectedRows: resultado.affectedRows });
-  } catch (error) { res.status(500).json({ error: error.message }); }
+  } catch (error) {
+    // Si la columna no existe (servidor no reiniciado aún), intentar crearla on-demand y reintentar una vez
+    const msg = String(error?.message || '');
+    if (/unknown column/i.test(msg) && /Asistencia_fecha/i.test(msg)) {
+      try {
+        await pool.query("ALTER TABLE empleados ADD COLUMN Asistencia_fecha DATETIME NULL");
+        const [resultado] = await pool.query(
+          'UPDATE empleados SET Asistencia = ?, Asistencia_fecha = NOW() WHERE idEmpleado = ?',
+          [estado, idEmp]
+        );
+        const [row] = await pool.query('SELECT Asistencia, Asistencia_fecha FROM empleados WHERE idEmpleado = ? LIMIT 1', [idEmp]);
+        const info = row?.[0] || { Asistencia: estado, Asistencia_fecha: null };
+        return res.json({ ok: true, estado: info.Asistencia, fecha: info.Asistencia_fecha, affectedRows: resultado.affectedRows });
+      } catch (e2) {
+        return res.status(500).json({ error: e2.message });
+      }
+    }
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Crear empleado y (opcional) su usuario de acceso

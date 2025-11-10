@@ -142,8 +142,8 @@ Usuarios (cualquier rol)
 
 Empleado:
 
-- `GET /api/empleado/mis-datos` → Datos del empleado logueado y su proyecto.
-- `POST /api/empleado/asistencia` → Marca asistencia (actualiza `empleados.Asistencia`).
+- `GET /api/empleado/mis-datos` → Datos del empleado logueado y su proyecto. Incluye `Asistencia` y, tras la primera marcación, `Asistencia_fecha` (timestamp).
+- `POST /api/empleado/asistencia` → Marca asistencia. Ahora persiste también la fecha/hora (`Asistencia_fecha = NOW()`).
 
 El proyecto no incluye autenticación facial.
 
@@ -156,7 +156,9 @@ El proyecto no incluye autenticación facial.
   - Sección “Crear Administrador” con foto (sube a `/uploads`).
   - Para entidades Empleado y Material, en la sección de “Actualizar/Eliminar” verás un control extra para subir la imagen del registro seleccionado.
 - Vista Empleado:
-  - Panel “Mi panel” con datos básicos y botón “Marcar asistencia”.
+  - Panel “Mi información” sin KPI de asistencia hasta que se marque por primera vez.
+  - Al marcar asistencia se muestra el estado (p.ej. “Presente”) y el día/hora exactos.
+  - Botón para registrar/actualizar rostro.
 
 ## Notas sobre verificación por correo
 
@@ -164,6 +166,10 @@ El proyecto no incluye autenticación facial.
 - El código dura 5 minutos. Se almacena en la sesión del navegador.
 
 ## Notas sobre imágenes
+## Cambios recientes
+
+1. Se añadió la columna `Asistencia_fecha` (DATETIME) a `empleados` para registrar el momento exacto de la asistencia. La UI del trabajador oculta el KPI de asistencia cuando aún no ha marcado.
+2. El formulario de creación de empleados ahora ofrece un selector fijo de especialidades: Oficial de acabados, Instalador de drywall y cielorrasos, Pintor, Enchapador, Carpintero, Vidriero, Carpintero metálico o de aluminio, Electricista, Plomero, Estucador, Diseñador interior, Instalador de cielos falsos acústicos.
 
 - Las fotos subidas en la creación de usuarios/administradores se guardan físicamente en `./uploads` y su ruta relativa queda en la columna `usuarios.foto_url`.
 - El servidor expone `/uploads` como estático, por lo que `foto_url` es accesible desde el navegador (según permisos de tu despliegue).
