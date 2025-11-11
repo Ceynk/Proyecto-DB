@@ -592,18 +592,16 @@ function resolverRutaImagen(valor) {
   return limpio;
 }
 
-// Tabla: render genérico con detección de columnas por entidad
+// Tabla
 function renderizarTabla(filas) {
   contenedorTabla.innerHTML = '';
   if (!filas || filas.length === 0) {
     contenedorTabla.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Sin datos para mostrar</div>';
     return;
   }
-  // Copia superficial para no mutar la fuente
   const filasNorm = filas.map(r => ({ ...r }));
   const { columnas, claveId } = obtenerColumnasDisponibles(filasNorm);
-
-  // Garantizar que la columna ID esté primero si existe
+  // Asegurar que la columna ID esté presente y sea la primera para evitar desalineaciones
   let columnasParaRender = columnas.slice();
   if (claveId) {
     const idxId = columnasParaRender.findIndex(c => c.clave === claveId || c.esId === true || /^id/i.test(c.clave));
@@ -612,8 +610,7 @@ function renderizarTabla(filas) {
       columnasParaRender.unshift(colId);
     }
   }
-
-  // Orden fijo seguro para empleados (evita desalineaciones)
+  // Forzar el orden explícito para Empleado para evitar cualquier corrimiento
   if (entidadActual === 'empleado') {
     const preferido = [
       { clave: 'idEmpleado', titulo: 'ID Empleado', esId: true },
@@ -621,27 +618,26 @@ function renderizarTabla(filas) {
       { clave: 'Telefono', titulo: 'Teléfono' },
       { clave: 'Correo', titulo: 'Correo' },
       { clave: 'Asistencia', titulo: 'Asistencia' },
-      { clave: 'Especialidad', titulo: 'Especialidad' },
-      { clave: 'foto_url', titulo: 'Foto', tipo: 'imagen' }
+      { clave: 'Especialidad', titulo: 'Especialidad' }
+      // Puedes agregar { clave: 'Proyecto', titulo: 'Proyecto' } o 'foto_url' si quieres mostrarlos aquí
     ];
     const mapa = Object.create(null);
     columnasParaRender.forEach(c => { mapa[c.clave.toLowerCase()] = c; });
     columnasParaRender = preferido.map(def => {
       const found = mapa[def.clave.toLowerCase()];
-      return found ? { ...found, titulo: def.titulo, tipo: def.tipo || found.tipo, esId: def.esId || found.esId } : def;
+      return found ? { ...found, titulo: def.titulo, esId: def.esId || found.esId } : def;
     });
   }
-
-  // Acciones: botón seleccionar ID para admins
+  // Reutilizar constructor unificado
   const accionesRenderer = usuarioActual?.rol === 'Administrador' ? (registro) => {
     if (!claveId) return [];
-    const valorId = registro[claveId] ?? registro.id ?? registro.ID ?? registro.Id;
+    const valorId = registro[claveId];
     if (valorId == null) return [];
     const botonSeleccionar = crear('button', 'btn-table-action', 'Seleccionar');
     botonSeleccionar.addEventListener('click', () => {
       const textoId = String(valorId);
       if (entradaIdActualizacion) {
-        let opcion = Array.from(entradaIdActualizacion.options).find(o => o.value === textoId);
+        let opcion = Array.from(entradaIdActualizacion.options).find((o) => o.value === textoId);
         if (!opcion) {
           opcion = document.createElement('option');
           opcion.value = textoId;
@@ -669,7 +665,7 @@ function renderizarTabla(filas) {
   contenedorTabla.appendChild(tabla);
 }
 
-// Constructor reutilizable de tablas
+// Constructor unificado de tablas
 function construirTabla({ columnas, filas, incluirAcciones=false, renderAcciones=null, fijoEmpleado=false }) {
   const tabla = document.createElement('table');
   tabla.className = 'data-table';
@@ -681,11 +677,10 @@ function construirTabla({ columnas, filas, incluirAcciones=false, renderAcciones
     { clave: 'Telefono', titulo: 'Teléfono' },
     { clave: 'Correo', titulo: 'Correo' },
     { clave: 'Asistencia', titulo: 'Asistencia' },
-    { clave: 'Especialidad', titulo: 'Especialidad' },
-    { clave: 'foto_url', titulo: 'Foto', tipo: 'imagen' }
+    { clave: 'Especialidad', titulo: 'Especialidad' }
   ].map(def => {
     const m = columnas.find(c => c.clave.toLowerCase() === def.clave.toLowerCase()) || def;
-    return { ...m, titulo: def.titulo, esId: def.esId || m.esId, tipo: def.tipo || m.tipo };
+    return { ...m, titulo: def.titulo, esId: def.esId || m.esId };
   }) : columnas;
 
   columnasRender.forEach(col => {
@@ -695,7 +690,6 @@ function construirTabla({ columnas, filas, incluirAcciones=false, renderAcciones
     const thAcc = document.createElement('th'); thAcc.textContent = 'Acciones'; trHead.appendChild(thAcc);
   }
   thead.appendChild(trHead); tabla.appendChild(thead);
-
   const tbody = document.createElement('tbody');
   filas.forEach(registro => {
     const tr = document.createElement('tr');
@@ -716,9 +710,9 @@ function construirTabla({ columnas, filas, incluirAcciones=false, renderAcciones
         td.appendChild(img);
       } else {
         if (col.esId && (valor == null || valor === '')) {
-          valor = registro.id || registro.ID || registro.Id || registro.idEmpleado || registro.idProyecto || registro.idCliente || registro.idMaterial || registro.idTarea || registro.idTurno;
+          valor = registro.id || registro.ID || registro.Id || registro.idEmpleado || registro.idProyecto || registro.idCliente;
         }
-        td.textContent = valor == null || valor === '' ? '—' : String(valor);
+        td.textContent = valor == null ? '' : String(valor);
       }
       tr.appendChild(td);
     });
@@ -733,10 +727,6 @@ function construirTabla({ columnas, filas, incluirAcciones=false, renderAcciones
   tabla.appendChild(tbody);
   return tabla;
 }
-
-
-
-
 
 async function cargarDatos() {
   if (modoActual !== 'entidades') return;
@@ -1400,40 +1390,23 @@ async function cargarAdmins() {
       tablaUsuariosAdmin.innerHTML = '<div style="text-align:center; padding:1rem; color: var(--text-muted);">No hay administradores</div>';
       return;
     }
-    const tabla = document.createElement('table');
-    const thead = document.createElement('thead');
-    const trh = document.createElement('tr');
-    [' ','Usuario','Correo','Foto','Acciones'].forEach(h => { const th = document.createElement('th'); th.textContent = h; trh.appendChild(th); });
-    thead.appendChild(trh);
-    const tbody = document.createElement('tbody');
-    lista.forEach(u => {
-      const tr = document.createElement('tr');
-      const tdUser = document.createElement('td'); tdUser.textContent = u.nombre_usuario; tr.appendChild(tdUser);
-      const tdCorreo = document.createElement('td'); tdCorreo.textContent = u.Correo || '—'; tr.appendChild(tdCorreo);
-
-      const tdFoto = document.createElement('td');
-      if (u.foto_url) {
-        const img = document.createElement('img');
-        img.src = u.foto_url;
-        img.alt = 'foto';
-        img.loading = 'lazy';
-        img.style.maxWidth = '56px';
-        img.style.borderRadius = '6px';
-        img.style.border = '1px solid var(--border-light)';
-        tdFoto.appendChild(img);
-      } else { tdFoto.textContent = '—'; }
-      tr.appendChild(tdFoto);
-      const tdAcc = document.createElement('td');
-      const btnDel = document.createElement('button');
-      btnDel.textContent = 'Eliminar';
-      btnDel.style.background = '#ef4444';
-      btnDel.addEventListener('click', async () => { await eliminarAdmin(u.idUsuario); });
-      tdAcc.appendChild(btnDel);
-      tr.appendChild(tdAcc);
-      tbody.appendChild(tr);
+    const columnas = [
+      { clave: 'nombre_usuario', titulo: 'Usuario' },
+      { clave: 'Correo', titulo: 'Correo' },
+      { clave: 'foto_url', titulo: 'Foto', tipo: 'imagen' }
+    ];
+    const tabla = construirTabla({
+      columnas,
+      filas: lista,
+      incluirAcciones: true,
+      renderAcciones: (u) => {
+        const btnDel = document.createElement('button');
+        btnDel.textContent = 'Eliminar';
+        btnDel.style.background = '#ef4444';
+        btnDel.addEventListener('click', async () => { await eliminarAdmin(u.idUsuario); });
+        return [btnDel];
+      }
     });
-    tabla.appendChild(thead);
-    tabla.appendChild(tbody);
     tablaUsuariosAdmin.innerHTML = '';
     tablaUsuariosAdmin.appendChild(tabla);
   } catch (e) {
