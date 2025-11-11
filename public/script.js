@@ -1398,7 +1398,9 @@ async function cargarAdmins() {
       const tr = document.createElement('tr');
       const tdId = document.createElement('td'); tdId.textContent = u.idUsuario; tr.appendChild(tdId);
       const tdUser = document.createElement('td'); tdUser.textContent = u.nombre_usuario; tr.appendChild(tdUser);
+      const tdTelefono = document.createElement('td'); tdTelefono.textContent = u.Telefono || '—'; tr.appendChild(tdTelefono);
       const tdCorreo = document.createElement('td'); tdCorreo.textContent = u.Correo || '—'; tr.appendChild(tdCorreo);
+
       const tdFoto = document.createElement('td');
       if (u.foto_url) {
         const img = document.createElement('img');
