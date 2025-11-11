@@ -778,7 +778,7 @@ h1::after {
 
 .data-table tbody tr:hover {
   background: var(--surface-hover);
-  transform: translateX(4px);
+  transform: translateX(0); /* evitar salto visual a la derecha */
   box-shadow: var(--shadow-sm);
 }
 
@@ -796,6 +796,12 @@ h1::after {
 
 .data-table .actions-cell {
   white-space: nowrap;
+}
+
+/* Reducir padding de la primera columna para que no quede sangría a la izquierda */
+.data-table thead th:first-child,
+.data-table tbody td:first-child {
+  padding-left: 0.5rem;
 }
 
 .btn-table-action {
