@@ -190,3 +190,13 @@ El proyecto no incluye autenticación facial.
 ## Licencia
 
 MIT
+
+## Asistencia (Entrada/Salida) añadida
+
+- Nueva tabla: `asistencias` para registrar entrada y salida por día por empleado (constraint única por `idEmpleado, fecha`).
+- Endpoints para empleados autenticados:
+  - `POST /api/empleado/entrada` → Registra la hora de entrada del día (usa hora del servidor). También actualiza `empleados.Asistencia = 'Presente'` y `Asistencia_fecha = NOW()`.
+  - `POST /api/empleado/salida` → Registra la hora de salida en el registro abierto. Actualiza `empleados.Asistencia = 'Ausente'` y devuelve minutos de la jornada y total semanal.
+  - `GET /api/empleado/asistencia/resumen` → Devuelve la última entrada/salida y los minutos trabajados en la semana actual.
+
+En `public/trabajador.html` se añadieron los botones “Marcar entrada” y “Marcar salida”, y un resumen con “Última entrada”, “Última salida” y “Horas esta semana”.

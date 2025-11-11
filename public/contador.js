@@ -9,6 +9,26 @@ async function api(ruta, opciones = {}) {
   return cuerpo;
 }
 
+// Formatea fechas a DD/MM/AAAA (solo fecha, sin hora)
+function formatFecha(val) {
+  if (!val) return '';
+  try {
+    // Si viene como "YYYY-MM-DD..." recortar antes de la "T" como fallback rápido
+    const raw = String(val);
+    const cut = raw.includes('T') ? raw.split('T')[0] : raw;
+    const d = new Date(val);
+    if (!isNaN(d)) {
+      return d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+    // Si el parse falla pero el recorte parece YYYY-MM-DD, reordenar a DD/MM/YYYY
+    const m = cut.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+    return cut; // Último recurso: mostrar tal cual sin la hora
+  } catch (_) {
+    return String(val);
+  }
+}
+
 async function verificarSesion() {
   // 1) Verificar sesión y rol; solo aquí redirigimos si no cumple
   let me;
@@ -151,7 +171,7 @@ async function cargarInventario() {
     const tbody = document.createElement('tbody');
     lista.forEach(r => {
       const tr = document.createElement('tr');
-      [r.idInventario, r.tipo_movimiento, r.cantidad, r.fecha, r.Material, r.Proyecto].forEach((v,i) => { const td=document.createElement('td'); td.setAttribute('data-label', headers[i]); td.textContent = v==null?'':String(v); tr.appendChild(td); });
+      [r.idInventario, r.tipo_movimiento, r.cantidad, formatFecha(r.fecha), r.Material, r.Proyecto].forEach((v,i) => { const td=document.createElement('td'); td.setAttribute('data-label', headers[i]); td.textContent = v==null?'':String(v); tr.appendChild(td); });
       tbody.appendChild(tr);
     });
     tabla.appendChild(thead); tabla.appendChild(tbody);
@@ -176,7 +196,7 @@ async function cargarFacturas() {
     lista.forEach(f => {
       const tr = document.createElement('tr');
       const tdId = document.createElement('td'); tdId.setAttribute('data-label', headers[0]); tdId.textContent = f.idFactura; tr.appendChild(tdId);
-      const tdFecha = document.createElement('td'); tdFecha.setAttribute('data-label', headers[1]); tdFecha.textContent = f.Fecha; tr.appendChild(tdFecha);
+      const tdFecha = document.createElement('td'); tdFecha.setAttribute('data-label', headers[1]); tdFecha.textContent = formatFecha(f.Fecha); tr.appendChild(tdFecha);
       const tdCliente = document.createElement('td'); tdCliente.setAttribute('data-label', headers[2]); tdCliente.textContent = f.Cliente || '—'; tr.appendChild(tdCliente);
       const tdProyecto = document.createElement('td'); tdProyecto.setAttribute('data-label', headers[3]); tdProyecto.textContent = f.Proyecto || '—'; tr.appendChild(tdProyecto);
       const tdTotal = document.createElement('td'); tdTotal.setAttribute('data-label', headers[4]); tdTotal.textContent = `$ ${Number(f.Valor_total).toLocaleString('es-CO',{minimumFractionDigits:2})}`; tr.appendChild(tdTotal);
