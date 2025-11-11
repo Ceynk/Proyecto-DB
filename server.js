@@ -23,7 +23,8 @@ function renderFacturaPDF(doc, factura, opts = {}) {
   const marginLeft = 50;
   const pageWidth = doc.page.width;
   const usableWidth = pageWidth - marginLeft * 2;
-  const headerHeight = 95;
+  // Ajustar altura del header para permitir más aire
+  const headerHeight = 120;
 
   // Banda superior
   doc.save();
@@ -34,15 +35,17 @@ function renderFacturaPDF(doc, factura, opts = {}) {
   let logoBottom = 20;
   if (logoPath) {
     try {
-      doc.image(logoPath, marginLeft, 15, { width: 90 });
-      logoBottom = 15 + 90; // aprox
+  // Reubicar el logo más arriba y reducir altura para evitar que toque la línea
+  doc.image(logoPath, marginLeft + 2, 22, { width: 80 });
+  logoBottom = 22 + 80; // aprox
     } catch (e) {
       // Ignorar si falla
     }
   }
 
   // Título
-  doc.fillColor('#fff').fontSize(26).font('Helvetica-Bold').text('Factura', marginLeft, 25, {
+  // Bajar el título para no quedar alineado con el logo
+  doc.fillColor('#fff').fontSize(26).font('Helvetica-Bold').text('Factura', marginLeft, 40, {
     width: usableWidth,
     align: 'right'
   });
@@ -53,11 +56,13 @@ function renderFacturaPDF(doc, factura, opts = {}) {
   });
 
   // Línea separadora curva bajo header
-  doc.moveTo(marginLeft, headerHeight - 10).lineTo(pageWidth - marginLeft, headerHeight - 10).strokeColor(colores.secundario).lineWidth(3).stroke();
+  // Línea separadora más abajo para dejar aire debajo del logo
+  doc.moveTo(marginLeft, headerHeight - 15).lineTo(pageWidth - marginLeft, headerHeight - 15).strokeColor(colores.secundario).lineWidth(3).stroke();
   doc.strokeColor(colores.texto).lineWidth(1);
 
   // Posicionar contenido principal
-  doc.y = headerHeight + 15;
+  // Empujar el contenido principal más abajo
+  doc.y = headerHeight + 30;
   doc.fillColor(colores.texto);
 
   // Bloque empresa y datos factura (dos columnas)
