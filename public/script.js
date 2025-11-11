@@ -1400,23 +1400,40 @@ async function cargarAdmins() {
       tablaUsuariosAdmin.innerHTML = '<div style="text-align:center; padding:1rem; color: var(--text-muted);">No hay administradores</div>';
       return;
     }
-    const columnas = [
-      { clave: 'nombre_usuario', titulo: 'Usuario' },
-      { clave: 'Correo', titulo: 'Correo' },
-      { clave: 'foto_url', titulo: 'Foto', tipo: 'imagen' }
-    ];
-    const tabla = construirTabla({
-      columnas,
-      filas: lista,
-      incluirAcciones: true,
-      renderAcciones: (u) => {
-        const btnDel = document.createElement('button');
-        btnDel.textContent = 'Eliminar';
-        btnDel.style.background = '#ef4444';
-        btnDel.addEventListener('click', async () => { await eliminarAdmin(u.idUsuario); });
-        return [btnDel];
-      }
+    const tabla = document.createElement('table');
+    const thead = document.createElement('thead');
+    const trh = document.createElement('tr');
+    [' ','Usuario','Correo','Foto','Acciones'].forEach(h => { const th = document.createElement('th'); th.textContent = h; trh.appendChild(th); });
+    thead.appendChild(trh);
+    const tbody = document.createElement('tbody');
+    lista.forEach(u => {
+      const tr = document.createElement('tr');
+      const tdUser = document.createElement('td'); tdUser.textContent = u.nombre_usuario; tr.appendChild(tdUser);
+      const tdCorreo = document.createElement('td'); tdCorreo.textContent = u.Correo || '—'; tr.appendChild(tdCorreo);
+
+      const tdFoto = document.createElement('td');
+      if (u.foto_url) {
+        const img = document.createElement('img');
+        img.src = u.foto_url;
+        img.alt = 'foto';
+        img.loading = 'lazy';
+        img.style.maxWidth = '56px';
+        img.style.borderRadius = '6px';
+        img.style.border = '1px solid var(--border-light)';
+        tdFoto.appendChild(img);
+      } else { tdFoto.textContent = '—'; }
+      tr.appendChild(tdFoto);
+      const tdAcc = document.createElement('td');
+      const btnDel = document.createElement('button');
+      btnDel.textContent = 'Eliminar';
+      btnDel.style.background = '#ef4444';
+      btnDel.addEventListener('click', async () => { await eliminarAdmin(u.idUsuario); });
+      tdAcc.appendChild(btnDel);
+      tr.appendChild(tdAcc);
+      tbody.appendChild(tr);
     });
+    tabla.appendChild(thead);
+    tabla.appendChild(tbody);
     tablaUsuariosAdmin.innerHTML = '';
     tablaUsuariosAdmin.appendChild(tabla);
   } catch (e) {
