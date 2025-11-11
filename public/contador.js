@@ -99,7 +99,7 @@ async function cargarResumenProyectos() {
     tabla.className = 'data-table';
     const thead = document.createElement('thead');
     const trh = document.createElement('tr');
-    const headers = ['ID','Proyecto','Cliente','Pisos','Apartamentos'];
+    const headers = [' ','ID','Proyecto','Cliente','Pisos','Apartamentos'];
     headers.forEach(h => { const th=document.createElement('th'); th.textContent=h; th.scope='col'; trh.appendChild(th); });
     thead.appendChild(trh);
     const tbody = document.createElement('tbody');
