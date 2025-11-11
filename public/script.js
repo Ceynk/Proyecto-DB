@@ -646,7 +646,7 @@ function renderizarTabla(filas) {
   filasNorm.forEach((registro) => {
     const filaTabla = crear('tr');
     if (entidadActual === 'empleado') {
-      // Render fijo para evitar desalineaciones: ID, Nombre, Correo, Teléfono, Asistencia, Especialidad
+      // Render fijo para evitar desalineaciones: ID, Nombre, Telefono, Correo, Asistencia, Especialidad
       const ordenFijo = [
         { clave: 'idEmpleado', titulo: 'ID Empleado', esId: true },
         { clave: 'Nombre', titulo: 'Nombre' },
