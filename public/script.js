@@ -633,12 +633,12 @@ function renderizarTabla(filas) {
   const cabecera = crear('thead');
   const filaCabecera = crear('tr');
   columnasParaRender.forEach((columna) => {
-    const th = crear('th', '', columna.titulo);
+    const th = crear('th', columna.titulo);
     th.setAttribute('scope', 'col');
     filaCabecera.appendChild(th);
   });
   if (usuarioActual?.rol === 'Administrador') {
-    const thAcc = crear('th', '', 'Acciones'); thAcc.setAttribute('scope', 'col'); filaCabecera.appendChild(thAcc);
+    const thAcc = crear('th','Acciones'); thAcc.setAttribute('scope', 'col'); filaCabecera.appendChild(thAcc);
   }
   cabecera.appendChild(filaCabecera); tabla.appendChild(cabecera);
 
@@ -648,7 +648,6 @@ function renderizarTabla(filas) {
     if (entidadActual === 'empleado') {
       // Render fijo para evitar desalineaciones: ID, Nombre, Correo, Teléfono, Asistencia, Especialidad
       const ordenFijo = [
-        { clave: 'idEmpleado', titulo: 'ID Empleado' },
         { clave: 'Nombre', titulo: 'Nombre' },
         { clave: 'Telefono', titulo: 'Teléfono' },
         { clave: 'Correo', titulo: 'Correo' },
