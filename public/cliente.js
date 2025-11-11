@@ -200,8 +200,23 @@ async function cargarFacturas() {
 
 async function verPDFCliente(id) {
   const url = `${baseAPI}/api/cliente/facturas/${encodeURIComponent(id)}/pdf`;
-  const win = window.open(url, '_blank');
-  if (!win) { const a = document.createElement('a'); a.href=url; a.target='_blank'; a.click(); }
+  try {
+    const resp = await fetch(url, { credentials: 'include' });
+    if (!resp.ok) {
+      let msg = `Error ${resp.status}`;
+      try { const j = await resp.json(); if (j && j.error) msg = j.error; } catch {}
+      alert(`No se pudo cargar el PDF: ${msg}`);
+      return;
+    }
+    const blob = await resp.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const win = window.open(blobUrl, '_blank');
+    if (!win) { const a = document.createElement('a'); a.href = blobUrl; a.target = '_blank'; a.rel = 'noopener'; a.click(); }
+    setTimeout(()=>URL.revokeObjectURL(blobUrl), 60_000);
+  } catch (e) {
+    const win = window.open(url, '_blank');
+    if (!win) { const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.click(); }
+  }
 }
 
 async function cargarPagos() {

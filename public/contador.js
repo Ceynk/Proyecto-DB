@@ -192,10 +192,27 @@ async function cargarFacturas() {
 
 async function descargarPDF(id) {
   const url = `${baseAPI}/api/contador/facturas/${encodeURIComponent(id)}/pdf`;
-  const win = window.open(url, '_blank');
-  if (!win) {
-    // fallback download
-    const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.click();
+  try {
+    // Pedimos como blob con credenciales para garantizar envío de la sesión
+    const resp = await fetch(url, { credentials: 'include' });
+    if (!resp.ok) {
+      // Intentar leer mensaje de error si viene en JSON
+      let msg = `Error ${resp.status}`;
+      try { const j = await resp.json(); if (j && j.error) msg = j.error; } catch {}
+      alert(`No se pudo generar el PDF: ${msg}`);
+      return;
+    }
+    const blob = await resp.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const win = window.open(blobUrl, '_blank');
+    if (!win) {
+      const a = document.createElement('a'); a.href = blobUrl; a.target = '_blank'; a.rel = 'noopener'; a.click();
+    }
+    setTimeout(()=>URL.revokeObjectURL(blobUrl), 60_000);
+  } catch (e) {
+    // Fallback a abrir la URL directa
+    const win = window.open(url, '_blank');
+    if (!win) { const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.click(); }
   }
 }
 
