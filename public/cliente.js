@@ -78,7 +78,7 @@ async function cargarProyectos() {
     tabla.className = 'data-table';
     const thead = document.createElement('thead');
     const trh = document.createElement('tr');
-    const headers = ['ID','Proyecto','Empleados','Tareas','Facturas','Acciones'];
+    const headers = [' ','ID','Proyecto','Empleados','Tareas','Facturas','Acciones'];
     headers.forEach(h => { const th=document.createElement('th'); th.textContent=h; th.scope='col'; trh.appendChild(th); });
     thead.appendChild(trh);
     const tbody = document.createElement('tbody');
@@ -120,7 +120,7 @@ async function verDetalleProyecto(idProyecto, nombre) {
       tabla.className = 'data-table';
       const thead = document.createElement('thead');
       const trh = document.createElement('tr');
-      const headersEmp = ['ID','Foto','Nombre','Especialidad','Asistencia'];
+      const headersEmp = [' ', 'ID','Foto','Nombre','Especialidad','Asistencia'];
       headersEmp.forEach(h => { const th=document.createElement('th'); th.textContent=h; th.scope='col'; trh.appendChild(th); });
       thead.appendChild(trh);
       const tbody = document.createElement('tbody');
@@ -147,7 +147,7 @@ async function verDetalleProyecto(idProyecto, nombre) {
       tabla.className = 'data-table';
       const thead = document.createElement('thead');
       const trh = document.createElement('tr');
-      const headersTar = ['ID','Descripción','Estado','Asignado a'];
+      const headersTar = [' ', 'ID','Descripción','Estado','Asignado a'];
       headersTar.forEach(h => { const th=document.createElement('th'); th.textContent=h; th.scope='col'; trh.appendChild(th); });
       thead.appendChild(trh);
       const tbody = document.createElement('tbody');
@@ -176,7 +176,7 @@ async function cargarFacturas() {
     tabla.className = 'data-table';
     const thead = document.createElement('thead');
     const trh = document.createElement('tr');
-    const headers = ['ID','Fecha','Proyecto','Total','PDF'];
+    const headers = [' ','ID','Fecha','Proyecto','Total','PDF'];
     headers.forEach(h => { const th=document.createElement('th'); th.textContent=h; th.scope='col'; trh.appendChild(th); });
     thead.appendChild(trh);
     const tbody = document.createElement('tbody');
