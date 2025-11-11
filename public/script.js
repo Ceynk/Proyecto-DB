@@ -633,12 +633,6 @@ function renderizarTabla(filas) {
   const filaCabecera = crear('tr');
   
   // Renderizar cabeceras usando columnasParaRender
-  // Inserta un encabezado vacío antes del ID
-  const thVacio = crear('th');
-  thVacio.textContent = '';
-  thVacio.setAttribute('scope', 'col');
-  filaCabecera.appendChild(thVacio);
-
   columnasParaRender.forEach((columna) => {
     const th = crear('th');
     th.textContent = columna.titulo;
@@ -659,11 +653,6 @@ function renderizarTabla(filas) {
   const cuerpo = crear('tbody');
   filasNorm.forEach((registro) => {
     const filaTabla = crear('tr');
-    // Celda vacía antes del ID
-    const celdaVacia = crear('td');
-    celdaVacia.setAttribute('data-label', ' ');
-    celdaVacia.textContent = '';
-    filaTabla.appendChild(celdaVacia);
     
     // Usar el mismo orden para todas las filas
     columnasParaRender.forEach((columna) => {
@@ -720,6 +709,17 @@ function renderizarTabla(filas) {
   });
   
   tabla.appendChild(cuerpo);
+  // Insertar un <th> vacío antes de 'ID' usando el snippet solicitado (aplica a Empleado)
+  try {
+    if (entidadActual === 'empleado') {
+      const idHeader = Array.from(tabla.querySelectorAll('th')).find(th => th.textContent.trim() === 'ID');
+      if (idHeader && idHeader.parentElement) {
+        const newTh = document.createElement('th');
+        idHeader.parentElement.insertBefore(newTh, idHeader);
+        // opción: podríamos reportar con console.log si fue exitoso
+      }
+    }
+  } catch (_) {}
   contenedorTabla.appendChild(tabla);
 }
 
