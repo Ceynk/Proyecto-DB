@@ -709,15 +709,17 @@ function renderizarTabla(filas) {
   });
   
   tabla.appendChild(cuerpo);
-  // Insertar un <th> vacío antes de 'ID' usando el snippet solicitado (aplica a Empleado)
+  // Insertar un <th> vacío antes del encabezado que contenga 'ID' para todas las entidades
   try {
-    if (entidadActual === 'empleado') {
-      const idHeader = Array.from(tabla.querySelectorAll('th')).find(th => th.textContent.trim() === 'ID');
-      if (idHeader && idHeader.parentElement) {
-        const newTh = document.createElement('th');
-        idHeader.parentElement.insertBefore(newTh, idHeader);
-        // opción: podríamos reportar con console.log si fue exitoso
-      }
+    const idHeader = Array.from(tabla.querySelectorAll('th')).find(th => /^ID\b/i.test(th.textContent.trim()));
+    if (idHeader && idHeader.parentElement) {
+      const newTh = document.createElement('th');
+      idHeader.parentElement.insertBefore(newTh, idHeader);
+    } else {
+      // Si no se encontró un encabezado 'ID', opcionalmente podemos añadir uno al inicio para consistencia
+      // (solo si realmente quieres que siempre exista esa columna vacía)
+      // const firstRow = tabla.querySelector('thead tr');
+      // if (firstRow) { const newTh = document.createElement('th'); firstRow.insertBefore(newTh, firstRow.firstChild); }
     }
   } catch (_) {}
   contenedorTabla.appendChild(tabla);
