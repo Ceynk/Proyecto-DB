@@ -1156,7 +1156,6 @@ table {
 
   /* Mostrar pista SOLO cuando hay overflow y sin "pegado" al viewport */
   .table-wrap.show-scroll-hint::after {
-    content: '← Desliza →';
     position: absolute;
     left: 50%;
     bottom: var(--spacing-sm);

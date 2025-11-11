@@ -1377,7 +1377,7 @@ if (formularioCrearAdmin) {
     }
   });
 }
-
+//a
 // Listar/eliminar administradores
 async function cargarAdmins() {
   if (!tablaUsuariosAdmin) return;
@@ -1391,7 +1391,7 @@ async function cargarAdmins() {
     const tabla = document.createElement('table');
     const thead = document.createElement('thead');
     const trh = document.createElement('tr');
-    ['Usuario','Correo','Foto','Acciones'].forEach(h => { const th = document.createElement('th'); th.textContent = h; trh.appendChild(th); });
+    [' ','Usuario','Correo','Foto','Acciones'].forEach(h => { const th = document.createElement('th'); th.textContent = h; trh.appendChild(th); });
     thead.appendChild(trh);
     const tbody = document.createElement('tbody');
     lista.forEach(u => {
