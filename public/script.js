@@ -638,7 +638,7 @@ function renderizarTabla(filas) {
     filaCabecera.appendChild(th);
   });
   if (usuarioActual?.rol === 'Administrador') {
-    const thAcc = crear('th','Acciones'); thAcc.setAttribute('scope', 'col'); filaCabecera.appendChild(thAcc);
+    const thAcc = crear('th','','Acciones'); thAcc.setAttribute('scope', 'col'); filaCabecera.appendChild(thAcc);
   }
   cabecera.appendChild(filaCabecera); tabla.appendChild(cabecera);
 
@@ -648,6 +648,7 @@ function renderizarTabla(filas) {
     if (entidadActual === 'empleado') {
       // Render fijo para evitar desalineaciones: ID, Nombre, Correo, Teléfono, Asistencia, Especialidad
       const ordenFijo = [
+        { clave: 'idEmpleado', titulo: 'ID Empleado', esId: true },
         { clave: 'Nombre', titulo: 'Nombre' },
         { clave: 'Telefono', titulo: 'Teléfono' },
         { clave: 'Correo', titulo: 'Correo' },
