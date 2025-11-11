@@ -1391,14 +1391,14 @@ async function cargarAdmins() {
     const tabla = document.createElement('table');
     const thead = document.createElement('thead');
     const trh = document.createElement('tr');
-    ['ID','Usuario','Correo','Foto','Acciones'].forEach(h => { const th = document.createElement('th'); th.textContent = h; trh.appendChild(th); });
+    ['ID','Usuario','Telefono','Correo','Foto','Acciones'].forEach(h => { const th = document.createElement('th'); th.textContent = h; trh.appendChild(th); });
     thead.appendChild(trh);
     const tbody = document.createElement('tbody');
     lista.forEach(u => {
       const tr = document.createElement('tr');
       const tdId = document.createElement('td'); tdId.textContent = u.idUsuario; tr.appendChild(tdId);
       const tdUser = document.createElement('td'); tdUser.textContent = u.nombre_usuario; tr.appendChild(tdUser);
-      const tdTelefono = document.createElement('td'); tdTelefono.textContent = u.Telefono || '—'; tr.appendChild(tdTelefono);
+      const tdTelefono = document.createElement('td'); tdTelefono.textContent = u.Telefono; tr.appendChild(tdTelefono);
       const tdCorreo = document.createElement('td'); tdCorreo.textContent = u.Correo || '—'; tr.appendChild(tdCorreo);
 
       const tdFoto = document.createElement('td');

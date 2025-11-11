@@ -76,7 +76,7 @@ function renderFacturaPDF(doc, factura, opts = {}) {
   doc.moveDown(0.2).fontSize(11).font('Helvetica')
     .text('BuildSmarts S.A.')
     .text('NIT: 900.000.000-1')
-    .text('Calle 1 # 2-3, Ciudad')
+    .text('Calle 1 # 2-3, Villavicencio')
     .text('Teléfono: +57 300 000 0000');
 
   // Datos factura
