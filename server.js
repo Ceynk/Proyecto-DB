@@ -8,7 +8,6 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
-// Eliminado: autenticación por correo/2FA
 import PDFDocument from 'pdfkit';
 // Descarga opcional de modelos de face-api para hosting local (corrige nombres reales .bin)
 import https from 'https';
