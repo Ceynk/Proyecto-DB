@@ -197,3 +197,14 @@ CREATE TABLE IF NOT EXISTS factura_detalles (
     FOREIGN KEY (idFactura) REFERENCES facturas(idFactura),
     FOREIGN KEY (idMaterial) REFERENCES materials(idMaterial)
 );
+
+-- Registro de asistencias por empleado (una por día)
+CREATE TABLE IF NOT EXISTS asistencias (
+    idAsistencia INT AUTO_INCREMENT PRIMARY KEY,
+    idEmpleado INT NOT NULL,
+    fecha DATE NOT NULL,
+    entrada DATETIME NOT NULL,
+    salida DATETIME NULL,
+    CONSTRAINT fk_asistencias_empleado FOREIGN KEY (idEmpleado) REFERENCES empleados(idEmpleado),
+    CONSTRAINT uq_asistencia_dia UNIQUE (idEmpleado, fecha)
+);

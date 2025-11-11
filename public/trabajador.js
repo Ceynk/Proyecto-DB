@@ -90,21 +90,75 @@ if (btnSalir) {
   });
 }
 
+const btnEntrada = document.getElementById('btnEntrada');
+const btnSalida = document.getElementById('btnSalida');
 const btnAsistencia = document.getElementById('btnAsistencia');
 const msgAsistencia = document.getElementById('msgAsistencia');
-if (btnAsistencia) {
-  btnAsistencia.addEventListener('click', async () => {
-    msgAsistencia.textContent = 'Marcando...'; msgAsistencia.style.color = '';
+
+async function refrescarResumenAsistencia() {
+  try {
+    const r = await api('/api/empleado/asistencia/resumen');
+    const entradaEl = document.getElementById('kpiEntrada');
+    const salidaEl = document.getElementById('kpiSalida');
+    const semanaEl = document.getElementById('kpiSemana');
+    if (entradaEl) entradaEl.textContent = r.ultima?.entrada ? new Date(r.ultima.entrada).toLocaleTimeString('es-CO',{ hour12:false }) : '—';
+    if (salidaEl) salidaEl.textContent = r.ultima?.salida ? new Date(r.ultima.salida).toLocaleTimeString('es-CO',{ hour12:false }) : '—';
+    if (semanaEl) {
+      const horas = (r.semana.minutos || 0) / 60;
+      semanaEl.textContent = horas.toFixed(1);
+    }
+  } catch (_) {}
+}
+
+if (btnEntrada) {
+  btnEntrada.addEventListener('click', async () => {
+    msgAsistencia.textContent = 'Registrando entrada...'; msgAsistencia.style.color='';
     try {
-      const r = await api('/api/empleado/asistencia', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ estado: 'Presente' }) });
-      const fechaFmt = r.fecha ? new Date(r.fecha).toLocaleString('es-CO',{ hour12:false }) : '';
-      msgAsistencia.textContent = 'Asistencia marcada ' + (fechaFmt ? `(${fechaFmt})` : '');
-      cargarInfo();
+      const r = await api('/api/empleado/entrada', { method:'POST' });
+      const hora = r.entrada ? new Date(r.entrada).toLocaleTimeString('es-CO',{ hour12:false }) : '';
+      msgAsistencia.textContent = r.repetido ? `Entrada ya registrada (${hora})` : `Entrada registrada (${hora})`;
+      await cargarInfo();
+      refrescarResumenAsistencia();
     } catch (e) {
-      msgAsistencia.style.color = 'salmon'; msgAsistencia.textContent = e.message;
+      msgAsistencia.style.color='salmon'; msgAsistencia.textContent=e.message;
     }
   });
 }
+
+if (btnSalida) {
+  btnSalida.addEventListener('click', async () => {
+    msgAsistencia.textContent = 'Registrando salida...'; msgAsistencia.style.color='';
+    try {
+      const r = await api('/api/empleado/salida', { method:'POST' });
+      const hora = r.salida ? new Date(r.salida).toLocaleTimeString('es-CO',{ hour12:false }) : '';
+      if (r.repetido) msgAsistencia.textContent = `Salida ya registrada (${hora})`;
+      else msgAsistencia.textContent = `Salida registrada (${hora}) - Jornada: ${(r.minutos/60).toFixed(2)}h`;
+      await cargarInfo();
+      refrescarResumenAsistencia();
+    } catch (e) {
+      msgAsistencia.style.color='salmon'; msgAsistencia.textContent=e.message;
+    }
+  });
+}
+
+if (btnAsistencia) {
+  // mantiene endpoint rápido para solo estado manual (opcional)
+  btnAsistencia.addEventListener('click', async () => {
+    msgAsistencia.textContent = 'Marcando estado...'; msgAsistencia.style.color='';
+    try {
+      const r = await api('/api/empleado/asistencia', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ estado:'Presente' }) });
+      const fechaFmt = r.fecha ? new Date(r.fecha).toLocaleString('es-CO',{ hour12:false }) : '';
+      msgAsistencia.textContent = 'Estado marcado ' + (fechaFmt?`(${fechaFmt})`:'');
+      await cargarInfo();
+      refrescarResumenAsistencia();
+    } catch (e) {
+      msgAsistencia.style.color='salmon'; msgAsistencia.textContent=e.message;
+    }
+  });
+}
+
+// refrescar resumen al cargar
+refrescarResumenAsistencia();
 
 const btnRefrescar = document.getElementById('btnRefrescar');
 if (btnRefrescar) {

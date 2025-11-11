@@ -32,9 +32,16 @@
         <div class="form-wrap">
           <div class="form-header"><h3 class="form-heading">Asistencia</h3></div>
           <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
-            <button id="btnAsistencia" class="btn-primary">Marcar asistencia</button>
+            <button id="btnEntrada" class="btn-primary">Marcar entrada</button>
+            <button id="btnSalida" class="btn-secondary">Marcar salida</button>
+            <button id="btnAsistencia" class="btn-outline" title="Sólo estado rápido">Marcar asistencia</button>
             <div id="msgAsistencia" class="form-msg" style="margin:0;"></div>
             <button id="btnEnrollFaceTrab" type="button" class="btn-outline" style="display:none">Registrar mi rostro</button>
+          </div>
+          <div id="resumenAsistencia" class="kpi-bar" style="margin-top:.5rem;">
+            <div class="kpi-item"><div class="kpi-num" id="kpiEntrada">—</div><div class="kpi-label">Última entrada</div></div>
+            <div class="kpi-item"><div class="kpi-num" id="kpiSalida">—</div><div class="kpi-label">Última salida</div></div>
+            <div class="kpi-item"><div class="kpi-num" id="kpiSemana">—</div><div class="kpi-label">Horas esta semana</div></div>
           </div>
           <div id="faceEnrollAreaTrab" style="display:block; margin-left: auto; margin-right: auto;">
             <video id="faceVideoTrab" autoplay muted playsinline class="video-face"></video>

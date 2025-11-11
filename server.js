@@ -254,6 +254,20 @@ async function asegurarEsquemaYSemilla() {
   } catch (e) {
     console.warn('No se pudo verificar/agregar columna foto_url:', e.message);
   }
+  // Tabla de asistencias (entrada/salida por día)
+  try {
+    await pool.query(`CREATE TABLE IF NOT EXISTS asistencias (
+      idAsistencia INT AUTO_INCREMENT PRIMARY KEY,
+      idEmpleado INT NOT NULL,
+      fecha DATE NOT NULL,
+      entrada DATETIME NOT NULL,
+      salida DATETIME NULL,
+      CONSTRAINT fk_asistencias_empleado FOREIGN KEY (idEmpleado) REFERENCES empleados(idEmpleado),
+      CONSTRAINT uq_asistencia_dia UNIQUE (idEmpleado, fecha)
+    )`);
+  } catch (e) {
+    console.warn('No se pudo crear/asegurar tabla asistencias:', e.message);
+  }
   // Descriptor facial para login con rostro
   try {
     const [cf] = await pool.query("SHOW COLUMNS FROM usuarios LIKE 'face_descriptor'");
@@ -1360,6 +1374,135 @@ app.post('/api/empleado/asistencia', requerirAutenticacion, requerirEmpleado, as
       }
     }
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ==============================
+// Asistencia: entrada/salida y resumen semanal
+// ==============================
+function sqlSemanaActualBounds(alias = 'a') {
+  // lunes de la semana actual (MySQL weekday(): 0=Lunes)
+  return {
+    desde: `DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)`,
+    hasta: `DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 6 DAY)`
+  };
+}
+
+// Marcar entrada (usa hora del servidor)
+app.post('/api/empleado/entrada', requerirAutenticacion, requerirEmpleado, async (req, res) => {
+  const idEmp = req.session.user?.idEmpleado;
+  if (!idEmp) return res.status(400).json({ error: 'Usuario sin empleado asociado' });
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    // Intentar crear o reconocer entrada existente hoy
+    const [rows] = await conn.query('SELECT idAsistencia, entrada, salida FROM asistencias WHERE idEmpleado = ? AND fecha = CURDATE() LIMIT 1', [idEmp]);
+    let idAsistencia;
+    let entrada;
+    let salida;
+    if (rows.length) {
+      idAsistencia = rows[0].idAsistencia;
+      entrada = rows[0].entrada;
+      salida = rows[0].salida;
+      if (!salida) {
+        // Ya marcado entrada hoy
+        await conn.query('UPDATE empleados SET Asistencia = ?, Asistencia_fecha = NOW() WHERE idEmpleado = ?', ['Presente', idEmp]);
+        await conn.commit();
+        return res.json({ ok: true, repetido: true, idAsistencia, entrada, salida: null });
+      }
+      // Si ya tenía salida, no crear otro registro; reportar como ya completado
+      await conn.query('UPDATE empleados SET Asistencia = ?, Asistencia_fecha = NOW() WHERE idEmpleado = ?', ['Presente', idEmp]);
+      await conn.commit();
+      return res.json({ ok: true, completado: true, idAsistencia, entrada, salida });
+    } else {
+      const [ins] = await conn.query('INSERT INTO asistencias (idEmpleado, fecha, entrada) VALUES (?, CURDATE(), NOW())', [idEmp]);
+      idAsistencia = ins.insertId;
+      const [get] = await conn.query('SELECT entrada FROM asistencias WHERE idAsistencia = ?', [idAsistencia]);
+      entrada = get[0]?.entrada || null;
+      await conn.query('UPDATE empleados SET Asistencia = ?, Asistencia_fecha = NOW() WHERE idEmpleado = ?', ['Presente', idEmp]);
+      await conn.commit();
+      return res.status(201).json({ ok: true, idAsistencia, entrada });
+    }
+  } catch (e) {
+    try { await conn.rollback(); } catch (_) {}
+    // Manejar violación de unique (si dos clics simultáneos)
+    const msg = String(e?.message || '');
+    if (/duplicate/i.test(msg) && /uq_asistencia_dia/i.test(msg)) {
+      try {
+        const [r] = await pool.query('SELECT idAsistencia, entrada, salida FROM asistencias WHERE idEmpleado = ? AND fecha = CURDATE() LIMIT 1', [idEmp]);
+        return res.json({ ok: true, idAsistencia: r[0]?.idAsistencia || null, entrada: r[0]?.entrada || null, salida: r[0]?.salida || null });
+      } catch (_) {}
+    }
+    return res.status(500).json({ error: e.message });
+  } finally {
+    conn.release();
+  }
+});
+
+// Marcar salida (usa hora del servidor)
+app.post('/api/empleado/salida', requerirAutenticacion, requerirEmpleado, async (req, res) => {
+  const idEmp = req.session.user?.idEmpleado;
+  if (!idEmp) return res.status(400).json({ error: 'Usuario sin empleado asociado' });
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    // Buscar registro abierto (de hoy preferido); si no hay de hoy, el último sin salida
+    let [rows] = await conn.query('SELECT idAsistencia, entrada, salida FROM asistencias WHERE idEmpleado = ? AND fecha = CURDATE() LIMIT 1', [idEmp]);
+    if (!rows.length) {
+      [rows] = await conn.query('SELECT idAsistencia, entrada, salida FROM asistencias WHERE idEmpleado = ? AND salida IS NULL ORDER BY fecha DESC, idAsistencia DESC LIMIT 1', [idEmp]);
+    }
+    if (!rows.length) {
+      await conn.commit();
+      return res.status(400).json({ error: 'No hay entrada registrada para marcar salida' });
+    }
+    const idAsistencia = rows[0].idAsistencia;
+    if (rows[0].salida) {
+      await conn.query('UPDATE empleados SET Asistencia = ?, Asistencia_fecha = NOW() WHERE idEmpleado = ?', ['Ausente', idEmp]);
+      await conn.commit();
+      return res.json({ ok: true, repetido: true, idAsistencia, entrada: rows[0].entrada, salida: rows[0].salida });
+    }
+    await conn.query('UPDATE asistencias SET salida = NOW() WHERE idAsistencia = ?', [idAsistencia]);
+    await conn.query('UPDATE empleados SET Asistencia = ?, Asistencia_fecha = NOW() WHERE idEmpleado = ?', ['Ausente', idEmp]);
+
+    // Obtener registro actualizado y resumen semanal
+    const [act] = await conn.query('SELECT entrada, salida, TIMESTAMPDIFF(MINUTE, entrada, salida) AS minutos FROM asistencias WHERE idAsistencia = ?', [idAsistencia]);
+    const reg = act[0] || {};
+    const { desde, hasta } = sqlSemanaActualBounds();
+    const [sum] = await conn.query(
+      `SELECT IFNULL(SUM(TIMESTAMPDIFF(MINUTE, entrada, salida)), 0) AS minutos
+       FROM asistencias WHERE idEmpleado = ? AND fecha BETWEEN ${desde} AND ${hasta} AND salida IS NOT NULL`,
+      [idEmp]
+    );
+    await conn.commit();
+    return res.json({ ok: true, idAsistencia, entrada: reg.entrada, salida: reg.salida, minutos: reg.minutos, semanaMinutos: sum[0]?.minutos || 0 });
+  } catch (e) {
+    try { await conn.rollback(); } catch (_) {}
+    return res.status(500).json({ error: e.message });
+  } finally {
+    conn.release();
+  }
+});
+
+// Resumen de asistencia: última marcación y total semanal
+app.get('/api/empleado/asistencia/resumen', requerirAutenticacion, requerirEmpleado, async (req, res) => {
+  const idEmp = req.session.user?.idEmpleado;
+  if (!idEmp) return res.status(400).json({ error: 'Usuario sin empleado asociado' });
+  try {
+    const [ult] = await pool.query(
+      'SELECT idAsistencia, fecha, entrada, salida, TIMESTAMPDIFF(MINUTE, entrada, IFNULL(salida, NOW())) AS minutos FROM asistencias WHERE idEmpleado = ? ORDER BY fecha DESC, idAsistencia DESC LIMIT 1',
+      [idEmp]
+    );
+    const { desde, hasta } = sqlSemanaActualBounds();
+    const [sum] = await pool.query(
+      `SELECT IFNULL(SUM(TIMESTAMPDIFF(MINUTE, entrada, salida)), 0) AS minutos FROM asistencias WHERE idEmpleado = ? AND fecha BETWEEN ${desde} AND ${hasta} AND salida IS NOT NULL`,
+      [idEmp]
+    );
+    res.json({
+      ultima: ult[0] || null,
+      semana: { minutos: sum[0]?.minutos || 0 }
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
