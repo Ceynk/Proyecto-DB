@@ -1112,7 +1112,7 @@ async function construirFormulario() {
         </div>
         <div>
           <label>Usuario</label>
-          <input name="nombre_usuario" type="text" pattern="[A-Za-z0-9_.-]{3,30}" placeholder="usuario.ejemplo" disabled />
+          <input name="nombre_usuario" type="text" pattern="^[A-Za-z0-9_.\\-]{3,30}$" placeholder="usuario.ejemplo" disabled />
         </div>
         <div>
           <label>Contraseña</label>
@@ -1155,7 +1155,7 @@ async function construirFormulario() {
         </div>
         <div>
           <label>Usuario</label>
-          <input name="nombre_usuario" type="text" pattern="[A-Za-z0-9_.-]{3,30}" placeholder="cliente.ejemplo" disabled />
+          <input name="nombre_usuario" type="text" pattern="^[A-Za-z0-9_.\\-]{3,30}$" placeholder="cliente.ejemplo" disabled />
         </div>
         <div>
           <label>Contraseña</label>
