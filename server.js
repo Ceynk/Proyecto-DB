@@ -13,6 +13,113 @@ import PDFDocument from 'pdfkit';
 // Descarga opcional de modelos de face-api para hosting local (corrige nombres reales .bin)
 import https from 'https';
 
+// Helper para generar un PDF de factura con estilo profesional
+function renderFacturaPDF(doc, factura, opts = {}) {
+  const {
+    logoPath = null,
+    colores = { primario: '#00A6C8', secundario: '#7BC043', texto: '#222', gris: '#666' }
+  } = opts;
+
+  const marginLeft = 50;
+  const pageWidth = doc.page.width;
+  const usableWidth = pageWidth - marginLeft * 2;
+  const headerHeight = 95;
+
+  // Banda superior
+  doc.save();
+  doc.rect(0, 0, pageWidth, headerHeight).fill(colores.primario);
+  doc.restore();
+
+  // Logo
+  let logoBottom = 20;
+  if (logoPath) {
+    try {
+      doc.image(logoPath, marginLeft, 15, { width: 90 });
+      logoBottom = 15 + 90; // aprox
+    } catch (e) {
+      // Ignorar si falla
+    }
+  }
+
+  // Título
+  doc.fillColor('#fff').fontSize(26).font('Helvetica-Bold').text('Factura', marginLeft, 25, {
+    width: usableWidth,
+    align: 'right'
+  });
+
+  // Subtítulo / número factura en header
+  doc.fontSize(12).font('Helvetica').text(`N° ${factura.idFactura}`, {
+    align: 'right'
+  });
+
+  // Línea separadora curva bajo header
+  doc.moveTo(marginLeft, headerHeight - 10).lineTo(pageWidth - marginLeft, headerHeight - 10).strokeColor(colores.secundario).lineWidth(3).stroke();
+  doc.strokeColor(colores.texto).lineWidth(1);
+
+  // Posicionar contenido principal
+  doc.y = headerHeight + 15;
+  doc.fillColor(colores.texto);
+
+  // Bloque empresa y datos factura (dos columnas)
+  const colWidth = usableWidth / 2 - 10;
+  const startY = doc.y;
+  const leftX = marginLeft;
+  const rightX = marginLeft + colWidth + 20;
+
+  // Empresa
+  doc.fontSize(13).font('Helvetica-Bold').text('Empresa', leftX, startY);
+  doc.moveDown(0.2).fontSize(11).font('Helvetica')
+    .text('BuildSmarts S.A.')
+    .text('NIT: 900.000.000-1')
+    .text('Calle 1 # 2-3, Ciudad')
+    .text('Teléfono: +57 300 000 0000');
+
+  // Datos factura
+  doc.fontSize(13).font('Helvetica-Bold').text('Factura', rightX, startY);
+  doc.moveDown(0.2).fontSize(11).font('Helvetica')
+    .text(`Fecha: ${new Date(factura.Fecha).toISOString().slice(0, 10)}`)
+    .text(`Proyecto: ${factura.Proyecto || '—'}`)
+    .text(`Cliente: ${factura.Cliente || '—'}`);
+
+  // Espacio después de columnas
+  doc.y = Math.max(doc.y, startY + 95);
+  doc.moveDown(0.5);
+
+  // Cliente detallado
+  doc.fontSize(13).font('Helvetica-Bold').text('Datos del Cliente');
+  doc.moveDown(0.2).fontSize(11).font('Helvetica')
+    .text(`Nombre: ${factura.Cliente || '—'}`)
+    .text(`Correo: ${factura.CorreoCliente || '—'}`)
+    .text(`Teléfono: ${factura.TelefonoCliente || '—'}`);
+  doc.moveDown(0.8);
+
+  // Concepto (placeholder)
+  doc.fontSize(13).font('Helvetica-Bold').text('Concepto');
+  doc.moveDown(0.2).fontSize(11).font('Helvetica')
+    .text('Servicios y/o materiales facturados (detalle extendido no disponible en el esquema actual).');
+  doc.moveDown(1.2);
+
+  // Total destacado en caja a la derecha
+  const totalBoxWidth = 230;
+  const totalBoxHeight = 55;
+  const totalX = marginLeft + usableWidth - totalBoxWidth;
+  const totalY = doc.y;
+  doc.save();
+  doc.roundedRect(totalX, totalY, totalBoxWidth, totalBoxHeight, 8).fill('#F5F7FA');
+  doc.strokeColor(colores.secundario).lineWidth(1).roundedRect(totalX, totalY, totalBoxWidth, totalBoxHeight, 8).stroke();
+  doc.restore();
+  doc.fontSize(12).font('Helvetica-Bold').fillColor(colores.texto).text('Valor Total', totalX + 15, totalY + 12);
+  doc.fontSize(18).font('Helvetica-Bold').fillColor(colores.secundario).text(`$ ${Number(factura.Valor_total).toLocaleString('es-CO', { minimumFractionDigits: 2 })}`, totalX + 15, totalY + 30);
+  doc.moveDown(4);
+
+  // Agradecimiento
+  doc.fontSize(10).font('Helvetica').fillColor(colores.gris).text('Gracias por su confianza.', { align: 'center' });
+
+  // Footer (página y marca)
+  const footerY = doc.page.height - 40;
+  doc.fontSize(8).fillColor(colores.gris).text('Generado automáticamente - BuildSmarts', marginLeft, footerY, { width: usableWidth, align: 'center' });
+}
+
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1407,8 +1514,6 @@ app.get('/api/contador/facturas/:id/pdf', requerirAutenticacion, requerirContado
 
     const doc = new PDFDocument({ margin: 50 });
     doc.pipe(res);
-
-    // Encabezado con logo (si existe)
     const logoCandidates = [
       path.join(__dirname, 'public', 'img', 'logo-ucc.png'),
       path.join(__dirname, 'public', 'img', 'logo.png'),
@@ -1416,71 +1521,11 @@ app.get('/api/contador/facturas/:id/pdf', requerirAutenticacion, requerirContado
       path.join(__dirname, 'public', 'logo.png')
     ];
     let logoPathToUse = null;
-    for (const pth of logoCandidates) {
-      if (fs.existsSync(pth)) { logoPathToUse = pth; break; }
-    }
-
-    const headerTop = 40; // un poco por encima del margen para más espacio visual
-    let headerBottom = 50; // fallback por si no hay logo
-    if (logoPathToUse) {
-      try { doc.image(logoPathToUse, 50, headerTop, { width: 120 }); headerBottom = headerTop + 120; } catch {}
-    }
-
-    // Título de la factura alineado a la derecha
-    doc
-      .fontSize(20)
-      .text('Factura', 0, headerTop, { align: 'right' });
-
-    // Línea separadora y avance debajo del logo/encabezado
-    doc.moveTo(50, headerBottom + 5).lineTo(545, headerBottom + 5).strokeColor('#ddd').stroke();
-    doc.strokeColor('black');
-    doc.y = headerBottom + 15;
-
-    // Datos empresa (simples)
-    doc
-      .fontSize(12)
-      .text('Empresa: BuildSmarts S.A.', { align: 'left' })
-      .text('NIT: 900.000.000-1')
-      .text('Dirección: Calle 1 # 2-3, Ciudad')
-      .text('Teléfono: +57 300 000 0000')
-      .moveDown();
-
-    // Datos factura
-    doc
-      .fontSize(12)
-      .text(`Factura N°: ${factura.idFactura}`)
-      .text(`Fecha: ${new Date(factura.Fecha).toISOString().slice(0,10)}`)
-      .text(`Proyecto: ${factura.Proyecto || '—'}`)
-      .moveDown();
-
-    // Datos cliente
-    doc
-      .fontSize(12)
-      .text('Cliente:', { underline: true })
-      .text(`Nombre: ${factura.Cliente || '—'}`)
-      .text(`Correo: ${factura.CorreoCliente || '—'}`)
-      .text(`Teléfono: ${factura.TelefonoCliente || '—'}`)
-      .moveDown();
-
-    // Concepto simple (no hay detalle en esquema)
-    doc
-      .fontSize(12)
-      .text('Concepto:', { underline: true })
-      .text('Servicios/Materiales facturados (detalle no disponible en el esquema actual)')
-      .moveDown();
-
-    // Total
-    doc
-      .fontSize(14)
-      .text(`Valor Total: $ ${Number(factura.Valor_total).toLocaleString('es-CO', { minimumFractionDigits: 2 })}`, { align: 'right' })
-      .moveDown(2);
-
-    doc
-      .fontSize(10)
-      .fillColor('#666')
-      .text('Gracias por su compra.', { align: 'center' });
-
+    for (const pth of logoCandidates) { if (fs.existsSync(pth)) { logoPathToUse = pth; break; } }
+    renderFacturaPDF(doc, factura, { logoPath: logoPathToUse });
     doc.end();
+
+    // (el contenido ahora lo maneja renderFacturaPDF)
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
@@ -1627,8 +1672,6 @@ app.get('/api/cliente/facturas/:id/pdf', requerirAutenticacion, requerirCliente,
     res.setHeader('Content-Disposition', `inline; filename="factura_${id}.pdf"`);
     const doc = new PDFDocument({ margin: 50 });
     doc.pipe(res);
-
-    // Encabezado con logo (si existe)
     const logoCandidates = [
       path.join(__dirname, 'public', 'img', 'logo-ucc.png'),
       path.join(__dirname, 'public', 'img', 'logo.png'),
@@ -1637,34 +1680,7 @@ app.get('/api/cliente/facturas/:id/pdf', requerirAutenticacion, requerirCliente,
     ];
     let logoPathToUse = null;
     for (const pth of logoCandidates) { if (fs.existsSync(pth)) { logoPathToUse = pth; break; } }
-    const headerTop = 40;
-    let headerBottom = 50;
-    if (logoPathToUse) { try { doc.image(logoPathToUse, 50, headerTop, { width: 120 }); headerBottom = headerTop + 120; } catch {} }
-    doc.fontSize(20).text('Factura', 0, headerTop, { align: 'right' });
-    doc.moveTo(50, headerBottom + 5).lineTo(545, headerBottom + 5).strokeColor('#ddd').stroke();
-    doc.strokeColor('black');
-    doc.y = headerBottom + 15;
-    doc.fontSize(12)
-      .text('Empresa: BuildSmarts S.A.')
-      .text('NIT: 900.000.000-1')
-      .text('Dirección: Calle 1 # 2-3, Ciudad')
-      .text('Teléfono: +57 300 000 0000').moveDown();
-    doc.fontSize(12)
-      .text(`Factura N°: ${factura.idFactura}`)
-      .text(`Fecha: ${new Date(factura.Fecha).toISOString().slice(0,10)}`)
-      .text(`Proyecto: ${factura.Proyecto || '—'}`).moveDown();
-    doc.fontSize(12)
-      .text('Cliente:', { underline: true })
-      .text(`Nombre: ${factura.Cliente || '—'}`)
-      .text(`Correo: ${factura.CorreoCliente || '—'}`)
-      .text(`Teléfono: ${factura.TelefonoCliente || '—'}`).moveDown();
-    doc.fontSize(12)
-      .text('Concepto:', { underline: true })
-      .text('Servicios/Materiales facturados').moveDown();
-    doc.fontSize(14)
-      .text(`Valor Total: $ ${Number(factura.Valor_total).toLocaleString('es-CO', { minimumFractionDigits: 2 })}`, { align: 'right' })
-      .moveDown(2);
-    doc.fontSize(10).fillColor('#666').text('Gracias por su confianza.', { align: 'center' });
+    renderFacturaPDF(doc, factura, { logoPath: logoPathToUse });
     doc.end();
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
