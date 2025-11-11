@@ -650,6 +650,7 @@ function renderizarTabla(filas) {
       const ordenFijo = [
         { clave: 'idEmpleado', titulo: 'ID Empleado' },
         { clave: 'Nombre', titulo: 'Nombre' },
+        { clave: 'Telefono', titulo: 'Teléfono' },
         { clave: 'Correo', titulo: 'Correo' },
         { clave: 'Asistencia', titulo: 'Asistencia' },
         { clave: 'Especialidad', titulo: 'Especialidad' }
