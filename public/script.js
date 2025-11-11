@@ -628,102 +628,104 @@ function renderizarTabla(filas) {
       return found ? { ...found, titulo: def.titulo, esId: def.esId || found.esId } : def;
     });
   }
+  // Reutilizar constructor unificado
+  const accionesRenderer = usuarioActual?.rol === 'Administrador' ? (registro) => {
+    if (!claveId) return [];
+    const valorId = registro[claveId];
+    if (valorId == null) return [];
+    const botonSeleccionar = crear('button', 'btn-table-action', 'Seleccionar');
+    botonSeleccionar.addEventListener('click', () => {
+      const textoId = String(valorId);
+      if (entradaIdActualizacion) {
+        let opcion = Array.from(entradaIdActualizacion.options).find((o) => o.value === textoId);
+        if (!opcion) {
+          opcion = document.createElement('option');
+          opcion.value = textoId;
+          opcion.textContent = `ID ${textoId}`;
+          entradaIdActualizacion.appendChild(opcion);
+        }
+        entradaIdActualizacion.value = textoId;
+      }
+      if (mensajeActualizacion) {
+        mensajeActualizacion.style.color = 'var(--success)';
+        mensajeActualizacion.textContent = `✓ ID ${textoId} seleccionado`;
+        setTimeout(() => { if (mensajeActualizacion) mensajeActualizacion.style.color = ''; }, 3000);
+      }
+    });
+    return [botonSeleccionar];
+  } : null;
 
-  const tabla = crear('table'); tabla.className = 'data-table';
-  const cabecera = crear('thead');
-  const filaCabecera = crear('tr');
-  columnasParaRender.forEach((columna) => {
-    const th = crear('th', columna.titulo);
-    th.setAttribute('scope', 'col');
-    filaCabecera.appendChild(th);
+  const tabla = construirTabla({
+    columnas: columnasParaRender,
+    filas: filasNorm,
+    incluirAcciones: !!accionesRenderer,
+    renderAcciones: accionesRenderer,
+    fijoEmpleado: entidadActual === 'empleado'
   });
-  if (usuarioActual?.rol === 'Administrador') {
-    const thAcc = crear('th','','Acciones'); thAcc.setAttribute('scope', 'col'); filaCabecera.appendChild(thAcc);
-  }
-  cabecera.appendChild(filaCabecera); tabla.appendChild(cabecera);
-
-  const cuerpo = crear('tbody');
-  filasNorm.forEach((registro) => {
-    const filaTabla = crear('tr');
-    if (entidadActual === 'empleado') {
-      // Render fijo para evitar desalineaciones: ID, Nombre, Correo, Teléfono, Asistencia, Especialidad
-      const ordenFijo = [
-        { clave: 'idEmpleado', titulo: 'ID Empleado', esId: true },
-        { clave: 'Nombre', titulo: 'Nombre' },
-        { clave: 'Telefono', titulo: 'Teléfono' },
-        { clave: 'Correo', titulo: 'Correo' },
-        { clave: 'Asistencia', titulo: 'Asistencia' },
-        { clave: 'Especialidad', titulo: 'Especialidad' }
-      ];
-      ordenFijo.forEach(def => {
-        const celda = crear('td');
-        celda.setAttribute('data-label', def.titulo);
-        let valor = registro[def.clave];
-        if (def.clave === 'idEmpleado' && (valor == null || valor === '')) {
-          valor = registro.idEmpleado || registro.id || registro.ID || registro.Id || '';
-        }
-        celda.textContent = valor == null ? '' : String(valor);
-        filaTabla.appendChild(celda);
-      });
-    } else {
-      columnasParaRender.forEach((columna) => {
-        const celda = crear('td'); celda.setAttribute('data-label', columna.titulo);
-        const valor = registro[columna.clave];
-        if (columna.tipo === 'imagen') {
-          const imagen = document.createElement('img');
-          imagen.src = resolverRutaImagen(valor);
-          imagen.alt = 'foto';
-          imagen.style.maxWidth = '64px';
-          imagen.style.maxHeight = '64px';
-          imagen.style.borderRadius = '6px';
-          imagen.style.border = '1px solid var(--border-light)';
-          imagen.loading = 'lazy';
-          imagen.onerror = () => { imagen.src = '/default-user.svg'; };
-          celda.appendChild(imagen);
-        } else {
-          celda.textContent = valor == null ? '' : String(valor);
-        }
-        if (columna.esId && (valor == null || valor === '')) {
-          const alt = registro.id || registro.ID || registro.Id;
-          if (alt != null) celda.textContent = String(alt);
-        }
-        filaTabla.appendChild(celda);
-      });
-    }
-    if (usuarioActual?.rol === 'Administrador') {
-      const celdaAcciones = crear('td');
-      celdaAcciones.className = 'actions-cell';
-      celdaAcciones.setAttribute('data-label', 'Acciones');
-      celdaAcciones.style.whiteSpace = 'nowrap';
-      const botonSeleccionar = crear('button', 'btn-table-action', 'Seleccionar');
-      botonSeleccionar.addEventListener('click', () => {
-        if (!claveId) return;
-        const valorId = registro[claveId];
-        if (valorId == null) return;
-        const textoId = String(valorId);
-        if (entradaIdActualizacion) {
-          let opcion = Array.from(entradaIdActualizacion.options).find((o) => o.value === textoId);
-          if (!opcion) {
-            opcion = document.createElement('option');
-            opcion.value = textoId;
-            opcion.textContent = `ID ${textoId}`;
-            entradaIdActualizacion.appendChild(opcion);
-          }
-          entradaIdActualizacion.value = textoId;
-        }
-        if (mensajeActualizacion) {
-          mensajeActualizacion.style.color = 'var(--success)';
-          mensajeActualizacion.textContent = `✓ ID ${textoId} seleccionado`;
-          setTimeout(() => { if (mensajeActualizacion) mensajeActualizacion.style.color = ''; }, 3000);
-        }
-      });
-      celdaAcciones.appendChild(botonSeleccionar);
-      filaTabla.appendChild(celdaAcciones);
-    }
-    cuerpo.appendChild(filaTabla);
-  });
-  tabla.appendChild(cuerpo);
   contenedorTabla.appendChild(tabla);
+}
+
+// Constructor unificado de tablas
+function construirTabla({ columnas, filas, incluirAcciones=false, renderAcciones=null, fijoEmpleado=false }) {
+  const tabla = document.createElement('table');
+  tabla.className = 'data-table';
+  const thead = document.createElement('thead');
+  const trHead = document.createElement('tr');
+  const columnasRender = fijoEmpleado ? [
+    { clave: 'idEmpleado', titulo: 'ID Empleado', esId: true },
+    { clave: 'Nombre', titulo: 'Nombre' },
+    { clave: 'Telefono', titulo: 'Teléfono' },
+    { clave: 'Correo', titulo: 'Correo' },
+    { clave: 'Asistencia', titulo: 'Asistencia' },
+    { clave: 'Especialidad', titulo: 'Especialidad' }
+  ].map(def => {
+    const m = columnas.find(c => c.clave.toLowerCase() === def.clave.toLowerCase()) || def;
+    return { ...m, titulo: def.titulo, esId: def.esId || m.esId };
+  }) : columnas;
+
+  columnasRender.forEach(col => {
+    const th = document.createElement('th'); th.textContent = col.titulo; trHead.appendChild(th);
+  });
+  if (incluirAcciones) {
+    const thAcc = document.createElement('th'); thAcc.textContent = 'Acciones'; trHead.appendChild(thAcc);
+  }
+  thead.appendChild(trHead); tabla.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  filas.forEach(registro => {
+    const tr = document.createElement('tr');
+    columnasRender.forEach(col => {
+      const td = document.createElement('td');
+      td.setAttribute('data-label', col.titulo);
+      let valor = registro[col.clave];
+      if (col.tipo === 'imagen') {
+        const img = document.createElement('img');
+        img.src = resolverRutaImagen(valor);
+        img.alt = 'foto';
+        img.loading = 'lazy';
+        img.style.maxWidth = '64px';
+        img.style.maxHeight = '64px';
+        img.style.borderRadius = '6px';
+        img.style.border = '1px solid var(--border-light)';
+        img.onerror = () => { img.src = '/default-user.svg'; };
+        td.appendChild(img);
+      } else {
+        if (col.esId && (valor == null || valor === '')) {
+          valor = registro.id || registro.ID || registro.Id || registro.idEmpleado || registro.idProyecto || registro.idCliente;
+        }
+        td.textContent = valor == null ? '' : String(valor);
+      }
+      tr.appendChild(td);
+    });
+    if (incluirAcciones && renderAcciones) {
+      const tdAcc = document.createElement('td'); tdAcc.setAttribute('data-label', 'Acciones'); tdAcc.className='actions-cell';
+      const acciones = renderAcciones(registro) || [];
+      acciones.forEach(a => tdAcc.appendChild(a));
+      tr.appendChild(tdAcc);
+    }
+    tbody.appendChild(tr);
+  });
+  tabla.appendChild(tbody);
+  return tabla;
 }
 
 async function cargarDatos() {
@@ -1388,40 +1390,23 @@ async function cargarAdmins() {
       tablaUsuariosAdmin.innerHTML = '<div style="text-align:center; padding:1rem; color: var(--text-muted);">No hay administradores</div>';
       return;
     }
-    const tabla = document.createElement('table');
-    const thead = document.createElement('thead');
-    const trh = document.createElement('tr');
-    [' ','Usuario','Correo','Foto','Acciones'].forEach(h => { const th = document.createElement('th'); th.textContent = h; trh.appendChild(th); });
-    thead.appendChild(trh);
-    const tbody = document.createElement('tbody');
-    lista.forEach(u => {
-      const tr = document.createElement('tr');
-      const tdUser = document.createElement('td'); tdUser.textContent = u.nombre_usuario; tr.appendChild(tdUser);
-      const tdCorreo = document.createElement('td'); tdCorreo.textContent = u.Correo || '—'; tr.appendChild(tdCorreo);
-
-      const tdFoto = document.createElement('td');
-      if (u.foto_url) {
-        const img = document.createElement('img');
-        img.src = u.foto_url;
-        img.alt = 'foto';
-        img.loading = 'lazy';
-        img.style.maxWidth = '56px';
-        img.style.borderRadius = '6px';
-        img.style.border = '1px solid var(--border-light)';
-        tdFoto.appendChild(img);
-      } else { tdFoto.textContent = '—'; }
-      tr.appendChild(tdFoto);
-      const tdAcc = document.createElement('td');
-      const btnDel = document.createElement('button');
-      btnDel.textContent = 'Eliminar';
-      btnDel.style.background = '#ef4444';
-      btnDel.addEventListener('click', async () => { await eliminarAdmin(u.idUsuario); });
-      tdAcc.appendChild(btnDel);
-      tr.appendChild(tdAcc);
-      tbody.appendChild(tr);
+    const columnas = [
+      { clave: 'nombre_usuario', titulo: 'Usuario' },
+      { clave: 'Correo', titulo: 'Correo' },
+      { clave: 'foto_url', titulo: 'Foto', tipo: 'imagen' }
+    ];
+    const tabla = construirTabla({
+      columnas,
+      filas: lista,
+      incluirAcciones: true,
+      renderAcciones: (u) => {
+        const btnDel = document.createElement('button');
+        btnDel.textContent = 'Eliminar';
+        btnDel.style.background = '#ef4444';
+        btnDel.addEventListener('click', async () => { await eliminarAdmin(u.idUsuario); });
+        return [btnDel];
+      }
     });
-    tabla.appendChild(thead);
-    tabla.appendChild(tbody);
     tablaUsuariosAdmin.innerHTML = '';
     tablaUsuariosAdmin.appendChild(tabla);
   } catch (e) {
