@@ -592,76 +592,146 @@ function resolverRutaImagen(valor) {
   return limpio;
 }
 
-// Tabla
-  async function renderizarTabla() {
-  contenedorTabla.innerHTML = '<div style="text-align:center; padding:1rem; color: var(--text-muted);">Cargando...</div>';
-  try {
-    const lista = await solicitarAPI('/api/min/empleados');
-    if (!Array.isArray(lista) || lista.length === 0) {
-      contenedorTabla.innerHTML = '<div style="text-align:center; padding:1rem; color: var(--text-muted);">No hay empleados</div>';
-      return;
+// Tabla: render genérico con detección de columnas por entidad
+function renderizarTabla(filas) {
+  contenedorTabla.innerHTML = '';
+  if (!filas || filas.length === 0) {
+    contenedorTabla.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Sin datos para mostrar</div>';
+    return;
+  }
+  // Copia superficial para no mutar la fuente
+  const filasNorm = filas.map(r => ({ ...r }));
+  const { columnas, claveId } = obtenerColumnasDisponibles(filasNorm);
+
+  // Garantizar que la columna ID esté primero si existe
+  let columnasParaRender = columnas.slice();
+  if (claveId) {
+    const idxId = columnasParaRender.findIndex(c => c.clave === claveId || c.esId === true || /^id/i.test(c.clave));
+    if (idxId > 0) {
+      const [colId] = columnasParaRender.splice(idxId, 1);
+      columnasParaRender.unshift(colId);
     }
-    const tabla = document.createElement('table');
-    const thead = document.createElement('thead');
-    const trh = document.createElement('tr');
-    ['ID Empleado','Nombre','Teléfono','Correo','Asistencia','Especialidad','Foto','Acciones'].forEach(h => { const th = document.createElement('th'); th.textContent = h; trh.appendChild(th); });
-    thead.appendChild(trh);
-    const tbody = document.createElement('tbody');
-    lista.forEach(u => {
-      const tr = document.createElement('tr');
-      const tdId = document.createElement('td'); tdId.textContent = u.idEmpleado || u.id || '—'; tr.appendChild(tdId);
-      const tdNombre = document.createElement('td'); tdNombre.textContent = u.Nombre || '—'; tr.appendChild(tdNombre);
-      const tdTelefono = document.createElement('td'); tdTelefono.textContent = u.Telefono || '—'; tr.appendChild(tdTelefono);
-      const tdCorreo = document.createElement('td'); tdCorreo.textContent = u.Correo || '—'; tr.appendChild(tdCorreo);
-      const tdAsistencia = document.createElement('td'); tdAsistencia.textContent = u.Asistencia || '—'; tr.appendChild(tdAsistencia);
-      const tdEspecialidad = document.createElement('td'); tdEspecialidad.textContent = u.Especialidad || '—'; tr.appendChild(tdEspecialidad);
-      const tdFoto = document.createElement('td');
-      if (u.foto_url) {
+  }
+
+  // Orden fijo seguro para empleados (evita desalineaciones)
+  if (entidadActual === 'empleado') {
+    const preferido = [
+      { clave: 'idEmpleado', titulo: 'ID Empleado', esId: true },
+      { clave: 'Nombre', titulo: 'Nombre' },
+      { clave: 'Telefono', titulo: 'Teléfono' },
+      { clave: 'Correo', titulo: 'Correo' },
+      { clave: 'Asistencia', titulo: 'Asistencia' },
+      { clave: 'Especialidad', titulo: 'Especialidad' },
+      { clave: 'foto_url', titulo: 'Foto', tipo: 'imagen' }
+    ];
+    const mapa = Object.create(null);
+    columnasParaRender.forEach(c => { mapa[c.clave.toLowerCase()] = c; });
+    columnasParaRender = preferido.map(def => {
+      const found = mapa[def.clave.toLowerCase()];
+      return found ? { ...found, titulo: def.titulo, tipo: def.tipo || found.tipo, esId: def.esId || found.esId } : def;
+    });
+  }
+
+  // Acciones: botón seleccionar ID para admins
+  const accionesRenderer = usuarioActual?.rol === 'Administrador' ? (registro) => {
+    if (!claveId) return [];
+    const valorId = registro[claveId] ?? registro.id ?? registro.ID ?? registro.Id;
+    if (valorId == null) return [];
+    const botonSeleccionar = crear('button', 'btn-table-action', 'Seleccionar');
+    botonSeleccionar.addEventListener('click', () => {
+      const textoId = String(valorId);
+      if (entradaIdActualizacion) {
+        let opcion = Array.from(entradaIdActualizacion.options).find(o => o.value === textoId);
+        if (!opcion) {
+          opcion = document.createElement('option');
+          opcion.value = textoId;
+          opcion.textContent = `ID ${textoId}`;
+          entradaIdActualizacion.appendChild(opcion);
+        }
+        entradaIdActualizacion.value = textoId;
+      }
+      if (mensajeActualizacion) {
+        mensajeActualizacion.style.color = 'var(--success)';
+        mensajeActualizacion.textContent = `✓ ID ${textoId} seleccionado`;
+        setTimeout(() => { if (mensajeActualizacion) mensajeActualizacion.style.color = ''; }, 3000);
+      }
+    });
+    return [botonSeleccionar];
+  } : null;
+
+  const tabla = construirTabla({
+    columnas: columnasParaRender,
+    filas: filasNorm,
+    incluirAcciones: !!accionesRenderer,
+    renderAcciones: accionesRenderer,
+    fijoEmpleado: entidadActual === 'empleado'
+  });
+  contenedorTabla.appendChild(tabla);
+}
+
+// Constructor reutilizable de tablas
+function construirTabla({ columnas, filas, incluirAcciones=false, renderAcciones=null, fijoEmpleado=false }) {
+  const tabla = document.createElement('table');
+  tabla.className = 'data-table';
+  const thead = document.createElement('thead');
+  const trHead = document.createElement('tr');
+  const columnasRender = fijoEmpleado ? [
+    { clave: 'idEmpleado', titulo: 'ID Empleado', esId: true },
+    { clave: 'Nombre', titulo: 'Nombre' },
+    { clave: 'Telefono', titulo: 'Teléfono' },
+    { clave: 'Correo', titulo: 'Correo' },
+    { clave: 'Asistencia', titulo: 'Asistencia' },
+    { clave: 'Especialidad', titulo: 'Especialidad' },
+    { clave: 'foto_url', titulo: 'Foto', tipo: 'imagen' }
+  ].map(def => {
+    const m = columnas.find(c => c.clave.toLowerCase() === def.clave.toLowerCase()) || def;
+    return { ...m, titulo: def.titulo, esId: def.esId || m.esId, tipo: def.tipo || m.tipo };
+  }) : columnas;
+
+  columnasRender.forEach(col => {
+    const th = document.createElement('th'); th.textContent = col.titulo; trHead.appendChild(th);
+  });
+  if (incluirAcciones) {
+    const thAcc = document.createElement('th'); thAcc.textContent = 'Acciones'; trHead.appendChild(thAcc);
+  }
+  thead.appendChild(trHead); tabla.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  filas.forEach(registro => {
+    const tr = document.createElement('tr');
+    columnasRender.forEach(col => {
+      const td = document.createElement('td');
+      td.setAttribute('data-label', col.titulo);
+      let valor = registro[col.clave];
+      if (col.tipo === 'imagen') {
         const img = document.createElement('img');
-        img.src = u.foto_url;
+        img.src = resolverRutaImagen(valor);
         img.alt = 'foto';
         img.loading = 'lazy';
-        img.style.maxWidth = '56px';
+        img.style.maxWidth = '64px';
+        img.style.maxHeight = '64px';
         img.style.borderRadius = '6px';
         img.style.border = '1px solid var(--border-light)';
-        tdFoto.appendChild(img);
-      } else { tdFoto.textContent = '—'; }
-      tr.appendChild(tdFoto);
-      const tdAcc = document.createElement('td');
-      const botonSeleccionar = document.createElement('button');
-      botonSeleccionar.className = 'btn-table-action';
-      botonSeleccionar.textContent = 'Seleccionar';
-      botonSeleccionar.addEventListener('click', () => {
-        const valorId = u.idEmpleado || u.id;
-        if (!valorId) return;
-        const textoId = String(valorId);
-        if (entradaIdActualizacion) {
-          let opcion = Array.from(entradaIdActualizacion.options).find(o => o.value === textoId);
-          if (!opcion) {
-            opcion = document.createElement('option');
-            opcion.value = textoId;
-            opcion.textContent = `ID ${textoId}`;
-            entradaIdActualizacion.appendChild(opcion);
-          }
-          entradaIdActualizacion.value = textoId;
+        img.onerror = () => { img.src = '/default-user.svg'; };
+        td.appendChild(img);
+      } else {
+        if (col.esId && (valor == null || valor === '')) {
+          valor = registro.id || registro.ID || registro.Id || registro.idEmpleado || registro.idProyecto || registro.idCliente || registro.idMaterial || registro.idTarea || registro.idTurno;
         }
-        if (mensajeActualizacion) {
-          mensajeActualizacion.style.color = 'var(--success)';
-          mensajeActualizacion.textContent = `✓ ID ${textoId} seleccionado`;
-          setTimeout(() => { if (mensajeActualizacion) mensajeActualizacion.style.color = ''; }, 3000);
-        }
-      });
-      tdAcc.appendChild(botonSeleccionar);
-      tr.appendChild(tdAcc);
-      tbody.appendChild(tr);
+        td.textContent = valor == null || valor === '' ? '—' : String(valor);
+      }
+      tr.appendChild(td);
     });
-    tabla.appendChild(thead);
-    tabla.appendChild(tbody);
-    contenedorTabla.innerHTML = '';
-    contenedorTabla.appendChild(tabla);
-  } catch (e) {
-    contenedorTabla.innerHTML = `<div style="color:salmon; padding:1rem;">Error: ${e.message}</div>`;
-  }
+    if (incluirAcciones && renderAcciones) {
+      const tdAcc = document.createElement('td'); tdAcc.setAttribute('data-label', 'Acciones'); tdAcc.className='actions-cell';
+      const acciones = renderAcciones(registro) || [];
+      acciones.forEach(a => tdAcc.appendChild(a));
+      tr.appendChild(tdAcc);
+    }
+    tbody.appendChild(tr);
+  });
+  tabla.appendChild(tbody);
+  return tabla;
 }
 
 
@@ -1330,40 +1400,23 @@ async function cargarAdmins() {
       tablaUsuariosAdmin.innerHTML = '<div style="text-align:center; padding:1rem; color: var(--text-muted);">No hay administradores</div>';
       return;
     }
-    const tabla = document.createElement('table');
-    const thead = document.createElement('thead');
-    const trh = document.createElement('tr');
-    [' ','Usuario','Correo','Foto','Acciones'].forEach(h => { const th = document.createElement('th'); th.textContent = h; trh.appendChild(th); });
-    thead.appendChild(trh);
-    const tbody = document.createElement('tbody');
-    lista.forEach(u => {
-      const tr = document.createElement('tr');
-      const tdUser = document.createElement('td'); tdUser.textContent = u.nombre_usuario; tr.appendChild(tdUser);
-      const tdCorreo = document.createElement('td'); tdCorreo.textContent = u.Correo || '—'; tr.appendChild(tdCorreo);
-
-      const tdFoto = document.createElement('td');
-      if (u.foto_url) {
-        const img = document.createElement('img');
-        img.src = u.foto_url;
-        img.alt = 'foto';
-        img.loading = 'lazy';
-        img.style.maxWidth = '56px';
-        img.style.borderRadius = '6px';
-        img.style.border = '1px solid var(--border-light)';
-        tdFoto.appendChild(img);
-      } else { tdFoto.textContent = '—'; }
-      tr.appendChild(tdFoto);
-      const tdAcc = document.createElement('td');
-      const btnDel = document.createElement('button');
-      btnDel.textContent = 'Eliminar';
-      btnDel.style.background = '#ef4444';
-      btnDel.addEventListener('click', async () => { await eliminarAdmin(u.idUsuario); });
-      tdAcc.appendChild(btnDel);
-      tr.appendChild(tdAcc);
-      tbody.appendChild(tr);
+    const columnas = [
+      { clave: 'nombre_usuario', titulo: 'Usuario' },
+      { clave: 'Correo', titulo: 'Correo' },
+      { clave: 'foto_url', titulo: 'Foto', tipo: 'imagen' }
+    ];
+    const tabla = construirTabla({
+      columnas,
+      filas: lista,
+      incluirAcciones: true,
+      renderAcciones: (u) => {
+        const btnDel = document.createElement('button');
+        btnDel.textContent = 'Eliminar';
+        btnDel.style.background = '#ef4444';
+        btnDel.addEventListener('click', async () => { await eliminarAdmin(u.idUsuario); });
+        return [btnDel];
+      }
     });
-    tabla.appendChild(thead);
-    tabla.appendChild(tbody);
     tablaUsuariosAdmin.innerHTML = '';
     tablaUsuariosAdmin.appendChild(tabla);
   } catch (e) {
