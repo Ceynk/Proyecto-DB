@@ -615,8 +615,8 @@ function renderizarTabla(filas) {
     const preferido = [
       { clave: 'idEmpleado', titulo: 'ID Empleado', esId: true },
       { clave: 'Nombre', titulo: 'Nombre' },
-      { clave: 'Correo', titulo: 'Correo' },
       { clave: 'Telefono', titulo: 'Teléfono' },
+      { clave: 'Correo', titulo: 'Correo' },
       { clave: 'Asistencia', titulo: 'Asistencia' },
       { clave: 'Especialidad', titulo: 'Especialidad' }
       // Puedes agregar { clave: 'Proyecto', titulo: 'Proyecto' } o 'foto_url' si quieres mostrarlos aquí
@@ -650,8 +650,8 @@ function renderizarTabla(filas) {
       const ordenFijo = [
         { clave: 'idEmpleado', titulo: 'ID Empleado' },
         { clave: 'Nombre', titulo: 'Nombre' },
-        { clave: 'Correo', titulo: 'Correo' },
         { clave: 'Telefono', titulo: 'Teléfono' },
+        { clave: 'Correo', titulo: 'Correo' },
         { clave: 'Asistencia', titulo: 'Asistencia' },
         { clave: 'Especialidad', titulo: 'Especialidad' }
       ];
