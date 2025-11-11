@@ -593,61 +593,30 @@ function resolverRutaImagen(valor) {
 }
 
 // Tabla
-function renderizarTabla(filas) {
-  contenedorTabla.innerHTML = '';
-  if (!filas || filas.length === 0) {
-    contenedorTabla.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Sin datos para mostrar</div>';
-    return;
-  }
-  const filasNorm = filas.map(r => ({ ...r }));
-  const { columnas, claveId } = obtenerColumnasDisponibles(filasNorm);
-  // Asegurar que la columna ID esté presente y sea la primera para evitar desalineaciones
-  let columnasParaRender = columnas.slice();
-  if (claveId) {
-    const idxId = columnasParaRender.findIndex(c => c.clave === claveId || c.esId === true || /^id/i.test(c.clave));
-    if (idxId > 0) {
-      const [colId] = columnasParaRender.splice(idxId, 1);
-      columnasParaRender.unshift(colId);
+async function renderizarTabla(filas) {
+  contenedorTabla.innerHTML = '<div style="text-align:center; padding:1rem; color: var(--text-muted);">Cargando...</div>';
+  try {
+    if (!filas || filas.length === 0) {
+      contenedorTabla.innerHTML = '<div style="text-align:center; padding:1rem; color: var(--text-muted);">Sin datos para mostrar</div>';
+      return;
     }
-  }
-  // Forzar el orden explícito para Empleado para evitar cualquier corrimiento
-  if (entidadActual === 'empleado') {
-    const preferido = [
-      { clave: 'idEmpleado', titulo: 'ID Empleado', esId: true },
-      { clave: 'Nombre', titulo: 'Nombre' },
-      { clave: 'Telefono', titulo: 'Teléfono' },
-      { clave: 'Correo', titulo: 'Correo' },
-      { clave: 'Asistencia', titulo: 'Asistencia' },
-      { clave: 'Especialidad', titulo: 'Especialidad' }
-      // Puedes agregar { clave: 'Proyecto', titulo: 'Proyecto' } o 'foto_url' si quieres mostrarlos aquí
-    ];
-    const mapa = Object.create(null);
-    columnasParaRender.forEach(c => { mapa[c.clave.toLowerCase()] = c; });
-    columnasParaRender = preferido.map(def => {
-      const found = mapa[def.clave.toLowerCase()];
-      return found ? { ...found, titulo: def.titulo, esId: def.esId || found.esId } : def;
-    });
-  }
 
-  const tabla = crear('table'); tabla.className = 'data-table';
-  const cabecera = crear('thead');
-  const filaCabecera = crear('tr');
-  columnasParaRender.forEach((columna) => {
-    const th = crear('th', columna.titulo);
-    th.setAttribute('scope', 'col');
-    filaCabecera.appendChild(th);
-  });
-  if (usuarioActual?.rol === 'Administrador') {
-    const thAcc = crear('th','','Acciones'); thAcc.setAttribute('scope', 'col'); filaCabecera.appendChild(thAcc);
-  }
-  cabecera.appendChild(filaCabecera); tabla.appendChild(cabecera);
+    const filasNorm = filas.map(r => ({ ...r }));
+    const { columnas, claveId } = obtenerColumnasDisponibles(filasNorm);
+    let columnasParaRender = columnas.slice();
 
-  const cuerpo = crear('tbody');
-  filasNorm.forEach((registro) => {
-    const filaTabla = crear('tr');
+    // Asegurar que la columna ID esté primero
+    if (claveId) {
+      const idxId = columnasParaRender.findIndex(c => c.clave === claveId || c.esId === true || /^id/i.test(c.clave));
+      if (idxId > 0) {
+        const [colId] = columnasParaRender.splice(idxId, 1);
+        columnasParaRender.unshift(colId);
+      }
+    }
+
+    // Orden fijo si es entidad empleado
     if (entidadActual === 'empleado') {
-      // Render fijo para evitar desalineaciones: ID, Nombre, Correo, Teléfono, Asistencia, Especialidad
-      const ordenFijo = [
+      const preferido = [
         { clave: 'idEmpleado', titulo: 'ID Empleado', esId: true },
         { clave: 'Nombre', titulo: 'Nombre' },
         { clave: 'Telefono', titulo: 'Teléfono' },
@@ -655,76 +624,135 @@ function renderizarTabla(filas) {
         { clave: 'Asistencia', titulo: 'Asistencia' },
         { clave: 'Especialidad', titulo: 'Especialidad' }
       ];
-      ordenFijo.forEach(def => {
-        const celda = crear('td');
-        celda.setAttribute('data-label', def.titulo);
-        let valor = registro[def.clave];
-        if (def.clave === 'idEmpleado' && (valor == null || valor === '')) {
-          valor = registro.idEmpleado || registro.id || registro.ID || registro.Id || '';
-        }
-        celda.textContent = valor == null ? '' : String(valor);
-        filaTabla.appendChild(celda);
-      });
-    } else {
-      columnasParaRender.forEach((columna) => {
-        const celda = crear('td'); celda.setAttribute('data-label', columna.titulo);
-        const valor = registro[columna.clave];
-        if (columna.tipo === 'imagen') {
-          const imagen = document.createElement('img');
-          imagen.src = resolverRutaImagen(valor);
-          imagen.alt = 'foto';
-          imagen.style.maxWidth = '64px';
-          imagen.style.maxHeight = '64px';
-          imagen.style.borderRadius = '6px';
-          imagen.style.border = '1px solid var(--border-light)';
-          imagen.loading = 'lazy';
-          imagen.onerror = () => { imagen.src = '/default-user.svg'; };
-          celda.appendChild(imagen);
-        } else {
-          celda.textContent = valor == null ? '' : String(valor);
-        }
-        if (columna.esId && (valor == null || valor === '')) {
-          const alt = registro.id || registro.ID || registro.Id;
-          if (alt != null) celda.textContent = String(alt);
-        }
-        filaTabla.appendChild(celda);
+      const mapa = Object.create(null);
+      columnasParaRender.forEach(c => { mapa[c.clave.toLowerCase()] = c; });
+      columnasParaRender = preferido.map(def => {
+        const found = mapa[def.clave.toLowerCase()];
+        return found ? { ...found, titulo: def.titulo, esId: def.esId || found.esId } : def;
       });
     }
+
+    const tabla = document.createElement('table');
+    const thead = document.createElement('thead');
+    const trh = document.createElement('tr');
+
+    columnasParaRender.forEach(col => {
+      const th = document.createElement('th');
+      th.textContent = col.titulo;
+      trh.appendChild(th);
+    });
     if (usuarioActual?.rol === 'Administrador') {
-      const celdaAcciones = crear('td');
-      celdaAcciones.className = 'actions-cell';
-      celdaAcciones.setAttribute('data-label', 'Acciones');
-      celdaAcciones.style.whiteSpace = 'nowrap';
-      const botonSeleccionar = crear('button', 'btn-table-action', 'Seleccionar');
-      botonSeleccionar.addEventListener('click', () => {
-        if (!claveId) return;
-        const valorId = registro[claveId];
-        if (valorId == null) return;
-        const textoId = String(valorId);
-        if (entradaIdActualizacion) {
-          let opcion = Array.from(entradaIdActualizacion.options).find((o) => o.value === textoId);
-          if (!opcion) {
-            opcion = document.createElement('option');
-            opcion.value = textoId;
-            opcion.textContent = `ID ${textoId}`;
-            entradaIdActualizacion.appendChild(opcion);
-          }
-          entradaIdActualizacion.value = textoId;
-        }
-        if (mensajeActualizacion) {
-          mensajeActualizacion.style.color = 'var(--success)';
-          mensajeActualizacion.textContent = `✓ ID ${textoId} seleccionado`;
-          setTimeout(() => { if (mensajeActualizacion) mensajeActualizacion.style.color = ''; }, 3000);
-        }
-      });
-      celdaAcciones.appendChild(botonSeleccionar);
-      filaTabla.appendChild(celdaAcciones);
+      const thAcc = document.createElement('th');
+      thAcc.textContent = 'Acciones';
+      trh.appendChild(thAcc);
     }
-    cuerpo.appendChild(filaTabla);
-  });
-  tabla.appendChild(cuerpo);
-  contenedorTabla.appendChild(tabla);
+
+    thead.appendChild(trh);
+    const tbody = document.createElement('tbody');
+
+    filasNorm.forEach(registro => {
+      const tr = document.createElement('tr');
+
+      // Render fijo para empleado
+      if (entidadActual === 'empleado') {
+        const ordenFijo = [
+          { clave: 'idEmpleado', titulo: 'ID Empleado', esId: true },
+          { clave: 'Nombre', titulo: 'Nombre' },
+          { clave: 'Telefono', titulo: 'Teléfono' },
+          { clave: 'Correo', titulo: 'Correo' },
+          { clave: 'Asistencia', titulo: 'Asistencia' },
+          { clave: 'Especialidad', titulo: 'Especialidad' }
+        ];
+        ordenFijo.forEach(def => {
+          const td = document.createElement('td');
+          td.setAttribute('data-label', def.titulo);
+          let valor = registro[def.clave];
+          if (def.clave === 'idEmpleado' && (valor == null || valor === '')) {
+            valor = registro.id || registro.ID || registro.Id || '';
+          }
+          td.textContent = valor == null ? '' : String(valor);
+          tr.appendChild(td);
+        });
+      } else {
+        // Render genérico
+        columnasParaRender.forEach(col => {
+          const td = document.createElement('td');
+          td.setAttribute('data-label', col.titulo);
+          const valor = registro[col.clave];
+
+          if (col.tipo === 'imagen') {
+            const img = document.createElement('img');
+            img.src = valor ? resolverRutaImagen(valor) : '/default-user.svg';
+            img.alt = 'foto';
+            img.loading = 'lazy';
+            img.style.maxWidth = '64px';
+            img.style.maxHeight = '64px';
+            img.style.borderRadius = '6px';
+            img.style.border = '1px solid var(--border-light)';
+            img.onerror = () => { img.src = '/default-user.svg'; };
+            td.appendChild(img);
+          } else {
+            td.textContent = valor == null ? '' : String(valor);
+          }
+
+          if (col.esId && (valor == null || valor === '')) {
+            const alt = registro.id || registro.ID || registro.Id;
+            if (alt != null) td.textContent = String(alt);
+          }
+          tr.appendChild(td);
+        });
+      }
+
+      // Acciones si es administrador
+      if (usuarioActual?.rol === 'Administrador') {
+        const tdAcc = document.createElement('td');
+        tdAcc.className = 'actions-cell';
+        tdAcc.setAttribute('data-label', 'Acciones');
+        tdAcc.style.whiteSpace = 'nowrap';
+
+        const botonSeleccionar = document.createElement('button');
+        botonSeleccionar.className = 'btn-table-action';
+        botonSeleccionar.textContent = 'Seleccionar';
+        botonSeleccionar.addEventListener('click', () => {
+          if (!claveId) return;
+          const valorId = registro[claveId];
+          if (valorId == null) return;
+          const textoId = String(valorId);
+          if (entradaIdActualizacion) {
+            let opcion = Array.from(entradaIdActualizacion.options).find(o => o.value === textoId);
+            if (!opcion) {
+              opcion = document.createElement('option');
+              opcion.value = textoId;
+              opcion.textContent = `ID ${textoId}`;
+              entradaIdActualizacion.appendChild(opcion);
+            }
+            entradaIdActualizacion.value = textoId;
+          }
+          if (mensajeActualizacion) {
+            mensajeActualizacion.style.color = 'var(--success)';
+            mensajeActualizacion.textContent = `✓ ID ${textoId} seleccionado`;
+            setTimeout(() => { if (mensajeActualizacion) mensajeActualizacion.style.color = ''; }, 3000);
+          }
+        });
+
+        tdAcc.appendChild(botonSeleccionar);
+        tr.appendChild(tdAcc);
+      }
+
+      tbody.appendChild(tr);
+    });
+
+    tabla.appendChild(thead);
+    tabla.appendChild(tbody);
+    contenedorTabla.innerHTML = '';
+    contenedorTabla.appendChild(tabla);
+
+  } catch (e) {
+    contenedorTabla.innerHTML = `<div style="color:salmon; padding:1rem;">Error: ${e.message}</div>`;
+  }
 }
+
+
 
 async function cargarDatos() {
   if (modoActual !== 'entidades') return;
