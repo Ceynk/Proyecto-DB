@@ -1408,11 +1408,33 @@ app.get('/api/contador/facturas/:id/pdf', requerirAutenticacion, requerirContado
     const doc = new PDFDocument({ margin: 50 });
     doc.pipe(res);
 
-    // Encabezado
+    // Encabezado con logo (si existe)
+    const logoCandidates = [
+      path.join(__dirname, 'public', 'img', 'logo-ucc.png'),
+      path.join(__dirname, 'public', 'img', 'logo.png'),
+      path.join(__dirname, 'public', 'logo-ucc.png'),
+      path.join(__dirname, 'public', 'logo.png')
+    ];
+    let logoPathToUse = null;
+    for (const pth of logoCandidates) {
+      if (fs.existsSync(pth)) { logoPathToUse = pth; break; }
+    }
+
+    const headerTop = 40; // un poco por encima del margen para más espacio visual
+    let headerBottom = 50; // fallback por si no hay logo
+    if (logoPathToUse) {
+      try { doc.image(logoPathToUse, 50, headerTop, { width: 120 }); headerBottom = headerTop + 120; } catch {}
+    }
+
+    // Título de la factura alineado a la derecha
     doc
       .fontSize(20)
-      .text('Factura', { align: 'right' })
-      .moveDown(0.5);
+      .text('Factura', 0, headerTop, { align: 'right' });
+
+    // Línea separadora y avance debajo del logo/encabezado
+    doc.moveTo(50, headerBottom + 5).lineTo(545, headerBottom + 5).strokeColor('#ddd').stroke();
+    doc.strokeColor('black');
+    doc.y = headerBottom + 15;
 
     // Datos empresa (simples)
     doc
@@ -1605,7 +1627,23 @@ app.get('/api/cliente/facturas/:id/pdf', requerirAutenticacion, requerirCliente,
     res.setHeader('Content-Disposition', `inline; filename="factura_${id}.pdf"`);
     const doc = new PDFDocument({ margin: 50 });
     doc.pipe(res);
-    doc.fontSize(20).text('Factura', { align: 'right' }).moveDown(0.5);
+
+    // Encabezado con logo (si existe)
+    const logoCandidates = [
+      path.join(__dirname, 'public', 'img', 'logo-ucc.png'),
+      path.join(__dirname, 'public', 'img', 'logo.png'),
+      path.join(__dirname, 'public', 'logo-ucc.png'),
+      path.join(__dirname, 'public', 'logo.png')
+    ];
+    let logoPathToUse = null;
+    for (const pth of logoCandidates) { if (fs.existsSync(pth)) { logoPathToUse = pth; break; } }
+    const headerTop = 40;
+    let headerBottom = 50;
+    if (logoPathToUse) { try { doc.image(logoPathToUse, 50, headerTop, { width: 120 }); headerBottom = headerTop + 120; } catch {} }
+    doc.fontSize(20).text('Factura', 0, headerTop, { align: 'right' });
+    doc.moveTo(50, headerBottom + 5).lineTo(545, headerBottom + 5).strokeColor('#ddd').stroke();
+    doc.strokeColor('black');
+    doc.y = headerBottom + 15;
     doc.fontSize(12)
       .text('Empresa: BuildSmarts S.A.')
       .text('NIT: 900.000.000-1')
