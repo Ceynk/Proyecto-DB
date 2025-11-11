@@ -599,108 +599,88 @@ function renderizarTabla(filas) {
     contenedorTabla.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Sin datos para mostrar</div>';
     return;
   }
+  
   const filasNorm = filas.map(r => ({ ...r }));
   const { columnas, claveId } = obtenerColumnasDisponibles(filasNorm);
-  // Asegurar que la columna ID esté presente y sea la primera para evitar desalineaciones
-  let columnasParaRender = columnas.slice();
-  if (claveId) {
-    const idxId = columnasParaRender.findIndex(c => c.clave === claveId || c.esId === true || /^id/i.test(c.clave));
-    if (idxId > 0) {
-      const [colId] = columnasParaRender.splice(idxId, 1);
-      columnasParaRender.unshift(colId);
-    }
-  }
-  // Forzar el orden explícito para Empleado para evitar cualquier corrimiento
+  
+  // Orden fijo para empleados
+  let columnasParaRender;
   if (entidadActual === 'empleado') {
-    const preferido = [
-      { clave: 'idEmpleado', titulo: 'ID Empleado', esId: true },
+    columnasParaRender = [
+      { clave: 'idEmpleado', titulo: 'ID', esId: true },
       { clave: 'Nombre', titulo: 'Nombre' },
       { clave: 'Telefono', titulo: 'Teléfono' },
-      { clave: 'Correo', titulo: 'Correo' },
-      { clave: 'Asistencia', titulo: 'Asistencia' },
-      { clave: 'Especialidad', titulo: 'Especialidad' }
-      // Puedes agregar { clave: 'Proyecto', titulo: 'Proyecto' } o 'foto_url' si quieres mostrarlos aquí
+      { clave: 'Correo', titulo: 'Email' },
+      { clave: 'Asistencia', titulo: 'Estado' },
+      { clave: 'Especialidad', titulo: 'Profesión' }
     ];
-    const mapa = Object.create(null);
-    columnasParaRender.forEach(c => { mapa[c.clave.toLowerCase()] = c; });
-    columnasParaRender = preferido.map(def => {
-      const found = mapa[def.clave.toLowerCase()];
-      return found ? { ...found, titulo: def.titulo, esId: def.esId || found.esId } : def;
-    });
+  } else {
+    // Para otras entidades, mantener la lógica original
+    columnasParaRender = columnas.slice();
+    if (claveId) {
+      const idxId = columnasParaRender.findIndex(c => c.clave === claveId || c.esId === true || /^id/i.test(c.clave));
+      if (idxId > 0) {
+        const [colId] = columnasParaRender.splice(idxId, 1);
+        columnasParaRender.unshift(colId);
+      }
+    }
   }
 
-  const tabla = crear('table'); tabla.className = 'data-table';
+  const tabla = crear('table'); 
+  tabla.className = 'data-table';
+  
   const cabecera = crear('thead');
   const filaCabecera = crear('tr');
+  
+  // Renderizar cabeceras usando columnasParaRender
   columnasParaRender.forEach((columna) => {
     const th = crear('th', columna.titulo);
     th.setAttribute('scope', 'col');
     filaCabecera.appendChild(th);
   });
+  
   if (usuarioActual?.rol === 'Administrador') {
-    const thAcc = crear('th','','Acciones'); thAcc.setAttribute('scope', 'col'); filaCabecera.appendChild(thAcc);
+    const thAcc = crear('th', 'Acciones');
+    thAcc.setAttribute('scope', 'col');
+    filaCabecera.appendChild(thAcc);
   }
-  cabecera.appendChild(filaCabecera); tabla.appendChild(cabecera);
+  
+  cabecera.appendChild(filaCabecera);
+  tabla.appendChild(cabecera);
 
   const cuerpo = crear('tbody');
   filasNorm.forEach((registro) => {
     const filaTabla = crear('tr');
-    if (entidadActual === 'empleado') {
-      // Render fijo para evitar desalineaciones: ID, Nombre, Telefono, Correo, Asistencia, Especialidad
-      const ordenFijo = [
-        { clave: 'idEmpleado', titulo: 'ID Empleado', esId: true },
-        { clave: 'Nombre', titulo: 'Nombre' },
-        { clave: 'Telefono', titulo: 'Teléfono' },
-        { clave: 'Correo', titulo: 'Correo' },
-        { clave: 'Asistencia', titulo: 'Asistencia' },
-        { clave: 'Especialidad', titulo: 'Especialidad' }
-      ];
-      ordenFijo.forEach(def => {
-        const celda = crear('td');
-        celda.setAttribute('data-label', def.titulo);
-        let valor = registro[def.clave];
-        if (def.clave === 'idEmpleado' && (valor == null || valor === '')) {
-          valor = registro.idEmpleado || registro.id || registro.ID || registro.Id || '';
-        }
-        celda.textContent = valor == null ? '' : String(valor);
-        filaTabla.appendChild(celda);
-      });
-    } else {
-      columnasParaRender.forEach((columna) => {
-        const celda = crear('td'); celda.setAttribute('data-label', columna.titulo);
-        const valor = registro[columna.clave];
-        if (columna.tipo === 'imagen') {
-          const imagen = document.createElement('img');
-          imagen.src = resolverRutaImagen(valor);
-          imagen.alt = 'foto';
-          imagen.style.maxWidth = '64px';
-          imagen.style.maxHeight = '64px';
-          imagen.style.borderRadius = '6px';
-          imagen.style.border = '1px solid var(--border-light)';
-          imagen.loading = 'lazy';
-          imagen.onerror = () => { imagen.src = '/default-user.svg'; };
-          celda.appendChild(imagen);
-        } else {
-          celda.textContent = valor == null ? '' : String(valor);
-        }
-        if (columna.esId && (valor == null || valor === '')) {
-          const alt = registro.id || registro.ID || registro.Id;
-          if (alt != null) celda.textContent = String(alt);
-        }
-        filaTabla.appendChild(celda);
-      });
-    }
+    
+    // Usar el mismo orden para todas las filas
+    columnasParaRender.forEach((columna) => {
+      const celda = crear('td');
+      celda.setAttribute('data-label', columna.titulo);
+      
+      let valor = registro[columna.clave];
+      
+      // Para el ID, buscar alternativas si está vacío
+      if (columna.esId && (valor == null || valor === '')) {
+        valor = registro.idEmpleado || registro.id || registro.ID || registro.Id || '';
+      }
+      
+      celda.textContent = valor == null ? '' : String(valor);
+      filaTabla.appendChild(celda);
+    });
+
     if (usuarioActual?.rol === 'Administrador') {
       const celdaAcciones = crear('td');
       celdaAcciones.className = 'actions-cell';
       celdaAcciones.setAttribute('data-label', 'Acciones');
       celdaAcciones.style.whiteSpace = 'nowrap';
+      
       const botonSeleccionar = crear('button', 'btn-table-action', 'Seleccionar');
       botonSeleccionar.addEventListener('click', () => {
         if (!claveId) return;
         const valorId = registro[claveId];
         if (valorId == null) return;
         const textoId = String(valorId);
+        
         if (entradaIdActualizacion) {
           let opcion = Array.from(entradaIdActualizacion.options).find((o) => o.value === textoId);
           if (!opcion) {
@@ -711,17 +691,21 @@ function renderizarTabla(filas) {
           }
           entradaIdActualizacion.value = textoId;
         }
+        
         if (mensajeActualizacion) {
           mensajeActualizacion.style.color = 'var(--success)';
           mensajeActualizacion.textContent = `✓ ID ${textoId} seleccionado`;
           setTimeout(() => { if (mensajeActualizacion) mensajeActualizacion.style.color = ''; }, 3000);
         }
       });
+      
       celdaAcciones.appendChild(botonSeleccionar);
       filaTabla.appendChild(celdaAcciones);
     }
+    
     cuerpo.appendChild(filaTabla);
   });
+  
   tabla.appendChild(cuerpo);
   contenedorTabla.appendChild(tabla);
 }

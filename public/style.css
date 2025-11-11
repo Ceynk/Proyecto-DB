@@ -643,15 +643,11 @@ body {
 
 
 .panel-header {
-  display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: var(--spacing-xl);
   padding-bottom: var(--spacing-xl);
   border-bottom: 2px solid transparent;
-  background: linear-gradient(var(--bg-secondary), var(--bg-secondary)) padding-box,
-    var(--accent-gradient) border-box;
-  border-image-slice: 1;
   gap: var(--spacing-md);
   flex-wrap: wrap;
   position: relative;
