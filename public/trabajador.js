@@ -1,4 +1,3 @@
-// Variables en español
 const baseAPI = (typeof window !== 'undefined' && (window.API_BASE || localStorage.getItem('API_BASE'))) || '';
 let usuarioActual = null;
 
@@ -28,7 +27,6 @@ async function cargarInfo() {
   try {
     const info = await api('/api/empleado/mis-datos');
     const initials = (info.Nombre || '?').split(' ').map(s=>s[0]).filter(Boolean).slice(0,2).join('').toUpperCase();
-    // Mostrar asistencia sólo si existe fecha (marcada alguna vez)
     const asistencia = info.Asistencia_fecha ? `${info.Asistencia || 'Presente'}\n${new Date(info.Asistencia_fecha).toLocaleString('es-CO', { hour12:false })}` : null;
     cont.innerHTML = `
       <div class="info-card">
@@ -81,7 +79,6 @@ async function cargarTareas() {
   }
 }
 
-// Eventos
 const btnSalir = document.getElementById('btnSalir');
 if (btnSalir) {
   btnSalir.addEventListener('click', async () => {
@@ -142,7 +139,6 @@ if (btnSalida) {
 }
 
 if (btnAsistencia) {
-  // mantiene endpoint rápido para solo estado manual (opcional)
   btnAsistencia.addEventListener('click', async () => {
     msgAsistencia.textContent = 'Marcando estado...'; msgAsistencia.style.color='';
     try {
@@ -157,7 +153,6 @@ if (btnAsistencia) {
   });
 }
 
-// refrescar resumen al cargar
 refrescarResumenAsistencia();
 
 const btnRefrescar = document.getElementById('btnRefrescar');
@@ -167,7 +162,6 @@ if (btnRefrescar) {
 
 verificarSesion();
 
-// ===================== Inventario para Trabajador =====================
 async function cargarMaterialesTrabajador() {
   const cont = document.getElementById('catalogoMaterialesTrab');
   if (!cont) return;
@@ -254,7 +248,6 @@ async function cargarModelosFaceTrab() {
   cargandoModeloTrab = true;
   const baseLocal = '/models';
   try {
-    // Verificar archivos básicos
     const reqs = [
       `${baseLocal}/tiny_face_detector_model-weights_manifest.json`,
       `${baseLocal}/tiny_face_detector_model.bin`,

@@ -213,10 +213,8 @@ async function cargarFacturas() {
 async function descargarPDF(id) {
   const url = `${baseAPI}/api/contador/facturas/${encodeURIComponent(id)}/pdf`;
   try {
-    // Pedimos como blob con credenciales para garantizar envío de la sesión
     const resp = await fetch(url, { credentials: 'include' });
     if (!resp.ok) {
-      // Intentar leer mensaje de error si viene en JSON
       let msg = `Error ${resp.status}`;
       try { const j = await resp.json(); if (j && j.error) msg = j.error; } catch {}
       alert(`No se pudo generar el PDF: ${msg}`);
@@ -230,13 +228,11 @@ async function descargarPDF(id) {
     }
     setTimeout(()=>URL.revokeObjectURL(blobUrl), 60_000);
   } catch (e) {
-    // Fallback a abrir la URL directa
     const win = window.open(url, '_blank');
     if (!win) { const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.click(); }
   }
 }
 
-// Eventos UI
 const btnSalir = document.getElementById('btnSalir');
 if (btnSalir) {
   btnSalir.addEventListener('click', async () => {
@@ -286,7 +282,6 @@ if (formFactura) {
 
 verificarSesion();
 
-// ====== Inventario Cards (catálogo) ======
 async function cargarInventarioCards() {
   const cont = document.getElementById('gridInventario');
   if (!cont) return;
@@ -350,7 +345,6 @@ if (buscarInvCards) {
   buscarInvCards.addEventListener('input', () => { if (buscarInvCards._t) clearTimeout(buscarInvCards._t); buscarInvCards._t = setTimeout(cargarInventarioCards, 300); });
 }
 
-// ===================== Enrolamiento facial (Contador) =====================
 let modelosCargadosCont = false;
 let cargandoModeloCont = false;
 let streamCont = null;
@@ -379,7 +373,6 @@ async function cargarModelosFaceCont() {
   }
 }
 
-// Prepara UI de auto-enrolamiento facial para Contador
 function prepararSelfEnrollmentCont(yaTiene) {
   const btn = document.getElementById('btnEnrollFaceCont');
   const btnInit = document.getElementById('btnInitCamCont');
@@ -392,7 +385,6 @@ function prepararSelfEnrollmentCont(yaTiene) {
 
   if (yaTiene) btn.textContent = 'Actualizar mi rostro';
 
-  // Evitar múltiples bindings si se llama dos veces
   if (btn._prepared) return; btn._prepared = true;
 
   btn.addEventListener('click', () => {

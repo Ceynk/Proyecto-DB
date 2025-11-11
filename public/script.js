@@ -1,6 +1,3 @@
-// ========================================
-// Tema (Oscuro/Claro)
-// ========================================
 const interruptorTema = document.getElementById('interruptorTema');
 const iconoClaro = document.getElementById('iconoClaro');
 const iconoOscuro = document.getElementById('iconoOscuro');
@@ -34,12 +31,9 @@ function alternarTema() {
 if (interruptorTema) interruptorTema.addEventListener('click', alternarTema);
 iniciarTema();
 
-// ========================================
-// Performance móvil: detectar y aplicar clase
-// ========================================
+
 function activarModoRendimientoMovil(){
   const d = document.documentElement;
-  // Criterio: ancho <= 768 o dispositivo táctil + memoria menor a 4GB (aprox via navigator.deviceMemory)
   const esMovil = window.innerWidth <= 768 || ('ontouchstart' in window);
   const mem = navigator.deviceMemory || 4;
   if(esMovil && mem <= 4){
@@ -49,22 +43,17 @@ function activarModoRendimientoMovil(){
 window.addEventListener('resize', activarModoRendimientoMovil, { passive:true });
 activarModoRendimientoMovil();
 
-// Reducir listeners scroll costosos (debounce genérico)
 let _rafScroll = false;
 window.addEventListener('scroll', ()=>{
   if(!document.documentElement.classList.contains('perf-mobile')) return;
   if(_rafScroll) return;
   _rafScroll = true;
-  requestAnimationFrame(()=>{ _rafScroll = false; /* se podría añadir lógica liviana aquí */ });
+  requestAnimationFrame(()=>{ _rafScroll = false;});
 }, { passive:true });
 
-// Utilidad para medir render pesado (debug)
 window._perfMark = function(label){ performance.mark(label); };
 window._perfMeasure = function(name,start,end){ try { performance.measure(name,start,end); console.log(performance.getEntriesByName(name).pop()); } catch(e){} };
 
-// ========================================
-// Estado global y elementos
-// ========================================
 const baseAPI = (typeof window !== 'undefined' && (window.API_BASE || localStorage.getItem('API_BASE'))) || '';
 let usuarioActual = null;
 
@@ -198,12 +187,9 @@ async function subirImagenEntidadActual() {
   }
 }
 
-// ========================================
-// Scroll hint para tablas en móvil
-// ========================================
+
 function actualizarHintScroll(el){
   if(!el) return;
-  // Solo mostrar si overflow horizontal real
   if(el.scrollWidth > el.clientWidth + 16){
     el.classList.add('show-scroll-hint');
   } else {
@@ -213,7 +199,6 @@ function actualizarHintScroll(el){
 function refrescarHints(){
   document.querySelectorAll('.table-wrap').forEach(actualizarHintScroll);
 }
-// Observa inserciones de tablas dinámicas
 const observerTablas = new MutationObserver((muts)=>{
   let debeRefrescar = false;
   for(const m of muts){
@@ -225,19 +210,15 @@ const observerTablas = new MutationObserver((muts)=>{
 });
 observerTablas.observe(document.body,{childList:true,subtree:true});
 window.addEventListener('resize', ()=>{ if(window.innerWidth < 768) refrescarHints(); });
-// Primer chequeo tras autenticación
 document.addEventListener('DOMContentLoaded', ()=>{ if(window.innerWidth < 768) refrescarHints(); });
-// Exponer para depuración
 window._refreshTableScrollHints = refrescarHints;
 
-// Navegación panel admin
 if (btnPanelAdmin) {
   btnPanelAdmin.addEventListener('click', () => {
     if (usuarioActual?.rol !== 'Administrador') return;
     modoActual = 'admin';
     if (panelDatos) panelDatos.style.display = 'none';
     if (panelAdmin) panelAdmin.style.display = '';
-    // Remove active class from entity buttons
     Array.from(listaEntidadesEl.children).forEach((b) => b.classList.remove('active'));
     btnPanelAdmin.classList.add('active');
     construirUIEnrollFace();
@@ -378,7 +359,6 @@ async function inicializarEnrollFace() {
   if (btnFromPhoto) btnFromPhoto.addEventListener('click', capturarDesdeFoto);
 }
 
-// Admin: crear/listar/eliminar
 const envoltorioCrearAdmin = document.getElementById('adminCreateWrap');
 const formularioCrearAdmin = document.getElementById('adminCreateForm');
 const mensajeCrearAdmin = document.getElementById('adminCreateMsg');
@@ -387,9 +367,7 @@ const tablaUsuariosAdmin = document.getElementById('adminUsersTable');
 const mensajeUsuariosAdmin = document.getElementById('adminUsersMsg');
 const btnRefrescarAdmins = document.getElementById('btnRefreshAdmins');
 
-// ========================================
-// Helper fetch
-// ========================================
+
 async function solicitarAPI(ruta, opciones = {}) {
   const opcionesFinales = Object.assign({ credentials: 'include' }, opciones);
   const res = await fetch(`${baseAPI}${ruta}`, opcionesFinales);
@@ -402,9 +380,7 @@ async function solicitarAPI(ruta, opciones = {}) {
   return cuerpo;
 }
 
-// ========================================
-// Menú de entidades (Admin)
-// ========================================
+// Menú de entidades 
 const entidades = [
   'empleado', 'cliente', 'proyecto', 'apartamento', 'piso', 'material', 'tarea', 'turno'
 ];
@@ -491,7 +467,6 @@ function inferirTipoColumna(nombreClave) {
   return 'texto';
 }
 
-// Columnas visibles por entidad (solo las usadas aquí)
 const configuracionTablas = {
   empleado: [
     { claves: ['idEmpleado','id_empleado','idempleado','empleado_id','id','ID','Id'], titulo: 'ID Empleado', esId: true },
@@ -553,7 +528,6 @@ const configuracionTablas = {
   ]
 };
 
-// Render barra lateral
 function renderizarBarraLateral() {
   listaEntidadesEl.innerHTML = '';
   entidades.forEach((nombre) => {
@@ -615,7 +589,6 @@ function renderizarTabla(filas) {
       { clave: 'Especialidad', titulo: 'Profesión' }
     ];
   } else {
-    // Para otras entidades, mantener la lógica original
     columnasParaRender = columnas.slice();
     if (claveId) {
       const idxId = columnasParaRender.findIndex(c => c.clave === claveId || c.esId === true || /^id/i.test(c.clave));
@@ -632,7 +605,6 @@ function renderizarTabla(filas) {
   const cabecera = crear('thead');
   const filaCabecera = crear('tr');
   
-  // Renderizar cabeceras usando columnasParaRender
   columnasParaRender.forEach((columna) => {
     const th = crear('th');
     th.textContent = columna.titulo;
@@ -654,14 +626,12 @@ function renderizarTabla(filas) {
   filasNorm.forEach((registro) => {
     const filaTabla = crear('tr');
     
-    // Usar el mismo orden para todas las filas
     columnasParaRender.forEach((columna) => {
       const celda = crear('td');
       celda.setAttribute('data-label', columna.titulo);
       
       let valor = registro[columna.clave];
       
-      // Para el ID, buscar alternativas si está vacío
       if (columna.esId && (valor == null || valor === '')) {
         valor = registro.idEmpleado || registro.id || registro.ID || registro.Id || '';
       }
@@ -709,17 +679,13 @@ function renderizarTabla(filas) {
   });
   
   tabla.appendChild(cuerpo);
-  // Insertar un <th> vacío antes del encabezado que contenga 'ID' para todas las entidades
   try {
     const idHeader = Array.from(tabla.querySelectorAll('th')).find(th => /^ID\b/i.test(th.textContent.trim()));
     if (idHeader && idHeader.parentElement) {
       const newTh = document.createElement('th');
       idHeader.parentElement.insertBefore(newTh, idHeader);
     } else {
-      // Si no se encontró un encabezado 'ID', opcionalmente podemos añadir uno al inicio para consistencia
-      // (solo si realmente quieres que siempre exista esa columna vacía)
-      // const firstRow = tabla.querySelector('thead tr');
-      // if (firstRow) { const newTh = document.createElement('th'); firstRow.insertBefore(newTh, firstRow.firstChild); }
+     
     }
   } catch (_) {}
   contenedorTabla.appendChild(tabla);
@@ -747,9 +713,7 @@ buscarEl.addEventListener('input', () => {
   buscarEl._t = setTimeout(cargarDatos, 300);
 });
 
-// ========================================
-// Auth/UI
-// ========================================
+
 async function verificarAutenticacion() {
   try {
     const me = await solicitarAPI('/api/auth/me');
@@ -761,13 +725,11 @@ async function verificarAutenticacion() {
 }
 function actualizarUIParaAutenticacion() {
   if (!usuarioActual) {
-    // Show login
     areaLogin.style.display = '';
     areaApp.style.display = 'none';
     btnCerrarSesion.style.display = 'none';
   // ---
   } else if (usuarioActual.rol === 'Administrador') {
-    // Show admin app
     areaLogin.style.display = 'none';
     areaApp.style.display = '';
     btnCerrarSesion.style.display = '';
@@ -783,23 +745,18 @@ function actualizarUIParaAutenticacion() {
     if (panelDatos) panelDatos.style.display = '';
     if (panelAdmin) panelAdmin.style.display = 'none';
     cargarDatos();
-    // Pre-cargar admins para tener la lista actualizada si abren el panel
     cargarAdminsSeguro();
     inicializarControlesFoto();
     actualizarVisibilidadControlesFoto();
   } else if (usuarioActual.rol === 'Contador') {
-    // Redirigir a página de Contador
     window.location.href = '/contador.html';
   } else if (usuarioActual.rol === 'Cliente') {
-    // Redirigir a portal de Cliente
     window.location.href = '/cliente.html';
   } else {
-    // Redirigir a página de Trabajador
     window.location.href = '/trabajador.html';
   }
 }
 
-// Pluralización mínima para /api/min/*
 const mapaPlural = {
   empleado: 'empleados',
   cliente: 'clientes',
@@ -812,7 +769,6 @@ const mapaPlural = {
 };
 function obtenerPlural(nombre) { return mapaPlural[nombre] || `${nombre}s`; }
 
-// Entidades con endpoint /api/min/*
 const entidadesConMin = new Set(['empleado','cliente','proyecto','material']);
 
 function textoParaOpcionItem(item) {
@@ -854,13 +810,11 @@ async function cargarOpcionesActualizacion() {
   });
 }
 
-// Prefill form al seleccionar ID
 if (entradaIdActualizacion) {
   entradaIdActualizacion.addEventListener('change', async () => {
     if (!usuarioActual || usuarioActual.rol !== 'Administrador') return;
     mensajeActualizacion.textContent = '';
     const id = (entradaIdActualizacion.value || '').trim();
-    // Limpiar mensajes y no rellenar si no hay ID
     if (!id) {
       mensajeActualizacion.textContent = '';
       return;
@@ -869,16 +823,13 @@ if (entradaIdActualizacion) {
     mensajeActualizacion.textContent = 'Cargando datos...';
     try {
       const registro = await solicitarAPI(`/api/get/${entidadActual}/${encodeURIComponent(id)}`);
-      // Rellenar campos existentes
       Array.from(formularioDinamico.elements).forEach((el) => {
         if (!el.name) return;
         if (el.type === 'submit') return;
-        // No sobreescribir campos especiales de creación de usuario
         if (['crear_usuario','nombre_usuario','contraseña','rol_usuario','correo_usuario'].includes(el.name)) return;
         const valor = registro[el.name];
-        if (valor == null || valor === '') return; // dejar vacío para permitir cambios
+        if (valor == null || valor === '') return; 
         if (el.tagName === 'SELECT') {
-          // Asegurar que la opción exista
           const existe = Array.from(el.options).some(o => o.value === String(valor));
             if (!existe) {
               const op = document.createElement('option');
@@ -892,7 +843,6 @@ if (entradaIdActualizacion) {
         } else {
           el.value = String(valor);
         }
-        // Breve highlight visual
         el.classList.add('prefilled');
         setTimeout(() => el.classList.remove('prefilled'), 1800);
       });
@@ -906,7 +856,6 @@ if (entradaIdActualizacion) {
   });
 }
 
-// Manejo del formulario de login (restaurado)
 if (formularioLogin) {
   formularioLogin.addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -928,7 +877,6 @@ if (formularioLogin) {
   });
 }
 
-// Face-api: carga simplificada de modelos
 async function cargarModelosFace() {
   if (modelosRostroCargados || cargandoModeloRostro) return;
   cargandoModeloRostro = true;
@@ -1032,7 +980,6 @@ if (btnCerrarSesion) {
   });
 }
 
-// Construcción de formularios (solo entidades visibles)
 const camposFormulario = {
   cliente: [
     { name: 'Nombre', type: 'text', req: true, pattern: '[A-Za-zÁÉÍÓÚáéíóúÑñ\\s]+' },
@@ -1147,12 +1094,10 @@ async function construirFormulario() {
     }
   }
   const boton = crear('button', '', 'Guardar'); boton.type = 'submit'; formularioDinamico.appendChild(boton);
-  // Reset update ID when changing entity
   if (entradaIdActualizacion) entradaIdActualizacion.value = '';
   inicializarControlesFoto();
   actualizarVisibilidadControlesFoto();
 
-  // Bloque adicional: crear cuenta para Empleado
   if (entidadActual === 'empleado') {
     const bloque = document.createElement('div');
     bloque.style.gridColumn = '1 / -1';
@@ -1196,7 +1141,6 @@ async function construirFormulario() {
     if (botonGuardar) formularioDinamico.appendChild(botonGuardar);
   }
 
-  // Bloque adicional: crear cuenta para Cliente (opcional)
   if (entidadActual === 'cliente') {
     const bloque = document.createElement('div');
     bloque.style.gridColumn = '1 / -1';
@@ -1230,7 +1174,6 @@ async function construirFormulario() {
   }
 }
 
-// Submit create
 formularioDinamico.addEventListener('submit', async (ev) => {
   ev.preventDefault();
   mensajeFormulario.style.color = '#89ff9f';
@@ -1295,7 +1238,6 @@ formularioDinamico.addEventListener('submit', async (ev) => {
   }
 });
 
-// Update por ID
 if (btnActualizar) {
   btnActualizar.addEventListener('click', async () => {
     mensajeActualizacion.textContent = '';
@@ -1330,7 +1272,6 @@ if (btnActualizar) {
   });
 }
 
-// Delete por ID
 if (btnEliminar) {
   btnEliminar.addEventListener('click', async () => {
     mensajeActualizacion.textContent = '';
@@ -1353,7 +1294,6 @@ if (btnEliminar) {
   });
 }
 
-// Admin: crear con foto (multipart)
 if (formularioCrearAdmin) {
   formularioCrearAdmin.addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -1376,8 +1316,7 @@ if (formularioCrearAdmin) {
     }
   });
 }
-//a
-// Listar/eliminar administradores
+
 async function cargarAdmins() {
   if (!tablaUsuariosAdmin) return;
   tablaUsuariosAdmin.innerHTML = '<div style="text-align:center; padding:1rem; color: var(--text-muted);">Cargando...</div>';
@@ -1448,13 +1387,10 @@ function cargarAdminsSeguro() {
 }
 if (btnRefrescarAdmins) btnRefrescarAdmins.addEventListener('click', () => cargarAdminsSeguro());
 
-// Inicial
 inicializarControlesFoto();
 verificarAutenticacion();
 
-// ==========================
-// Auto descriptor (post-subida de foto)
-// ==========================
+
 async function intentarAutoDescriptor(idUsuario, fotoUrl) {
   try {
     await cargarModelosFace();

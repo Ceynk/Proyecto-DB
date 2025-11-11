@@ -435,7 +435,6 @@ async function asegurarEsquemaYSemilla() {
   } catch (e) {
     console.warn('No se pudo verificar/agregar usuarios.idCliente:', e.message);
   }
-  // Agregar fechas a tareas si faltan
   try {
     const [fi] = await pool.query("SHOW COLUMNS FROM tareas LIKE 'Fecha_inicio'");
     if (fi.length === 0) {
@@ -470,8 +469,7 @@ async function asegurarEsquemaYSemilla() {
   }
 }
 
-// Entidades permitidas con columnas, joins (vistas) y campos buscables
-// Para tablas más claras se hacen JOINs y alias
+
 const entidades = {
   empleado: {
     desde: 'empleados e LEFT JOIN proyectos p ON p.idProyecto = e.idProyecto',
@@ -588,7 +586,6 @@ const entidades = {
   }
 };
 
-// Multer (uploads)
 const almacenamiento = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, dirSubidas);
@@ -603,7 +600,7 @@ const almacenamiento = multer.diskStorage({
 const tiposPermitidos = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 const subida = multer({
   storage: almacenamiento,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const ext = (path.extname(file.originalname || '').toLowerCase()) || '';
     if (!tiposPermitidos.has(ext)) {
@@ -613,7 +610,6 @@ const subida = multer({
   }
 });
 
-// --- Auth helpers ---
 const requerirAutenticacion = (req, res, next) => {
   if (req.session && req.session.user) return next();
   return res.status(401).json({ error: 'No autenticado' });
@@ -632,7 +628,6 @@ const requerirEmpleado = (req, res, next) => {
 
 const requerirContador = (req, res, next) => {
   const rol = req.session?.user?.rol;
-  // Exclusivo del rol Contador (el Administrador ya tiene su propio panel y rutas)
   if (rol === 'Contador') return next();
   return res.status(403).json({ error: 'Requiere rol Contador' });
 };
@@ -643,7 +638,6 @@ const requerirCliente = (req, res, next) => {
   return res.status(403).json({ error: 'Requiere rol Cliente' });
 };
 
-// Auth endpoints
 app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
@@ -659,10 +653,9 @@ app.post('/api/auth/login', async (req, res) => {
     if (hash.startsWith('$2a$') || hash.startsWith('$2b$')) {
       ok = await bcrypt.compare(password, hash);
     } else {
-      ok = password === hash; // fallback para contraseñas en texto plano
+      ok = password === hash; 
     }
     if (!ok) return res.status(401).json({ error: 'Credenciales inválidas' });
-    // Login sencillo: guardar usuario en sesión
     req.session.user = {
       idUsuario: u.idUsuario,
       nombre_usuario: u.nombre_usuario,
@@ -676,7 +669,6 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// Login con rostro: compara descriptor actual con el almacenado para el usuario
 app.post('/api/auth/login-face', async (req, res) => {
   try {
     const { username, descriptor } = req.body || {};
@@ -708,12 +700,10 @@ app.post('/api/auth/login-face', async (req, res) => {
       sum += d * d;
     }
     const distancia = Math.sqrt(sum);
-    // Umbral típico para face-api.js (TinyFace + FaceRecognitionNet): 0.45–0.6. Ajustable.
     const THRESHOLD = Number(process.env.FACE_LOGIN_THRESHOLD || 0.5);
     if (distancia > THRESHOLD) {
       return res.status(401).json({ error: 'Rostro no coincide' });
     }
-    // Autenticar sesión
     req.session.user = {
       idUsuario: u.idUsuario,
       nombre_usuario: u.nombre_usuario,
@@ -727,22 +717,18 @@ app.post('/api/auth/login-face', async (req, res) => {
   }
 });
 
-// Logout
 app.post('/api/auth/logout', (req, res) => {
   req.session.destroy(() => {
     res.json({ ok: true });
   });
 });
 
-// Session info
 app.get('/api/auth/me', async (req, res) => {
-  // Base desde la sesión
   let user = req.session?.user || null;
   let hasFaceDescriptor = false;
   let extra = {};
   if (user?.idUsuario) {
     try {
-      // Traer campos útiles del usuario, incluido si tiene descriptor facial
       const [rows] = await pool.query(
         'SELECT face_descriptor, nombre_usuario, rol, Correo, foto_url FROM usuarios WHERE idUsuario = ? LIMIT 1',
         [user.idUsuario]
@@ -757,22 +743,17 @@ app.get('/api/auth/me', async (req, res) => {
           foto_url: u.foto_url || null
         };
       }
-    } catch (_) { /* silencioso */ }
+    } catch (_) { }
   }
-  // unir info adicional sin perder ids de la sesión
   if (user) user = { ...user, ...extra };
   res.json({ user, hasFaceDescriptor });
 });
 
-// Eliminado: endpoint de verificación por correo/2FA
-
-// List available entities (admin)
 app.get('/api/entities', requerirAutenticacion, requerirAdmin, (req, res) => {
   res.json(Object.keys(entidades));
 });
 
-// Generic list with optional text search (?q=)
-// Entidades exclusivas del contador: no deben estar disponibles en CRUD genérico del admin
+
 const entidadesExclusivasContador = new Set(['ingreso', 'gasto', 'pago', 'factura', 'inventario']);
 
 app.get('/api/list/:entity', requerirAutenticacion, requerirAdmin, async (req, res) => {
@@ -801,8 +782,7 @@ app.get('/api/list/:entity', requerirAutenticacion, requerirAdmin, async (req, r
   }
 });
 
-// Obtener un registro individual para prellenar formulario de edición
-// Devuelve sólo columnas base (primary key + columnasCrear) para evitar ambigüedades con alias
+
 app.get('/api/get/:entity/:id', requerirAutenticacion, requerirAdmin, async (req, res) => {
   const entidad = String(req.params.entity || '').toLowerCase();
   const definicion = entidades[entidad];
@@ -823,7 +803,6 @@ app.get('/api/get/:entity/:id', requerirAutenticacion, requerirAdmin, async (req
   }
 });
 
-// Mapa de columnas permitidas para crear registros
 const columnasCrear = {
   cliente: ['Nombre','Telefono','Correo'],
   proyecto: ['Nombre','idCliente'],
@@ -840,7 +819,6 @@ const columnasCrear = {
   pago: ['Fecha','Monto','idFactura']
 };
 
-// Generic create
 app.post('/api/create/:entity', requerirAutenticacion, requerirAdmin, async (req, res) => {
   const entidad = String(req.params.entity || '').toLowerCase();
   const definicion = entidades[entidad];
@@ -858,7 +836,6 @@ app.post('/api/create/:entity', requerirAutenticacion, requerirAdmin, async (req
   }
 });
 
-// Update (admin)
 app.put('/api/update/:entity/:id', requerirAutenticacion, requerirAdmin, async (req, res) => {
   const entidad = String(req.params.entity || '').toLowerCase();
   const definicion = entidades[entidad];
@@ -881,7 +858,6 @@ app.put('/api/update/:entity/:id', requerirAutenticacion, requerirAdmin, async (
   }
 });
 
-// Delete (admin)
 app.delete('/api/delete/:entity/:id', requerirAutenticacion, requerirAdmin, async (req, res) => {
   const entidad = String(req.params.entity || '').toLowerCase();
   const definicion = entidades[entidad];
@@ -912,7 +888,7 @@ app.delete('/api/delete/:entity/:id', requerirAutenticacion, requerirAdmin, asyn
             const fpath = resolverRutaArchivo(anterior);
             if (fpath && fs.existsSync(fpath)) fs.unlinkSync(fpath);
           }
-        } catch (_) { /* ignorar */ }
+        } catch (_) { }
 
         conn.release();
         return res.json({ ok: true, affectedRows: del.affectedRows });
@@ -923,7 +899,6 @@ app.delete('/api/delete/:entity/:id', requerirAutenticacion, requerirAdmin, asyn
       }
     }
 
-    // Por defecto: borrado directo
     const sql = `DELETE FROM ${definicion.tabla} WHERE ${definicion.tabla}.${definicion.llavePrimaria} = ?`;
     const [resultado] = await pool.query(sql, [id]);
     res.json({ ok: true, affectedRows: resultado.affectedRows });
@@ -932,7 +907,6 @@ app.delete('/api/delete/:entity/:id', requerirAutenticacion, requerirAdmin, asyn
   }
 });
 
-// Version/info endpoints
 app.get('/api/version', (req, res) => {
   res.json({
     ok: true,
@@ -952,7 +926,6 @@ app.get('/api/check/:entity', (req, res) => {
   });
 });
 
-// Diagnóstico simple para imágenes: verifica si existen columnas foto_url
 app.get('/api/diag/images', async (req, res) => {
   const resultado = { usuarios: false, empleados: false, materials: false, detalles: {} };
   try {
@@ -979,7 +952,6 @@ app.get('/api/diag/images', async (req, res) => {
   res.json(resultado);
 });
 
-// Simple health endpoint
 app.get('/api/health', async (req, res) => {
   try {
     const [filas] = await pool.query('SELECT 1 AS ok');
@@ -989,7 +961,6 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// Debug: listar archivos de modelos faciales disponibles (para diagnosticar en producción)
 app.get('/api/debug/face-models', (req, res) => {
   try {
     const modelosDir = path.join(__dirname, 'public', 'models');
@@ -1003,7 +974,6 @@ app.get('/api/debug/face-models', (req, res) => {
   }
 });
 
-// Debug: estado de librería face-api
 app.get('/api/debug/face-lib', (req, res) => {
   const distDir = path.join(__dirname, 'node_modules', '@vladmandic', 'face-api', 'dist');
   const publicVendorDir = path.join(__dirname, 'public', 'vendor', 'face-api');
@@ -1018,7 +988,6 @@ app.get('/api/debug/face-lib', (req, res) => {
   });
 });
 
-// List clientes (very basic)
 app.get('/api/clientes', requerirAutenticacion, requerirAdmin, async (req, res) => {
   try {
     const [filas] = await pool.query('SELECT idCliente, Nombre, Telefono, Correo FROM clientes ORDER BY idCliente DESC LIMIT 50');
@@ -1028,7 +997,6 @@ app.get('/api/clientes', requerirAutenticacion, requerirAdmin, async (req, res) 
   }
 });
 
-// List proyectos with cliente name if available
 app.get('/api/proyectos', requerirAutenticacion, requerirAdmin, async (req, res) => {
   try {
     const [filas] = await pool.query(`
@@ -1044,7 +1012,6 @@ app.get('/api/proyectos', requerirAutenticacion, requerirAdmin, async (req, res)
   }
 });
 
-// Add a super simple POST to add a cliente
 app.post('/api/clientes', requerirAutenticacion, requerirAdmin, async (req, res) => {
   const { Nombre, Telefono, Correo } = req.body || {};
   if (!Nombre) {
@@ -1061,7 +1028,6 @@ app.post('/api/clientes', requerirAutenticacion, requerirAdmin, async (req, res)
   }
 });
 
-// Minimal lists for relations (id and name-ish)
 app.get('/api/min/clientes', requerirAutenticacion, requerirAdmin, async (req, res) => {
   try {
     const [filas] = await pool.query('SELECT idCliente as id, Nombre as nombre FROM clientes ORDER BY idCliente DESC LIMIT 200');
@@ -1097,7 +1063,6 @@ app.get('/api/min/facturas', requerirAutenticacion, requerirAdmin, async (req, r
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// Crear admin con foto (multipart)
 app.post('/api/admin/create', requerirAutenticacion, requerirAdmin, subida.single('foto'), async (req, res) => {
   try {
     const { username, password, correo } = req.body || {};
@@ -1114,7 +1079,6 @@ app.post('/api/admin/create', requerirAutenticacion, requerirAdmin, subida.singl
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Listar administradores
 app.get('/api/admin/users', requerirAutenticacion, requerirAdmin, async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -1125,7 +1089,6 @@ app.get('/api/admin/users', requerirAutenticacion, requerirAdmin, async (req, re
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Eliminar administrador con validaciones
 app.delete('/api/admin/users/:id', requerirAutenticacion, requerirAdmin, async (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ error: 'ID inválido' });
@@ -1142,7 +1105,6 @@ app.delete('/api/admin/users/:id', requerirAutenticacion, requerirAdmin, async (
     const u = rows[0];
     if (u.rol !== 'Administrador') return res.status(400).json({ error: 'El usuario no es Administrador' });
 
-    // Intentar borrar la imagen asociada si apunta a /uploads
     if (u.foto_url && u.foto_url.startsWith('/uploads/')) {
       try {
         const fpath = resolverRutaArchivo(u.foto_url);
@@ -1155,9 +1117,9 @@ app.delete('/api/admin/users/:id', requerirAutenticacion, requerirAdmin, async (
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ==========================
-// Gestión general de usuarios
-// ==========================
+
+// Gestion usuarios
+
 
 // Listar todos los usuarios (cualquier rol)
 app.get('/api/users', requerirAutenticacion, requerirAdmin, async (req, res) => {
@@ -1205,7 +1167,6 @@ app.post('/api/users/create', requerirAutenticacion, requerirAdmin, subida.singl
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Guardar/actualizar descriptor facial de un usuario (JSON con 128 floats)
 app.post('/api/users/:id/face', requerirAutenticacion, requerirAdmin, async (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ error: 'ID de usuario inválido' });
@@ -1214,7 +1175,6 @@ app.post('/api/users/:id/face', requerirAutenticacion, requerirAdmin, async (req
     if (!descriptor || !Array.isArray(descriptor) || descriptor.length < 64) {
       return res.status(400).json({ error: 'Descriptor facial inválido' });
     }
-    // Validar que todos sean números finitos y limitar a 512 elementos
     const lim = Math.min(descriptor.length, 512);
     const limpio = [];
     for (let i = 0; i < lim; i++) {
@@ -1230,7 +1190,6 @@ app.post('/api/users/:id/face', requerirAutenticacion, requerirAdmin, async (req
   }
 });
 
-// Self-enrollment de rostro para el usuario autenticado (sin requerir rol admin)
 app.post('/api/users/me/face', requerirAutenticacion, async (req, res) => {
   const id = Number(req.session?.user?.idUsuario);
   if (!id) return res.status(400).json({ error: 'Sesión inválida' });
@@ -1254,9 +1213,7 @@ app.post('/api/users/me/face', requerirAutenticacion, async (req, res) => {
   }
 });
 
-// ==============================
-// Fotos para Empleados y Materiales
-// ==============================
+// Fotos Empleados y Materiales
 
 function resolverRutaArchivo(posibleUrl) {
   if (!posibleUrl) return null;
@@ -1268,7 +1225,6 @@ function resolverRutaArchivo(posibleUrl) {
   return fpath;
 }
 
-// Subir/actualizar foto de un empleado
 app.post('/api/empleados/:id/foto', requerirAutenticacion, requerirAdmin, subida.single('foto'), async (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ error: 'ID de empleado inválido' });
@@ -1280,7 +1236,6 @@ app.post('/api/empleados/:id/foto', requerirAutenticacion, requerirAdmin, subida
     const foto_url = `/uploads/${req.file.filename}`;
     await pool.query('UPDATE empleados SET foto_url = ? WHERE idEmpleado = ?', [foto_url, id]);
 
-    // Borrar archivo anterior si existía y apunta a uploads
     try {
       if (anterior && anterior.startsWith('/uploads/')) {
         const fpath = resolverRutaArchivo(anterior);
@@ -1294,7 +1249,6 @@ app.post('/api/empleados/:id/foto', requerirAutenticacion, requerirAdmin, subida
   }
 });
 
-// Subir/actualizar foto de un material
 app.post('/api/materiales/:id/foto', requerirAutenticacion, requerirAdmin, subida.single('foto'), async (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ error: 'ID de material inválido' });
@@ -1306,7 +1260,6 @@ app.post('/api/materiales/:id/foto', requerirAutenticacion, requerirAdmin, subid
     const foto_url = `/uploads/${req.file.filename}`;
     await pool.query('UPDATE materials SET foto_url = ? WHERE idMaterial = ?', [foto_url, id]);
 
-    // Borrar archivo anterior si existía y apunta a uploads
     try {
       if (anterior && anterior.startsWith('/uploads/')) {
         const fpath = resolverRutaArchivo(anterior);
@@ -1320,9 +1273,7 @@ app.post('/api/materiales/:id/foto', requerirAutenticacion, requerirAdmin, subid
   }
 });
 
-// ---
 
-// Endpoints para empleado
 app.get('/api/empleado/mis-datos', requerirAutenticacion, requerirEmpleado, async (req, res) => {
   const idEmp = req.session.user?.idEmpleado;
   if (!idEmp) return res.status(400).json({ error: 'Usuario sin empleado asociado' });
@@ -1357,7 +1308,6 @@ app.post('/api/empleado/asistencia', requerirAutenticacion, requerirEmpleado, as
     const info = row?.[0] || { Asistencia: estado, Asistencia_fecha: null };
     res.json({ ok: true, estado: info.Asistencia, fecha: info.Asistencia_fecha, affectedRows: resultado.affectedRows });
   } catch (error) {
-    // Si la columna no existe (servidor no reiniciado aún), intentar crearla on-demand y reintentar una vez
     const msg = String(error?.message || '');
     if (/unknown column/i.test(msg) && /Asistencia_fecha/i.test(msg)) {
       try {
@@ -1377,9 +1327,7 @@ app.post('/api/empleado/asistencia', requerirAutenticacion, requerirEmpleado, as
   }
 });
 
-// ==============================
-// Asistencia: entrada/salida y resumen semanal
-// ==============================
+
 function sqlSemanaActualBounds(alias = 'a') {
   // lunes de la semana actual (MySQL weekday(): 0=Lunes)
   return {
@@ -1395,7 +1343,6 @@ app.post('/api/empleado/entrada', requerirAutenticacion, requerirEmpleado, async
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    // Intentar crear o reconocer entrada existente hoy
     const [rows] = await conn.query('SELECT idAsistencia, entrada, salida FROM asistencias WHERE idEmpleado = ? AND fecha = CURDATE() LIMIT 1', [idEmp]);
     let idAsistencia;
     let entrada;
@@ -1410,7 +1357,6 @@ app.post('/api/empleado/entrada', requerirAutenticacion, requerirEmpleado, async
         await conn.commit();
         return res.json({ ok: true, repetido: true, idAsistencia, entrada, salida: null });
       }
-      // Si ya tenía salida, no crear otro registro; reportar como ya completado
       await conn.query('UPDATE empleados SET Asistencia = ?, Asistencia_fecha = NOW() WHERE idEmpleado = ?', ['Presente', idEmp]);
       await conn.commit();
       return res.json({ ok: true, completado: true, idAsistencia, entrada, salida });
@@ -1425,7 +1371,6 @@ app.post('/api/empleado/entrada', requerirAutenticacion, requerirEmpleado, async
     }
   } catch (e) {
     try { await conn.rollback(); } catch (_) {}
-    // Manejar violación de unique (si dos clics simultáneos)
     const msg = String(e?.message || '');
     if (/duplicate/i.test(msg) && /uq_asistencia_dia/i.test(msg)) {
       try {
@@ -1439,14 +1384,12 @@ app.post('/api/empleado/entrada', requerirAutenticacion, requerirEmpleado, async
   }
 });
 
-// Marcar salida (usa hora del servidor)
 app.post('/api/empleado/salida', requerirAutenticacion, requerirEmpleado, async (req, res) => {
   const idEmp = req.session.user?.idEmpleado;
   if (!idEmp) return res.status(400).json({ error: 'Usuario sin empleado asociado' });
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    // Buscar registro abierto (de hoy preferido); si no hay de hoy, el último sin salida
     let [rows] = await conn.query('SELECT idAsistencia, entrada, salida FROM asistencias WHERE idEmpleado = ? AND fecha = CURDATE() LIMIT 1', [idEmp]);
     if (!rows.length) {
       [rows] = await conn.query('SELECT idAsistencia, entrada, salida FROM asistencias WHERE idEmpleado = ? AND salida IS NULL ORDER BY fecha DESC, idAsistencia DESC LIMIT 1', [idEmp]);
@@ -1464,7 +1407,6 @@ app.post('/api/empleado/salida', requerirAutenticacion, requerirEmpleado, async 
     await conn.query('UPDATE asistencias SET salida = NOW() WHERE idAsistencia = ?', [idAsistencia]);
     await conn.query('UPDATE empleados SET Asistencia = ?, Asistencia_fecha = NOW() WHERE idEmpleado = ?', ['Ausente', idEmp]);
 
-    // Obtener registro actualizado y resumen semanal
     const [act] = await conn.query('SELECT entrada, salida, TIMESTAMPDIFF(MINUTE, entrada, salida) AS minutos FROM asistencias WHERE idAsistencia = ?', [idAsistencia]);
     const reg = act[0] || {};
     const { desde, hasta } = sqlSemanaActualBounds();
@@ -1483,7 +1425,6 @@ app.post('/api/empleado/salida', requerirAutenticacion, requerirEmpleado, async 
   }
 });
 
-// Resumen de asistencia: última marcación y total semanal
 app.get('/api/empleado/asistencia/resumen', requerirAutenticacion, requerirEmpleado, async (req, res) => {
   const idEmp = req.session.user?.idEmpleado;
   if (!idEmp) return res.status(400).json({ error: 'Usuario sin empleado asociado' });
@@ -1506,7 +1447,6 @@ app.get('/api/empleado/asistencia/resumen', requerirAutenticacion, requerirEmple
   }
 });
 
-// Crear empleado y (opcional) su usuario de acceso
 app.post('/api/empleados/crear-con-usuario', requerirAutenticacion, requerirAdmin, async (req, res) => {
   const {
     Nombre, Correo, Telefono, Especialidad, idProyecto,
@@ -1531,7 +1471,6 @@ app.post('/api/empleados/crear-con-usuario', requerirAutenticacion, requerirAdmi
         throw new Error('Para crear usuario, se requieren nombre_usuario y contraseña');
       }
       const rolFinal = ['Empleado','Contador'].includes(rol_usuario) ? rol_usuario : 'Empleado';
-      // Validar unicidad de nombre de usuario
       const [ex] = await conn.query('SELECT 1 FROM usuarios WHERE nombre_usuario = ? LIMIT 1', [nombre_usuario]);
       if (ex.length) throw new Error('El nombre de usuario ya existe');
       const hash = await bcrypt.hash(String(contraseña), 10);
@@ -1553,7 +1492,6 @@ app.post('/api/empleados/crear-con-usuario', requerirAutenticacion, requerirAdmi
   }
 });
 
-// Tareas del empleado autenticado
 app.get('/api/empleado/mis-tareas', requerirAutenticacion, requerirEmpleado, async (req, res) => {
   const idEmp = req.session.user?.idEmpleado;
   if (!idEmp) return res.status(400).json({ error: 'Usuario sin empleado asociado' });
@@ -1574,9 +1512,7 @@ app.get('/api/empleado/mis-tareas', requerirAutenticacion, requerirEmpleado, asy
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ==========================
-// Rutas para Contador
-// ==========================
+// Contador
 
 // Listado de inventario (con joins) accesible a Contador
 app.get('/api/contador/inventario', requerirAutenticacion, requerirContador, async (req, res) => {
@@ -1611,7 +1547,7 @@ app.post('/api/contador/inventario', requerirAutenticacion, requerirContador, as
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// Crear factura (Contador)
+// Crear factura 
 app.post('/api/contador/facturas', requerirAutenticacion, requerirContador, async (req, res) => {
   const { Fecha, Valor_total, idProyecto, idCliente } = req.body || {};
   if (!Fecha || !Valor_total || !idCliente) return res.status(400).json({ error: 'Fecha, Valor_total e idCliente son requeridos' });
@@ -1624,7 +1560,7 @@ app.post('/api/contador/facturas', requerirAutenticacion, requerirContador, asyn
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// Listar facturas básicas para Contador
+// Listar facturas para Contador
 app.get('/api/contador/facturas', requerirAutenticacion, requerirContador, async (req, res) => {
   try {
     const [filas] = await pool.query(`
@@ -1673,7 +1609,6 @@ app.get('/api/contador/facturas/:id/pdf', requerirAutenticacion, requerirContado
     renderFacturaPDF(doc, factura, { logoPath: logoPathToUse });
     doc.end();
 
-    // (el contenido ahora lo maneja renderFacturaPDF)
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
@@ -1715,11 +1650,7 @@ app.get('/api/contador/min/materiales', requerirAutenticacion, requerirContador,
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ==========================
-// Rutas para Cliente
-// ==========================
-
-// Resumen de proyectos del cliente autenticado
+//   Cliente
 app.get('/api/cliente/proyectos', requerirAutenticacion, requerirCliente, async (req, res) => {
   const idCliente = req.session?.user?.idCliente;
   if (!idCliente) return res.status(400).json({ error: 'Usuario sin cliente asociado' });
@@ -1737,13 +1668,11 @@ app.get('/api/cliente/proyectos', requerirAutenticacion, requerirCliente, async 
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Empleados de un proyecto (nombre, foto, especialidad, asistencia) y tareas asignadas
 app.get('/api/cliente/proyectos/:id/empleados', requerirAutenticacion, requerirCliente, async (req, res) => {
   const idCliente = req.session?.user?.idCliente;
   const idProyecto = Number(req.params.id);
   if (!idProyecto) return res.status(400).json({ error: 'ID de proyecto inválido' });
   try {
-    // Validar que el proyecto pertenece al cliente
     const [pp] = await pool.query('SELECT 1 FROM proyectos WHERE idProyecto = ? AND idCliente = ? LIMIT 1', [idProyecto, idCliente]);
     if (!pp.length) return res.status(404).json({ error: 'Proyecto no encontrado' });
 
@@ -1765,7 +1694,6 @@ app.get('/api/cliente/proyectos/:id/empleados', requerirAutenticacion, requerirC
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Facturas del cliente
 app.get('/api/cliente/facturas', requerirAutenticacion, requerirCliente, async (req, res) => {
   const idCliente = req.session?.user?.idCliente;
   try {
@@ -1781,7 +1709,6 @@ app.get('/api/cliente/facturas', requerirAutenticacion, requerirCliente, async (
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Pagos del cliente (por sus facturas)
 app.get('/api/cliente/pagos', requerirAutenticacion, requerirCliente, async (req, res) => {
   const idCliente = req.session?.user?.idCliente;
   try {
@@ -1833,7 +1760,7 @@ app.get('/api/cliente/facturas/:id/pdf', requerirAutenticacion, requerirCliente,
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Crear cliente y usuario (opcional)
+// Crear cliente y usuario 
 app.post('/api/clientes/crear-con-usuario', requerirAutenticacion, requerirAdmin, async (req, res) => {
   const { Nombre, Telefono, Correo, crear_usuario, nombre_usuario, contraseña } = req.body || {};
   if (!Nombre) return res.status(400).json({ error: 'Nombre es obligatorio' });
@@ -1865,10 +1792,7 @@ app.post('/api/clientes/crear-con-usuario', requerirAutenticacion, requerirAdmin
   }
 });
 
-// Ensure unknown /api routes return JSON instead of HTML
-// Fallback 404 para rutas /api. IMPORTANTE: debe ir DESPUÉS de todas las rutas /api.
-// Se reubica al final del archivo para no interceptar rutas válidas definidas abajo.
-// Función para calcular stock usando CASE
+//   Inventario
 function stockCaseExpr(prefix = 'i') {
   return `SUM(CASE 
     WHEN LOWER(${prefix}.tipo_movimiento) IN ('entrada','ingreso','compra') THEN ${prefix}.cantidad
@@ -1906,7 +1830,7 @@ app.get('/api/inventory/overview', async (req, res) => {
   }
 });
 
-// Tarjetas por material (agregado + filtro por nombre)
+// Tarjetas por material 
 app.get('/api/inventory/cards', async (req, res) => {
   const q = (req.query.q || '').toString().trim();
   try {
@@ -1951,7 +1875,7 @@ app.get('/api/inventory/cards', async (req, res) => {
   }
 });
 
-// Consumo de material por empleado (crea movimiento de Salida y acumula en factura borrador)
+// Consumo de material por empleado 
 app.post('/api/empleado/consumir', requerirAutenticacion, requerirEmpleado, async (req, res) => {
   const idEmp = req.session.user?.idEmpleado;
   if (!idEmp) return res.status(400).json({ error: 'Usuario sin empleado asociado' });
@@ -1968,9 +1892,7 @@ app.post('/api/empleado/consumir', requerirAutenticacion, requerirEmpleado, asyn
     const fecha = new Date().toISOString().slice(0,10);
     await conn.query('INSERT INTO inventarios (tipo_movimiento, cantidad, fecha, idMaterial, idProyecto) VALUES (\'Salida\', ?, ?, ?, ?)', [Number(cantidad), fecha, idMaterial, idProyecto]);
 
-    // Crear/actualizar factura borrador si hay cliente
     if (idCliente) {
-      // Buscar factura borrador activa del proyecto/cliente
       let idFactura = null;
       const [f] = await conn.query('SELECT idFactura FROM facturas WHERE idCliente = ? AND IFNULL(idProyecto, ?) <=> ? AND Estado = \'Borrador\' ORDER BY idFactura DESC LIMIT 1', [idCliente, idProyecto, idProyecto]);
       if (f.length) {
@@ -2028,7 +1950,6 @@ app.get('/api/inventory/material/:id', async (req, res) => {
   }
 });
 
-// Fallback 404 para cualquier otra ruta /api no encontrada
 app.use('/api', (req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada', path: req.originalUrl });
 });
@@ -2056,7 +1977,6 @@ function asegurarModelosFace() {
   archivosModelos.forEach((fname) => {
     const destino = path.join(modelosDir, fname);
     if (fs.existsSync(destino) && fs.statSync(destino).size > 0) return;
-    // Intento de descarga sólo si falta; no es crítico en producción.
     const url = baseCDN + fname;
     console.log('Descargando modelo facial faltante:', fname);
     const file = fs.createWriteStream(destino);
