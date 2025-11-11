@@ -64,7 +64,7 @@ async function cargarTareas() {
     tabla.className = 'data-table';
     const thead = document.createElement('thead');
     const trh = document.createElement('tr');
-    const headers = ['ID','Descripción','Estado','Proyecto','Pisos','Apartamentos','Fecha inicio','Fecha fin'];
+    const headers = [' ','ID','Descripción','Estado','Proyecto','Pisos','Apartamentos','Fecha inicio','Fecha fin'];
     headers.forEach(h => { const th=document.createElement('th'); th.textContent=h; th.scope='col'; trh.appendChild(th); });
     thead.appendChild(trh);
     const tbody = document.createElement('tbody');

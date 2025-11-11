@@ -634,13 +634,15 @@ function renderizarTabla(filas) {
   
   // Renderizar cabeceras usando columnasParaRender
   columnasParaRender.forEach((columna) => {
-    const th = crear('th', columna.titulo);
+    const th = crear('th');
+    th.textContent = columna.titulo;
     th.setAttribute('scope', 'col');
     filaCabecera.appendChild(th);
   });
   
   if (usuarioActual?.rol === 'Administrador') {
-    const thAcc = crear('th', 'Acciones');
+    const thAcc = crear('th');
+    thAcc.textContent = 'Acciones';
     thAcc.setAttribute('scope', 'col');
     filaCabecera.appendChild(thAcc);
   }
