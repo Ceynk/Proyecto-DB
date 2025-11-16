@@ -201,7 +201,11 @@ async function cargarFacturas() {
       const tdProyecto = document.createElement('td'); tdProyecto.setAttribute('data-label', headers[3]); tdProyecto.textContent = f.Proyecto || '—'; tr.appendChild(tdProyecto);
       const tdTotal = document.createElement('td'); tdTotal.setAttribute('data-label', headers[4]); tdTotal.textContent = `$ ${Number(f.Valor_total).toLocaleString('es-CO',{minimumFractionDigits:2})}`; tr.appendChild(tdTotal);
       const tdPdf = document.createElement('td'); tdPdf.setAttribute('data-label', headers[5]); tdPdf.className = 'actions-cell';
-      const btn = document.createElement('button'); btn.textContent='Descargar PDF'; btn.addEventListener('click', () => descargarPDF(f.idFactura));
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn-table-action btn-pdf';
+      btn.textContent = 'Descargar PDF';
+      btn.addEventListener('click', () => descargarPDF(f.idFactura));
       tdPdf.appendChild(btn); tr.appendChild(tdPdf);
       tbody.appendChild(tr);
     });
