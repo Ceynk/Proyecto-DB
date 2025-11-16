@@ -8,7 +8,6 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
-// Eliminado: autenticación por correo/2FA
 import PDFDocument from 'pdfkit';
 // Descarga opcional de modelos de face-api para hosting local (corrige nombres reales .bin)
 import https from 'https';
@@ -133,7 +132,6 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
 if (isProd) {
-  // Detrás de proxy (Railway) para que secure cookies funcionen
   app.set('trust proxy', 1);
 }
 app.use(cors());
