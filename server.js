@@ -138,6 +138,34 @@ app.use(cors());
 app.options('*', cors());
 app.use(express.json());
 
+// Utilidades
+function obtenerLogoFactura() {
+  const candidates = [
+    path.join(__dirname, 'public', 'img', 'logo-ucc.png'),
+    path.join(__dirname, 'public', 'img', 'logo.png'),
+    path.join(__dirname, 'public', 'logo-ucc.png'),
+    path.join(__dirname, 'public', 'logo.png')
+  ];
+  for (const p of candidates) {
+    try { if (fs.existsSync(p)) return p; } catch (_) {}
+  }
+  return null;
+}
+
+function sanitizarDescriptor(descriptor) {
+  if (!descriptor || !Array.isArray(descriptor) || descriptor.length < 64) {
+    throw new Error('Descriptor facial inválido');
+  }
+  const lim = Math.min(descriptor.length, 512);
+  const limpio = [];
+  for (let i = 0; i < lim; i++) {
+    const v = Number(descriptor[i]);
+    if (!Number.isFinite(v)) throw new Error('Descriptor contiene valores inválidos');
+    limpio.push(v);
+  }
+  return limpio;
+}
+
 // Sessions (in-memory store para dev; en producción usar store persistente)
 app.use(
   session({
@@ -155,75 +183,7 @@ app.use(
 );
 
 // Static files
-// Ruta directa para servir face-api.min.js aunque falle la copia a /public/vendor
-const faceApiMinPath = path.join(__dirname, 'node_modules', '@vladmandic', 'face-api', 'dist', 'face-api.min.js');
-app.get('/vendor/face-api/face-api.min.js', (req, res) => {
-  try {
-    if (!fs.existsSync(faceApiMinPath)) {
-      console.warn('face-api.min.js no encontrado en', faceApiMinPath);
-      return res.status(404).type('text/plain').send('face-api.min.js not found');
-    }
-    res.type('application/javascript');
-    fs.createReadStream(faceApiMinPath).pipe(res);
-  } catch (e) {
-    console.error('Error sirviendo face-api.min.js:', e.message);
-    res.status(500).type('text/plain').send('Error interno');
-  }
-});
-// Ruta adicional para servir la versión no minificada como fallback
-const faceApiJsPath = path.join(__dirname, 'node_modules', '@vladmandic', 'face-api', 'dist', 'face-api.js');
-app.get('/vendor/face-api/face-api.js', (req, res) => {
-  try {
-    if (!fs.existsSync(faceApiJsPath)) {
-      console.warn('face-api.js no encontrado en', faceApiJsPath);
-      return res.status(404).type('text/plain').send('face-api.js not found');
-    }
-    res.type('application/javascript');
-    fs.createReadStream(faceApiJsPath).pipe(res);
-  } catch (e) {
-    console.error('Error sirviendo face-api.js:', e.message);
-    res.status(500).type('text/plain').send('Error interno');
-  }
-});
 app.use(express.static(path.join(__dirname, 'public')));
-// Copiar assets de face-api a /public/vendor/face-api para servirlos con el static por si el mapeo directo a node_modules falla en producción
-function asegurarFaceApiVendor() {
-  try {
-    const srcDir = path.join(__dirname, 'node_modules', '@vladmandic', 'face-api', 'dist');
-    const dstDir = path.join(__dirname, 'public', 'vendor', 'face-api');
-    if (!fs.existsSync(srcDir)) {
-      console.warn('face-api dist no encontrado en node_modules, verifique instalación.');
-      return;
-    }
-    fs.mkdirSync(dstDir, { recursive: true });
-    const archivos = ['face-api.min.js', 'face-api.min.js.map', 'face-api.js', 'face-api.js.map'];
-    archivos.forEach((f) => {
-      const src = path.join(srcDir, f);
-      const dst = path.join(dstDir, f);
-      try {
-        if (fs.existsSync(src)) {
-          const necesitaCopiar = !fs.existsSync(dst) || fs.statSync(dst).size === 0;
-          if (necesitaCopiar) {
-            fs.copyFileSync(src, dst);
-            console.log('[face-api] Copiado', f, 'a', dst);
-          }
-        }
-      } catch (e) {
-        console.warn('No se pudo copiar', f, e.message);
-      }
-    });
-    // Log listado final
-    try {
-      const lista = fs.readdirSync(dstDir);
-      console.log('[face-api] Archivos en /public/vendor/face-api:', lista);
-    } catch (_) {}
-  } catch (e) {
-    console.warn('Error asegurando vendor face-api:', e.message);
-  }
-}
-asegurarFaceApiVendor();
-// Además, intentar servir directamente desde node_modules como fallback
-app.use('/vendor/face-api', express.static(path.join(__dirname, 'node_modules', '@vladmandic', 'face-api', 'dist')));
 // Static uploads
 const dirSubidas = path.join(__dirname, 'uploads');
 if (!fs.existsSync(dirSubidas)) {
@@ -613,28 +573,18 @@ const requerirAutenticacion = (req, res, next) => {
   return res.status(401).json({ error: 'No autenticado' });
 };
 
-const requerirAdmin = (req, res, next) => {
-  if (req.session?.user?.rol === 'Administrador') return next();
-  return res.status(403).json({ error: 'Requiere rol Administrador' });
-};
+function requireRoleAny(...roles) {
+  return (req, res, next) => {
+    const rol = req.session?.user?.rol;
+    if (roles.includes(rol)) return next();
+    return res.status(403).json({ error: `Requiere rol ${roles.join(' o ')}` });
+  };
+}
 
-const requerirEmpleado = (req, res, next) => {
-  const rol = req.session?.user?.rol;
-  if (rol === 'Empleado' || rol === 'Administrador') return next();
-  return res.status(403).json({ error: 'Requiere rol Empleado' });
-};
-
-const requerirContador = (req, res, next) => {
-  const rol = req.session?.user?.rol;
-  if (rol === 'Contador') return next();
-  return res.status(403).json({ error: 'Requiere rol Contador' });
-};
-
-const requerirCliente = (req, res, next) => {
-  const rol = req.session?.user?.rol;
-  if (rol === 'Cliente') return next();
-  return res.status(403).json({ error: 'Requiere rol Cliente' });
-};
+const requerirAdmin = requireRoleAny('Administrador');
+const requerirEmpleado = requireRoleAny('Administrador', 'Empleado');
+const requerirContador = requireRoleAny('Contador');
+const requerirCliente = requireRoleAny('Cliente');
 
 app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body || {};
@@ -970,50 +920,9 @@ app.delete('/api/delete/:entity/:id', requerirAutenticacion, requerirAdmin, asyn
   }
 });
 
-app.get('/api/version', (req, res) => {
-  res.json({
-    ok: true,
-    entities: Object.keys(entidades),
-    creatable: Object.keys(columnasCrear)
-  });
-});
+// (Endpoints de diagnóstico eliminados para simplificar)
 
-app.get('/api/check/:entity', (req, res) => {
-  const e = String(req.params.entity || '').toLowerCase();
-  res.json({
-    entity: e,
-    known: !!entidades[e],
-    creatable: !!columnasCrear[e],
-    listColumns: entidades[e]?.columnas || [],
-    createColumns: columnasCrear[e] || []
-  });
-});
-
-app.get('/api/diag/images', async (req, res) => {
-  const resultado = { usuarios: false, empleados: false, materials: false, detalles: {} };
-  try {
-    const [u] = await pool.query("SHOW COLUMNS FROM usuarios LIKE 'foto_url'");
-    resultado.usuarios = u.length > 0;
-    resultado.detalles.usuarios = u;
-  } catch (e) {
-    resultado.detalles.usuarios = { error: e.message };
-  }
-  try {
-    const [e] = await pool.query("SHOW COLUMNS FROM empleados LIKE 'foto_url'");
-    resultado.empleados = e.length > 0;
-    resultado.detalles.empleados = e;
-  } catch (e2) {
-    resultado.detalles.empleados = { error: e2.message };
-  }
-  try {
-    const [m] = await pool.query("SHOW COLUMNS FROM materials LIKE 'foto_url'");
-    resultado.materials = m.length > 0;
-    resultado.detalles.materials = m;
-  } catch (e3) {
-    resultado.detalles.materials = { error: e3.message };
-  }
-  res.json(resultado);
-});
+// (Endpoint /api/diag/images eliminado)
 
 app.get('/api/health', async (req, res) => {
   try {
@@ -1024,32 +933,7 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-app.get('/api/debug/face-models', (req, res) => {
-  try {
-    const modelosDir = path.join(__dirname, 'public', 'models');
-    const files = fs.readdirSync(modelosDir).map(f => {
-      const st = fs.statSync(path.join(modelosDir, f));
-      return { name: f, size: st.size };
-    });
-    res.json({ ok: true, files });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
-  }
-});
-
-app.get('/api/debug/face-lib', (req, res) => {
-  const distDir = path.join(__dirname, 'node_modules', '@vladmandic', 'face-api', 'dist');
-  const publicVendorDir = path.join(__dirname, 'public', 'vendor', 'face-api');
-  function listado(dir) {
-    try { return fs.readdirSync(dir).map(f => ({ f, size: fs.statSync(path.join(dir, f)).size })); } catch { return null; }
-  }
-  res.json({
-    distExists: fs.existsSync(distDir),
-    publicVendorExists: fs.existsSync(publicVendorDir),
-    distFiles: listado(distDir),
-    publicVendorFiles: listado(publicVendorDir)
-  });
-});
+// (Endpoints /api/debug eliminados)
 
 app.get('/api/clientes', requerirAutenticacion, requerirAdmin, async (req, res) => {
   try {
@@ -1234,17 +1118,7 @@ app.post('/api/users/:id/face', requerirAutenticacion, requerirAdmin, async (req
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ error: 'ID de usuario inválido' });
   try {
-    const descriptor = req.body?.descriptor;
-    if (!descriptor || !Array.isArray(descriptor) || descriptor.length < 64) {
-      return res.status(400).json({ error: 'Descriptor facial inválido' });
-    }
-    const lim = Math.min(descriptor.length, 512);
-    const limpio = [];
-    for (let i = 0; i < lim; i++) {
-      const v = Number(descriptor[i]);
-      if (!Number.isFinite(v)) return res.status(400).json({ error: 'Descriptor contiene valores inválidos' });
-      limpio.push(v);
-    }
+    const limpio = sanitizarDescriptor(req.body?.descriptor);
     const json = JSON.stringify(limpio);
     const [r] = await pool.query('UPDATE usuarios SET face_descriptor = ? WHERE idUsuario = ?', [json, id]);
     res.json({ ok: true, affectedRows: r.affectedRows });
@@ -1257,17 +1131,7 @@ app.post('/api/users/me/face', requerirAutenticacion, async (req, res) => {
   const id = Number(req.session?.user?.idUsuario);
   if (!id) return res.status(400).json({ error: 'Sesión inválida' });
   try {
-    const descriptor = req.body?.descriptor;
-    if (!descriptor || !Array.isArray(descriptor) || descriptor.length < 64) {
-      return res.status(400).json({ error: 'Descriptor facial inválido' });
-    }
-    const lim = Math.min(descriptor.length, 512);
-    const limpio = [];
-    for (let i = 0; i < lim; i++) {
-      const v = Number(descriptor[i]);
-      if (!Number.isFinite(v)) return res.status(400).json({ error: 'Descriptor contiene valores inválidos' });
-      limpio.push(v);
-    }
+    const limpio = sanitizarDescriptor(req.body?.descriptor);
     const json = JSON.stringify(limpio);
     const [r] = await pool.query('UPDATE usuarios SET face_descriptor = ? WHERE idUsuario = ?', [json, id]);
     res.json({ ok: true, affectedRows: r.affectedRows });
@@ -1391,7 +1255,7 @@ app.post('/api/empleado/asistencia', requerirAutenticacion, requerirEmpleado, as
 });
 
 
-function sqlSemanaActualBounds(alias = 'a') {
+function sqlSemanaActualBounds() {
   // lunes de la semana actual (MySQL weekday(): 0=Lunes)
   return {
     desde: `DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)`,
@@ -1661,15 +1525,7 @@ app.get('/api/contador/facturas/:id/pdf', requerirAutenticacion, requerirContado
 
     const doc = new PDFDocument({ margin: 50 });
     doc.pipe(res);
-    const logoCandidates = [
-      path.join(__dirname, 'public', 'img', 'logo-ucc.png'),
-      path.join(__dirname, 'public', 'img', 'logo.png'),
-      path.join(__dirname, 'public', 'logo-ucc.png'),
-      path.join(__dirname, 'public', 'logo.png')
-    ];
-    let logoPathToUse = null;
-    for (const pth of logoCandidates) { if (fs.existsSync(pth)) { logoPathToUse = pth; break; } }
-    renderFacturaPDF(doc, factura, { logoPath: logoPathToUse });
+    renderFacturaPDF(doc, factura, { logoPath: obtenerLogoFactura() });
     doc.end();
 
   } catch (error) { res.status(500).json({ error: error.message }); }
@@ -1810,15 +1666,7 @@ app.get('/api/cliente/facturas/:id/pdf', requerirAutenticacion, requerirCliente,
     res.setHeader('Content-Disposition', `inline; filename="factura_${id}.pdf"`);
     const doc = new PDFDocument({ margin: 50 });
     doc.pipe(res);
-    const logoCandidates = [
-      path.join(__dirname, 'public', 'img', 'logo-ucc.png'),
-      path.join(__dirname, 'public', 'img', 'logo.png'),
-      path.join(__dirname, 'public', 'logo-ucc.png'),
-      path.join(__dirname, 'public', 'logo.png')
-    ];
-    let logoPathToUse = null;
-    for (const pth of logoCandidates) { if (fs.existsSync(pth)) { logoPathToUse = pth; break; } }
-    renderFacturaPDF(doc, factura, { logoPath: logoPathToUse });
+    renderFacturaPDF(doc, factura, { logoPath: obtenerLogoFactura() });
     doc.end();
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
