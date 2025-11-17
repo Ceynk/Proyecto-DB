@@ -296,21 +296,31 @@ function prepararSelfEnrollmentCliente(yaTiene) {
 
   if (yaTiene) btn.textContent = 'Actualizar mi rostro';
 
-  btn.addEventListener('click', () => {
-    area.style.display = '';
-    btnInit.style.display = '';
-    btnCap.style.display = '';
-    btnCerrar.style.display = '';
-  });
-  btnCerrar.addEventListener('click', () => {
+  const cerrarArea = () => {
     area.style.display = 'none';
     btnInit.style.display = 'none';
     btnCap.style.display = 'none';
     btnCerrar.style.display = 'none';
     msg.textContent = '';
     btnCap.disabled = true;
-    if (streamCli) { streamCli.getTracks().forEach(t => t.stop()); streamCli = null; }
+    if (streamCli) {
+      try { streamCli.getTracks().forEach(t => t.stop()); } catch (_) {}
+      streamCli = null;
+    }
+    try { video.srcObject = null; } catch (_) {}
+  };
+
+  btn.addEventListener('click', () => {
+    const visible = getComputedStyle(area).display !== 'none';
+    if (visible) cerrarArea();
+    else {
+      area.style.display = '';
+      btnInit.style.display = '';
+      btnCap.style.display = '';
+      btnCerrar.style.display = '';
+    }
   });
+  btnCerrar.addEventListener('click', cerrarArea);
   btnInit.addEventListener('click', async () => {
     try {
       msg.style.color=''; msg.textContent='Cargando modelos...';

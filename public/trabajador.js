@@ -280,18 +280,23 @@ function prepararSelfEnrollmentTrab(yaTiene) {
   btn.style.display = '';
   if (yaTiene) btn.textContent = 'Actualizar mi rostro';
 
-  btn.addEventListener('click', () => {
-    area.style.display = '';
-  });
-  btnCerrar.addEventListener('click', async () => {
+  const cerrarArea = () => {
     area.style.display = 'none';
     msg.textContent = '';
     btnCap.disabled = true;
     if (streamTrab) {
-      streamTrab.getTracks().forEach(t => t.stop());
+      try { streamTrab.getTracks().forEach(t => t.stop()); } catch (_) {}
       streamTrab = null;
     }
+    try { video.srcObject = null; } catch (_) {}
+  };
+
+  btn.addEventListener('click', () => {
+    const visible = getComputedStyle(area).display !== 'none';
+    if (visible) cerrarArea();
+    else area.style.display = '';
   });
+  btnCerrar.addEventListener('click', cerrarArea);
   btnInit.addEventListener('click', async () => {
     try {
       msg.style.color = ''; msg.textContent = 'Cargando modelos...';
