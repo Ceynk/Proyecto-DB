@@ -514,6 +514,16 @@ body::after {
   }
 }
 
+/* Collapse toggle (desktop): hide sidebar and expand content */
+@media (min-width: 768px) {
+  body.sidebar-hidden .layout {
+    grid-template-columns: 1fr;
+  }
+  body.sidebar-hidden .sidebar {
+    display: none !important;
+  }
+}
+
 /* ========================================
    Sidebar
    ======================================== */

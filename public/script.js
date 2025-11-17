@@ -388,7 +388,13 @@ let entidadActual = 'empleado';
 let ultimoControlAbortar = null;
 
 if (botonMenuMovil && barraLateral) {
-  botonMenuMovil.addEventListener('click', () => { barraLateral.classList.toggle('mobile-open'); });
+  botonMenuMovil.addEventListener('click', () => {
+    if (window.innerWidth < 768) {
+      barraLateral.classList.toggle('mobile-open');
+    } else {
+      document.body.classList.toggle('sidebar-hidden');
+    }
+  });
   barraLateral.addEventListener('click', (e) => {
     if (e.target.tagName === 'BUTTON' && window.innerWidth < 768) barraLateral.classList.remove('mobile-open');
   });
