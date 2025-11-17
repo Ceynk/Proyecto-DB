@@ -900,7 +900,24 @@ async function cargarModelosFace() {
     cargandoModeloRostro = false;
   }
 }
+function cerrarCamaraFace(){
+  try {
+    if (flujoRostro) {
+      try { flujoRostro.getTracks().forEach(t=>t.stop()); } catch(_) {}
+      flujoRostro = null;
+    }
+    if (videoRostro) {
+      try { videoRostro.srcObject = null; } catch(_) {}
+      videoRostro.style.display = 'none';
+    }
+    if (btnLoginRostro) btnLoginRostro.disabled = true;
+    if (btnIniciarRostro) btnIniciarRostro.textContent = 'Activar Cámara';
+    if (mensajeLoginRostro) { mensajeLoginRostro.textContent = ''; mensajeLoginRostro.style.color = ''; }
+  } catch(_) {}
+}
 async function iniciarCamaraFace() {
+  // Toggle: si está activa, cerrarla
+  if (flujoRostro) { cerrarCamaraFace(); return; }
   if (!navigator.mediaDevices?.getUserMedia) {
     if (mensajeLoginRostro) { mensajeLoginRostro.style.color = 'salmon'; mensajeLoginRostro.textContent = 'getUserMedia no soportado'; }
     return;
@@ -909,8 +926,9 @@ async function iniciarCamaraFace() {
     await cargarModelosFace();
     if (mensajeLoginRostro) { mensajeLoginRostro.textContent = 'Activando cámara...'; mensajeLoginRostro.style.color = ''; }
     flujoRostro = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } });
-    if (videoRostro) videoRostro.srcObject = flujoRostro;
+    if (videoRostro) { videoRostro.srcObject = flujoRostro; videoRostro.style.display = ''; }
     if (btnLoginRostro) btnLoginRostro.disabled = false;
+    if (btnIniciarRostro) btnIniciarRostro.textContent = 'Cerrar Cámara';
     if (mensajeLoginRostro) mensajeLoginRostro.textContent = 'Cámara lista';
   } catch (e) {
     if (mensajeLoginRostro) { mensajeLoginRostro.style.color = 'salmon'; mensajeLoginRostro.textContent = 'Error al activar cámara: ' + e.message; }
