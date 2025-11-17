@@ -784,6 +784,26 @@ app.get('/api/auth/me', async (req, res) => {
     } catch (_) { }
   }
 
+  if (!extra.Nombre && extra.Correo) {
+    try {
+      const [empRows] = await pool.query(
+        'SELECT Nombre FROM empleados WHERE Correo = ? ORDER BY idEmpleado DESC LIMIT 1',
+        [extra.Correo]
+      );
+      if (empRows.length && empRows[0].Nombre) {
+        extra = { ...extra, Nombre: empRows[0].Nombre };
+      } else {
+        const [cliRows] = await pool.query(
+          'SELECT Nombre FROM clientes WHERE Correo = ? ORDER BY idCliente DESC LIMIT 1',
+          [extra.Correo]
+        );
+        if (cliRows.length && cliRows[0].Nombre) {
+          extra = { ...extra, Nombre: cliRows[0].Nombre };
+        }
+      }
+    } catch (_) { }
+  }
+
   if (!extra.Nombre && user?.nombre_usuario) {
     extra.Nombre = user.nombre_usuario;
   }
