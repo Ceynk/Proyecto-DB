@@ -728,7 +728,7 @@ app.get('/api/auth/me', async (req, res) => {
   if (user?.idUsuario) {
     try {
       const [rows] = await pool.query(
-        'SELECT face_descriptor, nombre_usuario, rol, Correo, foto_url FROM usuarios WHERE idUsuario = ? LIMIT 1',
+        'SELECT face_descriptor, nombre_usuario, rol, Correo, foto_url, idEmpleado, idCliente FROM usuarios WHERE idUsuario = ? LIMIT 1',
         [user.idUsuario]
       );
       if (rows.length) {
@@ -738,11 +738,56 @@ app.get('/api/auth/me', async (req, res) => {
           nombre_usuario: u.nombre_usuario,
           rol: u.rol,
           Correo: u.Correo || null,
-          foto_url: u.foto_url || null
+          foto_url: u.foto_url || null,
+          idEmpleado: u.idEmpleado ?? user.idEmpleado ?? null,
+          idCliente: u.idCliente ?? user.idCliente ?? null
         };
       }
     } catch (_) { }
   }
+
+  const idEmpleado = extra.idEmpleado ?? user?.idEmpleado ?? null;
+  if (idEmpleado) {
+    try {
+      const [empRows] = await pool.query(
+        'SELECT Nombre, Correo, Telefono FROM empleados WHERE idEmpleado = ? LIMIT 1',
+        [idEmpleado]
+      );
+      if (empRows.length) {
+        const emp = empRows[0];
+        extra = {
+          ...extra,
+          Nombre: emp.Nombre || extra.Nombre || null,
+          Correo: extra.Correo || emp.Correo || null,
+          Telefono: emp.Telefono || null
+        };
+      }
+    } catch (_) { }
+  }
+
+  const idCliente = extra.idCliente ?? user?.idCliente ?? null;
+  if (idCliente) {
+    try {
+      const [cliRows] = await pool.query(
+        'SELECT Nombre, Correo, Telefono FROM clientes WHERE idCliente = ? LIMIT 1',
+        [idCliente]
+      );
+      if (cliRows.length) {
+        const cli = cliRows[0];
+        extra = {
+          ...extra,
+          Nombre: cli.Nombre || extra.Nombre || null,
+          Correo: extra.Correo || cli.Correo || null,
+          Telefono: extra.Telefono || cli.Telefono || null
+        };
+      }
+    } catch (_) { }
+  }
+
+  if (!extra.Nombre && user?.nombre_usuario) {
+    extra.Nombre = user.nombre_usuario;
+  }
+
   if (user) user = { ...user, ...extra };
   res.json({ user, hasFaceDescriptor });
 });
