@@ -107,13 +107,18 @@
            Sidebar - Navegación
            ======================================== -->
   <aside class="sidebar" id="barraLateral" role="complementary" aria-label="Navegación de entidades">
-        <div class="sb-header">
+        <div class="sb-header" style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;">
           <div class="sb-title">
             <svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M3 7h18M3 12h18M3 17h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             </svg>
             Entidades
           </div>
+          <button class="btn-icon" id="btnToggleSidebar" title="Ocultar/mostrar barra">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
         </div>
         
         <!-- Navegación de Administrador -->

@@ -66,6 +66,7 @@ const formularioDinamico = document.getElementById('dynForm');
 const tituloFormulario = document.getElementById('formTitle');
 const mensajeFormulario = document.getElementById('formMsg');
 const botonMenuMovil = document.getElementById('btnMenuMovil');
+const btnToggleSidebar = document.getElementById('btnToggleSidebar');
 const botonActualizar = document.getElementById('btnRefrescar');
 
 const panelDatos = document.getElementById('panelDatos');
@@ -397,6 +398,15 @@ if (botonMenuMovil && barraLateral) {
   });
   barraLateral.addEventListener('click', (e) => {
     if (e.target.tagName === 'BUTTON' && window.innerWidth < 768) barraLateral.classList.remove('mobile-open');
+  });
+}
+if (btnToggleSidebar) {
+  btnToggleSidebar.addEventListener('click', () => {
+    if (window.innerWidth < 768) {
+      barraLateral?.classList.toggle('mobile-open');
+    } else {
+      document.body.classList.toggle('sidebar-hidden');
+    }
   });
 }
 if (botonActualizar) botonActualizar.addEventListener('click', () => { cargarDatos(); });
