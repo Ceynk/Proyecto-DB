@@ -12,6 +12,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
+  <!-- Overlay para cerrar el sidebar -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+  
   <header class="site-header" role="banner">
     <div class="container header-inner">
       <div class="brand">
@@ -97,6 +100,13 @@
     </div>
   </div>
 
+  <!-- Botón flotante para abrir/cerrar el sidebar -->
+  <button class="sidebar-toggle-btn" id="sidebarToggleBtn" aria-label="Abrir/Cerrar menú" title="Abrir/Cerrar menú">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </button>
+
   <!-- ========================================
        Área Principal de la Aplicación
        ======================================== -->
@@ -114,9 +124,9 @@
             </svg>
             Entidades
           </div>
-          <button class="btn-icon" id="btnToggleSidebar" title="Ocultar/mostrar barra">
+          <button class="btn-icon" id="btnToggleSidebar" title="Cerrar menú">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             </svg>
           </button>
         </div>

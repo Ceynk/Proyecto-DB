@@ -479,49 +479,72 @@ body::after {
    ======================================== */
 
 .layout {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--spacing-lg);
+  display: block;
   padding: var(--spacing-lg) 0;
   min-height: calc(100vh - 140px);
+  margin-left: 0;
+  transition: margin-left var(--transition-smooth);
 }
 
 @media (min-width: 768px) {
   .layout {
-    grid-template-columns: 260px 1fr;
-    gap: var(--spacing-xl);
     padding: var(--spacing-xl) 0;
-  }
-}
-
-@media (min-width: 1200px) {
-  .layout {
-    grid-template-columns: 280px 1fr;
-    gap: 2rem;
   }
 }
 
 @media (max-width: 480px) {
   .layout {
-    gap: var(--spacing-md);
     padding: var(--spacing-md) 0;
   }
 }
 
-@media (min-width: 1200px) {
-  .layout {
-    grid-template-columns: 300px 1fr;
-  }
+/* ========================================
+   Botón Toggle del Sidebar
+   ======================================== */
+.sidebar-toggle-btn {
+  position: fixed;
+  top: 80px;
+  left: 20px;
+  z-index: 105;
+  width: 48px;
+  height: 48px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-gradient);
+  border: 2px solid var(--accent-primary);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  box-shadow: 0 4px 12px var(--accent-glow);
 }
 
-/* Collapse toggle (desktop): hide sidebar and expand content */
-@media (min-width: 768px) {
-  body.sidebar-hidden .layout {
-    grid-template-columns: 1fr;
-  }
-  body.sidebar-hidden .sidebar {
-    display: none !important;
-  }
+.sidebar-toggle-btn svg {
+  width: 24px;
+  height: 24px;
+  color: white;
+  transition: transform var(--transition-base);
+}
+
+.sidebar-toggle-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px var(--accent-glow);
+}
+
+.sidebar-toggle-btn:active {
+  transform: scale(0.95);
+}
+
+/* Ocultar el botón cuando el sidebar está abierto */
+body.sidebar-open .sidebar-toggle-btn {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Ocultar el botón cuando no se está en el área de la app */
+#areaApp[style*="display:none"] ~ .sidebar-toggle-btn,
+#areaApp[style*="display: none"] ~ .sidebar-toggle-btn {
+  display: none;
 }
 
 /* ========================================
@@ -529,19 +552,34 @@ body::after {
    ======================================== */
 
 .sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  width: 320px;
   background: var(--glass-bg);
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border: 2px solid transparent;
-  border-image: linear-gradient(135deg, rgba(0, 255, 255, 0.2), rgba(255, 0, 255, 0.2)) 1;
-  border-radius: var(--radius-xl);
+  border-right: 2px solid transparent;
+  border-image: linear-gradient(180deg, rgba(0, 255, 255, 0.2), rgba(255, 0, 255, 0.2)) 1;
   padding: var(--spacing-xl);
-  height: fit-content;
-  position: sticky;
-  top: 14px;
-  max-height: calc(100vh - 100px);
+  padding-top: 80px;
   overflow-y: auto;
-  display: none;
+  z-index: 101;
+  transform: translateX(-100%);
+  transition: transform var(--transition-smooth);
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Cuando el sidebar está abierto */
+body.sidebar-open .sidebar {
+  transform: translateX(0);
+}
+
+/* Ajustar el contenido cuando el sidebar está abierto */
+body.sidebar-open .layout {
+  margin-left: 320px;
+  transition: margin-left var(--transition-smooth);
 }
 
 .sidebar::-webkit-scrollbar {
@@ -558,27 +596,47 @@ body::after {
   border-radius: 4px;
 }
 
-@media (min-width: 768px) {
+/* Responsivo para móviles */
+@media (max-width: 768px) {
   .sidebar {
-    display: block;
+    width: 280px;
+  }
+  
+  body.sidebar-open .layout {
+    margin-left: 0;
+  }
+  
+  .sidebar-toggle-btn {
+    top: 70px;
+    left: 15px;
+    width: 44px;
+    height: 44px;
   }
 }
 
-.sidebar.mobile-open {
-  display: block;
+/* Overlay para cerrar el sidebar */
+.sidebar-overlay {
   position: fixed;
-  top: 64px;
-  left: var(--spacing-md);
-  right: var(--spacing-md);
-  z-index: 90;
-  max-height: calc(100vh - 80px);
-  overflow-y: auto;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 99;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-base);
 }
 
-@media (max-width: 480px) {
-  .sidebar.mobile-open {
-    left: var(--spacing-sm);
-    right: var(--spacing-sm);
+body.sidebar-open .sidebar-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* En desktop, hacer el overlay más sutil */
+@media (min-width: 769px) {
+  .sidebar-overlay {
+    background: rgba(0, 0, 0, 0.3);
   }
 }
 

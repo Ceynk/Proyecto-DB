@@ -67,6 +67,8 @@ const tituloFormulario = document.getElementById('formTitle');
 const mensajeFormulario = document.getElementById('formMsg');
 const botonMenuMovil = document.getElementById('btnMenuMovil');
 const btnToggleSidebar = document.getElementById('btnToggleSidebar');
+const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
 const botonActualizar = document.getElementById('btnRefrescar');
 
 const panelDatos = document.getElementById('panelDatos');
@@ -388,26 +390,42 @@ const entidades = [
 let entidadActual = 'empleado';
 let ultimoControlAbortar = null;
 
-if (botonMenuMovil && barraLateral) {
-  botonMenuMovil.addEventListener('click', () => {
-    if (window.innerWidth < 768) {
-      barraLateral.classList.toggle('mobile-open');
-    } else {
-      document.body.classList.toggle('sidebar-hidden');
-    }
-  });
+// Funcionalidad del sidebar toggle
+function toggleSidebar() {
+  document.body.classList.toggle('sidebar-open');
+}
+
+function closeSidebar() {
+  document.body.classList.remove('sidebar-open');
+}
+
+// Botón flotante para abrir el sidebar
+if (sidebarToggleBtn) {
+  sidebarToggleBtn.addEventListener('click', toggleSidebar);
+}
+
+// Botón dentro del sidebar para cerrar
+if (btnToggleSidebar) {
+  btnToggleSidebar.addEventListener('click', closeSidebar);
+}
+
+// Overlay para cerrar el sidebar en móvil
+if (sidebarOverlay) {
+  sidebarOverlay.addEventListener('click', closeSidebar);
+}
+
+// Cerrar sidebar al hacer clic en una entidad (solo en móvil)
+if (barraLateral) {
   barraLateral.addEventListener('click', (e) => {
-    if (e.target.tagName === 'BUTTON' && window.innerWidth < 768) barraLateral.classList.remove('mobile-open');
+    if (e.target.tagName === 'BUTTON' && window.innerWidth < 768) {
+      closeSidebar();
+    }
   });
 }
-if (btnToggleSidebar) {
-  btnToggleSidebar.addEventListener('click', () => {
-    if (window.innerWidth < 768) {
-      barraLateral?.classList.toggle('mobile-open');
-    } else {
-      document.body.classList.toggle('sidebar-hidden');
-    }
-  });
+
+// Menú móvil del header (mantener funcionalidad existente si existe)
+if (botonMenuMovil) {
+  botonMenuMovil.addEventListener('click', toggleSidebar);
 }
 if (botonActualizar) botonActualizar.addEventListener('click', () => { cargarDatos(); });
 
@@ -744,11 +762,14 @@ function actualizarUIParaAutenticacion() {
     areaLogin.style.display = '';
     areaApp.style.display = 'none';
     btnCerrarSesion.style.display = 'none';
+    if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'none';
+    closeSidebar();
   // ---
   } else if (usuarioActual.rol === 'Administrador') {
     areaLogin.style.display = 'none';
     areaApp.style.display = '';
     btnCerrarSesion.style.display = '';
+    if (sidebarToggleBtn) sidebarToggleBtn.style.display = 'flex';
     contenedorFormulario.style.display = '';
     document.querySelector('.toolbar').style.display = '';
     document.getElementById('formWrap').style.display = '';
