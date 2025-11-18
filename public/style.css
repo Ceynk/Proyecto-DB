@@ -626,13 +626,13 @@ body.sidebar-open .layout {
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--transition-base);
-  visibility: hidden;
+  display: none;
 }
 
 body.sidebar-open .sidebar-overlay {
+  display: block;
   opacity: 1;
   pointer-events: auto;
-  visibility: visible;
 }
 
 /* En desktop, hacer el overlay más sutil */
