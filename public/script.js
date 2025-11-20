@@ -1146,7 +1146,7 @@ const camposFormulario = {
   turno: [
     { name: 'Hora_inicio', type: 'time', req: true },
     { name: 'Hora_fin', type: 'time', req: true },
-    { name: 'Tipo_jornada', type: 'text' },
+    { name: 'Tipo_jornada', type: 'select', options: ['Diurna', 'Nocturna'] },
     { name: 'idEmpleado', type: 'select', source: '/api/min/empleados' }
   ],
   tarea: [
