@@ -1,3 +1,33 @@
+// --- Tema oscuro/claro universal ---
+document.addEventListener('DOMContentLoaded', () => {
+  const interruptorTema = document.getElementById('interruptorTema');
+  const iconoClaro = document.getElementById('iconoClaro');
+  const iconoOscuro = document.getElementById('iconoOscuro');
+  function establecerTema(tema) {
+    if (tema === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      if (iconoClaro) iconoClaro.style.display = 'none';
+      if (iconoOscuro) iconoOscuro.style.display = 'block';
+      localStorage.setItem('theme', 'light');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      if (iconoClaro) iconoClaro.style.display = 'block';
+      if (iconoOscuro) iconoOscuro.style.display = 'none';
+      localStorage.setItem('theme', 'dark');
+    }
+  }
+  function iniciarTema() {
+    const temaGuardado = localStorage.getItem('theme');
+    const prefiereOscuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (temaGuardado === 'light' || (!temaGuardado && !prefiereOscuro)) establecerTema('light'); else establecerTema('dark');
+  }
+  function alternarTema() {
+    const actual = document.documentElement.getAttribute('data-theme');
+    establecerTema(actual === 'light' ? 'dark' : 'light');
+  }
+  if (interruptorTema) interruptorTema.addEventListener('click', alternarTema);
+  iniciarTema();
+});
 const baseAPI = (typeof window !== 'undefined' && (window.API_BASE || localStorage.getItem('API_BASE'))) || '';
 let usuarioActual = null;
 
