@@ -194,9 +194,7 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-// Calcula el menor ID positivo libre (1,2,3,...) para una tabla dada
 async function obtenerSiguienteIdDisponible(tabla, llavePrimaria) {
-  // Nota: implementación simple; adecuada para baja concurrencia de admin.
   const [rows] = await pool.query(`SELECT ${llavePrimaria} AS id FROM ${tabla} ORDER BY ${llavePrimaria} ASC`);
   let nextId = 1;
   for (const r of rows) {
@@ -208,7 +206,6 @@ async function obtenerSiguienteIdDisponible(tabla, llavePrimaria) {
   return nextId;
 }
 
-// Ensure schema (extra columns) and seed admin user
 async function asegurarEsquemaYSemilla() {
   try {
     const [c2] = await pool.query("SHOW COLUMNS FROM usuarios LIKE 'foto_url'");
@@ -218,7 +215,6 @@ async function asegurarEsquemaYSemilla() {
   } catch (e) {
     console.warn('No se pudo verificar/agregar columna foto_url:', e.message);
   }
-  // Tabla de asistencias (entrada/salida por día)
   try {
     await pool.query(`CREATE TABLE IF NOT EXISTS asistencias (
       idAsistencia INT AUTO_INCREMENT PRIMARY KEY,
@@ -232,7 +228,6 @@ async function asegurarEsquemaYSemilla() {
   } catch (e) {
     console.warn('No se pudo crear/asegurar tabla asistencias:', e.message);
   }
-  // Descriptor facial para login con rostro
   try {
     const [cf] = await pool.query("SHOW COLUMNS FROM usuarios LIKE 'face_descriptor'");
     if (cf.length === 0) {
@@ -274,7 +269,6 @@ async function asegurarEsquemaYSemilla() {
   } catch (e) {
     console.warn('No se pudo verificar/agregar materials.foto_url:', e.message);
   }
-  // Stock en materials + triggers de inventario
   try {
     const [cs] = await pool.query("SHOW COLUMNS FROM materials LIKE 'stock'");
     if (cs.length === 0) {
@@ -298,7 +292,6 @@ async function asegurarEsquemaYSemilla() {
   } catch (e) {
     console.warn('No se pudo verificar/agregar materials.stock:', e.message);
   }
-  // Crear tabla detalles de factura y columna Estado
   try {
     const [col] = await pool.query("SHOW COLUMNS FROM facturas LIKE 'Estado'");
     if (col.length === 0) {
@@ -1850,10 +1843,8 @@ function stockCaseExpr(prefix = 'i') {
     ELSE 0 END)`;
 }
 
-// Resumen general
 app.get('/api/inventory/overview', async (req, res) => {
   try {
-    // Preferir columna stock si existe; si no, calcular por SUM
     let rows;
     try {
       const [r1] = await pool.query('SELECT COUNT(*) materiales, SUM(CASE WHEN IFNULL(stock,0) > 0 THEN 1 ELSE 0 END) disponibles, SUM(CASE WHEN IFNULL(stock,0) <= 0 THEN 1 ELSE 0 END) agotados FROM materials');
@@ -1880,14 +1871,12 @@ app.get('/api/inventory/overview', async (req, res) => {
   }
 });
 
-// Tarjetas por material 
 app.get('/api/inventory/cards', async (req, res) => {
   const q = (req.query.q || '').toString().trim();
   try {
     const params = [];
     let where = '';
     if (q) { where = 'WHERE m.Nombre LIKE ?'; params.push(`%${q}%`); }
-    // Preferir columna stock si existe
     let rows;
     try {
       const [r] = await pool.query(`
@@ -1934,11 +1923,9 @@ app.post('/api/empleado/consumir', requerirAutenticacion, requerirEmpleado, asyn
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    // Obtener proyecto y cliente del empleado
     const [empRows] = await conn.query('SELECT e.idProyecto, p.idCliente FROM empleados e LEFT JOIN proyectos p ON p.idProyecto = e.idProyecto WHERE e.idEmpleado = ? LIMIT 1', [idEmp]);
     const idProyecto = empRows[0]?.idProyecto || null;
     const idCliente = empRows[0]?.idCliente || null;
-    // Insertar salida de inventario
     const fecha = new Date().toISOString().slice(0,10);
     await conn.query('INSERT INTO inventarios (tipo_movimiento, cantidad, fecha, idMaterial, idProyecto) VALUES (\'Salida\', ?, ?, ?, ?)', [Number(cantidad), fecha, idMaterial, idProyecto]);
 
@@ -1951,7 +1938,6 @@ app.post('/api/empleado/consumir', requerirAutenticacion, requerirEmpleado, asyn
         const [nuevo] = await conn.query('INSERT INTO facturas (Fecha, Valor_total, idProyecto, idCliente, Estado) VALUES (CURDATE(), 0, ?, ?, \'Borrador\')', [idProyecto, idCliente]);
         idFactura = nuevo.insertId;
       }
-      // Obtener costo unitario del material
       const [mat] = await conn.query('SELECT costo_unitario FROM materials WHERE idMaterial = ? LIMIT 1', [idMaterial]);
       const cu = Number(mat[0]?.costo_unitario || 0);
       const cant = Number(cantidad);
@@ -1970,7 +1956,6 @@ app.post('/api/empleado/consumir', requerirAutenticacion, requerirEmpleado, asyn
   }
 });
 
-// Detalle de un material: info + movimientos
 app.get('/api/inventory/material/:id', async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });

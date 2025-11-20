@@ -663,6 +663,12 @@ function renderizarTabla(filas) {
   
   const cabecera = crear('thead');
   const filaCabecera = crear('tr');
+  // Celda de encabezado adicional antes del ID (todas las entidades)
+  const thPrevio = crear('th');
+  thPrevio.textContent = '';
+  thPrevio.setAttribute('scope', 'col');
+  thPrevio.style.width = '32px';
+  filaCabecera.appendChild(thPrevio);
   
   columnasParaRender.forEach((columna) => {
     const th = crear('th');
@@ -684,6 +690,11 @@ function renderizarTabla(filas) {
   const cuerpo = crear('tbody');
   filasNorm.forEach((registro) => {
     const filaTabla = crear('tr');
+    // Celda adicional previa al ID para alinear con el th agregado
+    const celdaPrevia = crear('td');
+    celdaPrevia.textContent = '';
+    celdaPrevia.style.width = '32px';
+    filaTabla.appendChild(celdaPrevia);
     
     columnasParaRender.forEach((columna) => {
       const celda = crear('td');
