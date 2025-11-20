@@ -913,6 +913,109 @@ app.delete('/api/delete/:entity/:id', requerirAutenticacion, requerirAdmin, asyn
       }
     }
 
+    // Limpiar referencias al eliminar un cliente
+    if (entidad === 'cliente') {
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+        await conn.query('UPDATE proyectos SET idCliente = NULL WHERE idCliente = ?', [id]);
+        await conn.query('UPDATE facturas SET idCliente = NULL WHERE idCliente = ?', [id]);
+        await conn.query('UPDATE usuarios SET idCliente = NULL WHERE idCliente = ?', [id]);
+        const [del] = await conn.query('DELETE FROM clientes WHERE idCliente = ?', [id]);
+        await conn.commit();
+        conn.release();
+        return res.json({ ok: true, affectedRows: del.affectedRows });
+      } catch (e) {
+        try { await conn.rollback(); } catch (_) {}
+        conn.release();
+        return res.status(500).json({ error: e.message });
+      }
+    }
+
+    // Limpiar referencias al eliminar un proyecto
+    if (entidad === 'proyecto') {
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+        await conn.query('UPDATE empleados   SET idProyecto = NULL WHERE idProyecto = ?', [id]);
+        await conn.query('UPDATE apartamentos SET idProyecto = NULL WHERE idProyecto = ?', [id]);
+        await conn.query('UPDATE pisos        SET idProyecto = NULL WHERE idProyecto = ?', [id]);
+        await conn.query('UPDATE inventarios  SET idProyecto = NULL WHERE idProyecto = ?', [id]);
+        await conn.query('UPDATE ingresos     SET idProyecto = NULL WHERE idProyecto = ?', [id]);
+        await conn.query('UPDATE gastos       SET idProyecto = NULL WHERE idProyecto = ?', [id]);
+        await conn.query('UPDATE facturas     SET idProyecto = NULL WHERE idProyecto = ?', [id]);
+        await conn.query('UPDATE tareas       SET idProyecto = NULL WHERE idProyecto = ?', [id]);
+        const [del] = await conn.query('DELETE FROM proyectos WHERE idProyecto = ?', [id]);
+        await conn.commit();
+        conn.release();
+        return res.json({ ok: true, affectedRows: del.affectedRows });
+      } catch (e) {
+        try { await conn.rollback(); } catch (_) {}
+        conn.release();
+        return res.status(500).json({ error: e.message });
+      }
+    }
+
+    // Limpiar referencias al eliminar un apartamento
+    if (entidad === 'apartamento') {
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+        await conn.query('UPDATE pisos SET idApartamento = NULL WHERE idApartamento = ?', [id]);
+        const [del] = await conn.query('DELETE FROM apartamentos WHERE idApartamento = ?', [id]);
+        await conn.commit();
+        conn.release();
+        return res.json({ ok: true, affectedRows: del.affectedRows });
+      } catch (e) {
+        try { await conn.rollback(); } catch (_) {}
+        conn.release();
+        return res.status(500).json({ error: e.message });
+      }
+    }
+
+    // Eliminar material y su imagen
+    if (entidad === 'material') {
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+        const [info] = await conn.query('SELECT foto_url FROM materials WHERE idMaterial = ? LIMIT 1', [id]);
+        const [del] = await conn.query('DELETE FROM materials WHERE idMaterial = ?', [id]);
+        await conn.commit();
+
+        try {
+          const anterior = info[0]?.foto_url;
+          if (anterior && anterior.startsWith('/uploads/')) {
+            const fpath = resolverRutaArchivo(anterior);
+            if (fpath && fs.existsSync(fpath)) fs.unlinkSync(fpath);
+          }
+        } catch (_) {}
+
+        conn.release();
+        return res.json({ ok: true, affectedRows: del.affectedRows });
+      } catch (e) {
+        try { await conn.rollback(); } catch (_) {}
+        conn.release();
+        return res.status(500).json({ error: e.message });
+      }
+    }
+
+    // Eliminar factura y sus pagos asociados
+    if (entidad === 'factura') {
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+        await conn.query('DELETE FROM pagos WHERE idFactura = ?', [id]);
+        const [del] = await conn.query('DELETE FROM facturas WHERE idFactura = ?', [id]);
+        await conn.commit();
+        conn.release();
+        return res.json({ ok: true, affectedRows: del.affectedRows });
+      } catch (e) {
+        try { await conn.rollback(); } catch (_) {}
+        conn.release();
+        return res.status(500).json({ error: e.message });
+      }
+    }
+
     const sql = `DELETE FROM ${definicion.tabla} WHERE ${definicion.tabla}.${definicion.llavePrimaria} = ?`;
     const [resultado] = await pool.query(sql, [id]);
     res.json({ ok: true, affectedRows: resultado.affectedRows });
