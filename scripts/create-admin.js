@@ -4,8 +4,7 @@ import bcrypt from 'bcryptjs';
 
 dotenv.config();
 
-// Resolve DB config similarly to server.js
-const pool = mysql.createPool({
+const poolBD = mysql.createPool({
   host: process.env.DB_HOST || process.env.MYSQLHOST || process.env.MYSQL_HOST,
   port: Number(process.env.DB_PORT || process.env.MYSQLPORT || process.env.MYSQL_PORT || 3306),
   user: process.env.DB_USER || process.env.MYSQLUSER || process.env.MYSQL_USER,
@@ -16,48 +15,47 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-async function main() {
-  const [,, argUser, argPass, argEmail] = process.argv;
-  const username = (argUser || process.env.ADMIN_USER || 'admin').toString();
-  const password = (argPass || process.env.ADMIN_PASS || 'admin123').toString();
-  const correo = (argEmail || process.env.ADMIN_EMAIL || 'admin@example.com').toString();
+async function ejecutar() {
+  const [,, argUsuario, argContrasena, argCorreo] = process.argv;
+  const nombreUsuario = (argUsuario || process.env.ADMIN_USER || 'admin').toString();
+  const contrasena = (argContrasena || process.env.ADMIN_PASS || 'admin123').toString();
+  const correoAdmin = (argCorreo || process.env.ADMIN_EMAIL || 'admin@example.com').toString();
 
-  if (!username || !password) {
-    console.error('Faltan credenciales. Uso: node scripts/create-admin.js <usuario> <contraseña> [correo]');
+  if (!nombreUsuario || !contrasena) {
+    console.error('Faltan credenciales. Uso: node scripts/create-admin.js <usuario> <contrasena> [correo]');
     process.exit(1);
   }
 
   console.log('Conectando a la base de datos...');
-  const conn = await pool.getConnection();
+  const conexion = await poolBD.getConnection();
   try {
-    await conn.query('SELECT 1');
+    await conexion.query('SELECT 1');
 
-    // ¿Existe el usuario?
-    const [existe] = await conn.query('SELECT idUsuario FROM usuarios WHERE nombre_usuario = ? LIMIT 1', [username]);
-    const hash = await bcrypt.hash(password, 10);
+    const [registroExistente] = await conexion.query('SELECT idUsuario FROM usuarios WHERE nombre_usuario = ? LIMIT 1', [nombreUsuario]);
+    const hashContrasena = await bcrypt.hash(contrasena, 10);
 
-    if (existe.length) {
-      const id = existe[0].idUsuario;
-      const [r] = await conn.query(
+    if (registroExistente.length) {
+      const idAdmin = registroExistente[0].idUsuario;
+      const [resultadoActualizacion] = await conexion.query(
         'UPDATE usuarios SET contraseña = ?, rol = "Administrador", idEmpleado = NULL, Correo = ? WHERE idUsuario = ?',
-        [hash, correo || null, id]
+        [hashContrasena, correoAdmin || null, idAdmin]
       );
-      console.log(`Administrador actualizado: ${username} (id=${id}). Filas afectadas: ${r.affectedRows}`);
+      console.log(`Administrador actualizado: ${nombreUsuario} (id=${idAdmin}). Filas afectadas: ${resultadoActualizacion.affectedRows}`);
     } else {
-      const [r] = await conn.query(
+      const [resultadoInsercion] = await conexion.query(
         'INSERT INTO usuarios (nombre_usuario, contraseña, rol, idEmpleado, Correo) VALUES (?, ?, "Administrador", NULL, ?)',
-        [username, hash, correo || null]
+        [nombreUsuario, hashContrasena, correoAdmin || null]
       );
-      console.log(`Administrador creado: ${username} (id=${r.insertId})`);
+      console.log(`Administrador creado: ${nombreUsuario} (id=${resultadoInsercion.insertId})`);
     }
-    console.log('Listo. Intenta iniciar sesión con esas credenciales.');
-  } catch (e) {
-    console.error('Error creando/actualizando administrador:', e.message);
+    console.log('Operación completada. Intenta iniciar sesión con esas credenciales.');
+  } catch (error) {
+    console.error('Error al crear/actualizar el administrador:', error.message);
     process.exitCode = 1;
   } finally {
-    conn.release();
-    await pool.end();
+    conexion.release();
+    await poolBD.end();
   }
 }
 
-main();
+ejecutar();

@@ -9,10 +9,8 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import PDFDocument from 'pdfkit';
-// Descarga opcional de modelos de face-api para hosting local (corrige nombres reales .bin)
 import https from 'https';
 
-// Helper para generar un PDF de factura con estilo profesional
 function renderFacturaPDF(doc, factura, opts = {}) {
   const {
     logoPath = null,
@@ -22,42 +20,34 @@ function renderFacturaPDF(doc, factura, opts = {}) {
   const marginLeft = 50;
   const pageWidth = doc.page.width;
   const usableWidth = pageWidth - marginLeft * 2;
-  // Ajustar altura del header para permitir más aire
   const headerHeight = 120;
 
-  // Banda superior
   doc.save();
   doc.rect(0, 0, pageWidth, headerHeight).fill(colores.primario);
   doc.restore();
 
-  // Logo (opcional)
   if (logoPath) {
     try { doc.image(logoPath, marginLeft + 2, 22, { width: 80 }); } catch (_) {}
   }
 
-  // Título
-  // Bajar el título para no quedar alineado con el logo
+  
   doc.fillColor('#fff').fontSize(26).font('Helvetica-Bold').text('Factura', marginLeft, 40, {
     width: usableWidth,
     align: 'right'
   });
 
-  // Subtítulo / número factura en header
   doc.fontSize(12).font('Helvetica').text(`N° ${factura.idFactura}`, {
     align: 'right'
   });
 
-  // Línea separadora curva bajo header
-  // Línea separadora más abajo para dejar aire debajo del logo
+  
   doc.moveTo(marginLeft, headerHeight - 15).lineTo(pageWidth - marginLeft, headerHeight - 15).strokeColor(colores.secundario).lineWidth(3).stroke();
   doc.strokeColor(colores.texto).lineWidth(1);
 
-  // Posicionar contenido principal
-  // Empujar el contenido principal más abajo
+  
   doc.y = headerHeight + 30;
   doc.fillColor(colores.texto);
 
-  // Bloque empresa y datos factura (dos columnas)
   const colWidth = usableWidth / 2 - 10;
   const startY = doc.y;
   const leftX = marginLeft;
@@ -90,13 +80,13 @@ function renderFacturaPDF(doc, factura, opts = {}) {
     .text(`Teléfono: ${factura.TelefonoCliente || '—'}`);
   doc.moveDown(0.8);
 
-  // Concepto (placeholder)
+  // Concepto factura
   doc.fontSize(13).font('Helvetica-Bold').text('Concepto');
   doc.moveDown(0.2).fontSize(11).font('Helvetica')
     .text('Servicios y/o materiales facturados (detalle extendido no disponible en el esquema actual).');
   doc.moveDown(1.2);
 
-  // Total destacado en caja a la derecha
+ 
   const totalBoxWidth = 230;
   const totalBoxHeight = 55;
   const totalX = marginLeft + usableWidth - totalBoxWidth;
@@ -112,7 +102,7 @@ function renderFacturaPDF(doc, factura, opts = {}) {
   // Agradecimiento
   doc.fontSize(10).font('Helvetica').fillColor(colores.gris).text('Gracias por su confianza.', { align: 'center' });
 
-  // Footer (página y marca)
+  // Footer
   const footerY = doc.page.height - 40;
   doc.fontSize(8).fillColor(colores.gris).text('Generado automáticamente - BuildSmarts', marginLeft, footerY, { width: usableWidth, align: 'center' });
 }
@@ -158,7 +148,6 @@ function sanitizarDescriptor(descriptor) {
   return limpio;
 }
 
-// Sessions (in-memory store para dev; en producción usar store persistente)
 app.use(
   session({
     name: 'sid',
@@ -168,15 +157,12 @@ app.use(
     cookie: {
       httpOnly: true,
       sameSite: isProd ? 'none' : 'lax',
-      secure: isProd, // requiere HTTPS (Railway lo ofrece)
-      // Sin maxAge: cookie de sesión (se borra al cerrar el navegador)
+      secure: isProd, 
     }
   })
 );
 
-// Static files
 app.use(express.static(path.join(__dirname, 'public')));
-// Static uploads
 const dirSubidas = path.join(__dirname, 'uploads');
 if (!fs.existsSync(dirSubidas)) {
   fs.mkdirSync(dirSubidas, { recursive: true });
@@ -252,7 +238,6 @@ async function asegurarEsquemaYSemilla() {
   } catch (e) {
     console.warn('No se pudo verificar/agregar empleados.foto_url:', e.message);
   }
-  // Nueva columna: fecha/hora de última marcación de asistencia
   try {
     const [caf] = await pool.query("SHOW COLUMNS FROM empleados LIKE 'Asistencia_fecha'");
     if (caf.length === 0) {
@@ -273,7 +258,6 @@ async function asegurarEsquemaYSemilla() {
     const [cs] = await pool.query("SHOW COLUMNS FROM materials LIKE 'stock'");
     if (cs.length === 0) {
       await pool.query('ALTER TABLE materials ADD COLUMN stock INT NOT NULL DEFAULT 0');
-      // Recalcular stock inicial desde inventarios si existe
       try {
         await pool.query(`
           UPDATE materials m
@@ -314,7 +298,6 @@ async function asegurarEsquemaYSemilla() {
   } catch (e) {
     console.warn('No se pudo crear tabla factura_detalles:', e.message);
   }
-  // Intentar crear triggers para mantener stock
   try {
     await pool.query('DROP TRIGGER IF EXISTS trig_inventarios_ai');
     await pool.query(`CREATE TRIGGER trig_inventarios_ai AFTER INSERT ON inventarios FOR EACH ROW
@@ -367,7 +350,6 @@ async function asegurarEsquemaYSemilla() {
   } catch (e) {
     console.warn('No se pudo crear trigger trig_inventarios_ad:', e.message);
   }
-  // Asegurar enum de rol incluye 'Cliente'
   try {
     const [rolCol] = await pool.query(`
       SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS
@@ -380,7 +362,6 @@ async function asegurarEsquemaYSemilla() {
   } catch (e) {
     console.warn('No se pudo asegurar enum usuarios.rol incluye Cliente:', e.message);
   }
-  // Vinculación de usuarios con clientes
   try {
     const [cc] = await pool.query("SHOW COLUMNS FROM usuarios LIKE 'idCliente'");
     if (cc.length === 0) {
@@ -804,7 +785,6 @@ app.get('/api/get/:entity/:id', requerirAutenticacion, requerirAdmin, async (req
   if (entidadesExclusivasContador.has(entidad)) return res.status(403).json({ error: 'Entidad exclusiva del Contador' });
   if (!id) return res.status(400).json({ error: 'ID requerido' });
   try {
-    // Construir lista de columnas: llave primaria + columnasCreate (evitar duplicados)
     const baseCols = [definicion.llavePrimaria, ...colsCreate.filter(c => c !== definicion.llavePrimaria)];
     const sql = `SELECT ${baseCols.join(', ')} FROM ${definicion.tabla} WHERE ${definicion.llavePrimaria} = ? LIMIT 1`;
     const [rows] = await pool.query(sql, [id]);
@@ -850,7 +830,6 @@ app.post('/api/create/:entity', requerirAutenticacion, requerirAdmin, async (req
         const sql = `INSERT INTO ${definicion.tabla} (${colsInsert.join(', ')}) VALUES (${placeholders})`;
         [resultado] = await pool.query(sql, [nextId, ...values]);
       } catch (e) {
-        // En caso de colisión/concurrencia, caer al auto-incremento normal
         const placeholders = cols.map(() => '?').join(', ');
         const sql = `INSERT INTO ${definicion.tabla} (${cols.join(', ')}) VALUES (${placeholders})`;
         [resultado] = await pool.query(sql, values);
@@ -1040,10 +1019,6 @@ app.delete('/api/delete/:entity/:id', requerirAutenticacion, requerirAdmin, asyn
   }
 });
 
-// (Endpoints de diagnóstico eliminados para simplificar)
-
-// (Endpoint /api/diag/images eliminado)
-
 app.get('/api/health', async (req, res) => {
   try {
     const [filas] = await pool.query('SELECT 1 AS ok');
@@ -1053,7 +1028,6 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// (Endpoints /api/debug eliminados)
 
 app.get('/api/clientes', requerirAutenticacion, requerirAdmin, async (req, res) => {
   try {
@@ -1198,7 +1172,7 @@ app.get('/api/users', requerirAutenticacion, requerirAdmin, async (req, res) => 
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Crear usuario (Admin/Contador/Empleado) con foto opcional
+// Crear usuario (Admin/Contador/Empleado) 
 app.post('/api/users/create', requerirAutenticacion, requerirAdmin, subida.single('foto'), async (req, res) => {
   try {
     const { username, password, rol = 'Empleado', idEmpleado, idCliente, correo } = req.body || {};
@@ -1376,7 +1350,7 @@ app.post('/api/empleado/asistencia', requerirAutenticacion, requerirEmpleado, as
 
 
 function sqlSemanaActualBounds() {
-  // lunes de la semana actual (MySQL weekday(): 0=Lunes)
+  // lunes de la semana actual 
   return {
     desde: `DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)`,
     hasta: `DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 6 DAY)`
@@ -1567,7 +1541,7 @@ app.get('/api/empleado/mis-tareas', requerirAutenticacion, requerirEmpleado, asy
 
 // Contador
 
-// Listado de inventario (con joins) accesible a Contador
+// Listado de inventario accesible a Contador
 app.get('/api/contador/inventario', requerirAutenticacion, requerirContador, async (req, res) => {
   const busqueda = (req.query.q || '').toString().trim();
   try {
@@ -1769,7 +1743,7 @@ app.get('/api/cliente/pagos', requerirAutenticacion, requerirCliente, async (req
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// PDF de factura para cliente (si la factura es suya)
+// PDF de factura para cliente 
 app.get('/api/cliente/facturas/:id/pdf', requerirAutenticacion, requerirCliente, async (req, res) => {
   const id = Number(req.params.id);
   const idCliente = req.session?.user?.idCliente;
@@ -1996,7 +1970,7 @@ asegurarEsquemaYSemilla().finally(() => {
   });
 });
 
-// Verificación/descarga opcional de modelos face-api (corrige nombres). En Railway ya deben estar incluidos en la imagen.
+// Verificación/descarga opcional de modelos face-api (corrige nombres). 
 const archivosModelos = [
   'tiny_face_detector_model-weights_manifest.json',
   'tiny_face_detector_model.bin',

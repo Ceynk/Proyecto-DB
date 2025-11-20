@@ -31,8 +31,8 @@ function alternarTema() {
 if (interruptorTema) interruptorTema.addEventListener('click', alternarTema);
 iniciarTema();
 
-// Ayuda: detectar condiciones de bajo rendimiento y activar modo móvil
-// También considerar ahorro de datos y prefers-reduced-motion
+// Ayuda a detectar condiciones de bajo rendimiento y activar modo móvil
+// También considerar ahorro de datos 
 let _faceApiLoaderPromise = null;
 
 
@@ -397,7 +397,6 @@ const entidades = [
 let entidadActual = 'empleado';
 let ultimoControlAbortar = null;
 
-// Funcionalidad del sidebar toggle
 function toggleSidebar() {
   document.body.classList.toggle('sidebar-open');
 }
@@ -406,22 +405,18 @@ function closeSidebar() {
   document.body.classList.remove('sidebar-open');
 }
 
-// Botón flotante para abrir el sidebar
 if (sidebarToggleBtn) {
   sidebarToggleBtn.addEventListener('click', toggleSidebar);
 }
 
-// Botón dentro del sidebar para cerrar
 if (btnToggleSidebar) {
   btnToggleSidebar.addEventListener('click', closeSidebar);
 }
 
-// Overlay para cerrar el sidebar en móvil
 if (sidebarOverlay) {
   sidebarOverlay.addEventListener('click', closeSidebar);
 }
 
-// Cerrar sidebar al hacer clic en una entidad (solo en móvil)
 if (barraLateral) {
   barraLateral.addEventListener('click', (e) => {
     if (e.target.tagName === 'BUTTON' && window.innerWidth < 768) {
@@ -430,7 +425,6 @@ if (barraLateral) {
   });
 }
 
-// Menú móvil del header (mantener funcionalidad existente si existe)
 if (botonMenuMovil) {
   botonMenuMovil.addEventListener('click', toggleSidebar);
 }
@@ -1016,7 +1010,6 @@ function cerrarCamaraFace(){
   } catch(_) {}
 }
 async function iniciarCamaraFace() {
-  // Toggle: si está activa, cerrarla
   if (flujoRostro) { cerrarCamaraFace(); return; }
   if (!navigator.mediaDevices?.getUserMedia) {
     if (mensajeLoginRostro) { mensajeLoginRostro.style.color = 'salmon'; mensajeLoginRostro.textContent = 'getUserMedia no soportado'; }
