@@ -143,6 +143,8 @@ body {
   overflow-x: hidden;
   width: 100%;
   transition: background var(--transition-smooth), color var(--transition-base);
+  touch-action: pan-y;
+  overscroll-behavior-y: contain;
 }
 
 /* Efecto de grid futurista de fondo */
@@ -190,9 +192,12 @@ body::after {
 /* ========================================
    Modo rendimiento móvil (activado vía JS)
    ======================================== */
+.perf-mobile { scroll-behavior: auto !important; }
 .perf-mobile * {
   transition: none !important;
 }
+.perf-mobile body::before,
+.perf-mobile body::after { display: none !important; }
 
 .perf-mobile .site-header,
 .perf-mobile .sidebar,
@@ -243,6 +248,11 @@ body::after {
   }
 }
 
+/* Respeto a usuarios con menos movimiento (reduce jank) */
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
 [data-theme="light"] body {
   background:
     radial-gradient(circle at 20% 50%, rgba(8, 145, 178, 0.08) 0%, transparent 50%),
@@ -273,6 +283,15 @@ body::after {
   overflow-x: hidden;
   position: relative;
   z-index: 1;
+}
+
+/* Mejora de rendimiento de layout: evita medir/renderizar contenido fuera de vista */
+.panel,
+.main .panel,
+.sidebar,
+.table-wrap {
+  content-visibility: auto;
+  contain-intrinsic-size: 800px 600px;
 }
 
 @media (min-width: 768px) {
@@ -570,6 +589,10 @@ body.sidebar-open .sidebar-toggle-btn {
   transition: transform var(--transition-smooth);
   box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
 }
+
+/* Suaviza scroll en iOS */
+.sidebar,
+.table-wrap { -webkit-overflow-scrolling: touch; }
 
 /* Cuando el sidebar está abierto */
 body.sidebar-open .sidebar {
@@ -1497,49 +1520,10 @@ table {
   .table-wrap td {
     white-space: nowrap;
   }
-  .table-wrap td.long, /* si JS marca celdas largas */
-  .table-wrap td[data-long="1"] {
-    white-space: normal; /* permitir múltiples líneas en marcadas como largas */
-  }
-
-  /* Sombra de extremos para indicar desplazamiento horizontal disponible */
-  .table-wrap.scroll-hint {
-    position: relative;
-  }
-  .table-wrap.scroll-hint::before,
-  .table-wrap.scroll-hint::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    width: 28px;
-    height: 100%;
-    pointer-events: none;
-    z-index: 3;
-    background: linear-gradient(to right, var(--bg-secondary) 0%, transparent 100%);
-    opacity: .85;
-    transition: opacity var(--transition-fast);
-  }
-  .table-wrap.scroll-hint::after {
-    right: 0;
-    left: auto;
-    transform: scaleX(-1);
-  }
-  .table-wrap.scroll-hint.scrolled-start::before { opacity: 0; }
-  .table-wrap.scroll-hint.scrolled-end::after { opacity: 0; }
+  /* (Eliminado: reglas avanzadas de sombras laterales y variantes no utilizadas) */
 }
 
-/* Variante opcional tipo "cards" para pantallas muy pequeñas si se agrega la clase .stack-mobile al <table> vía JS */
-@media (max-width: 520px) {
-  table.stack-mobile thead { display: none; }
-  table.stack-mobile,
-  table.stack-mobile tbody,
-  table.stack-mobile tr,
-  table.stack-mobile td { display: block; width: 100%; min-width: 0; }
-  table.stack-mobile tr { margin: 0 0 .85rem; background: var(--surface); border:1px solid var(--border-medium); border-radius: var(--radius-lg); padding:.4rem .65rem; position: relative; }
-  table.stack-mobile tr::before { display:none; }
-  table.stack-mobile td { border:0; max-width: 100%; padding:.4rem 0 .35rem; white-space: normal !important; }
-  table.stack-mobile td::before { content: attr(data-label); display:block; font-size:.6rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color: var(--text-muted); margin-bottom:2px; }
-}
+/* (Eliminado: variante "stack-mobile" no utilizada) */
 
 @media (max-width: 767px) {
   table {

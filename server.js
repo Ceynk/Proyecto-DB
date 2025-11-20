@@ -466,7 +466,7 @@ const entidades = {
     desde: 'apartamentos a LEFT JOIN proyectos p ON p.idProyecto = a.idProyecto',
     tabla: 'apartamentos',
     llavePrimaria: 'idApartamento',
-    columnas: ['a.idApartamento AS idApartamento','a.num_apartamento AS num_apartamento','a.num_piso AS num_piso','a.estado AS estado','p.Nombre AS Proyecto'],
+    columnas: ['a.idApartamento AS idApartamento','a.num_apartamento AS num_apartamento','a.estado AS estado','p.Nombre AS Proyecto'],
     busqueda: ['a.estado','p.Nombre'],
     ordenarPor: 'idApartamento'
   },
@@ -819,7 +819,8 @@ app.get('/api/get/:entity/:id', requerirAutenticacion, requerirAdmin, async (req
 const columnasCrear = {
   cliente: ['Nombre','Telefono','Correo'],
   proyecto: ['Nombre','idCliente'],
-  apartamento: ['num_apartamento','num_piso','estado','idProyecto'],
+  apartamento: ['num_apartamento','estado','idProyecto'],
+  
   piso: ['idProyecto','numero','idApartamento'],
   material: ['Nombre','costo_unitario','tipo'],
   empleado: ['Nombre','Correo','Telefono','Especialidad','idProyecto'],

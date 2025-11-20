@@ -31,13 +31,22 @@ function alternarTema() {
 if (interruptorTema) interruptorTema.addEventListener('click', alternarTema);
 iniciarTema();
 
+// Ayuda: detectar condiciones de bajo rendimiento y activar modo móvil
+// También considerar ahorro de datos y prefers-reduced-motion
+let _faceApiLoaderPromise = null;
+
 
 function activarModoRendimientoMovil(){
   const d = document.documentElement;
-  const esMovil = window.innerWidth <= 768 || ('ontouchstart' in window);
-  const mem = navigator.deviceMemory || 4;
-  if(esMovil && mem <= 4){
+  const esMovil = window.innerWidth <= 820 || ('ontouchstart' in window);
+  const mem = (navigator.deviceMemory || 4);
+  const prefiereMenosMovimiento = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const ahorroDatos = (navigator.connection && (navigator.connection.saveData || navigator.connection.effectiveType === '2g'));
+  const activar = esMovil || prefiereMenosMovimiento || ahorroDatos || mem <= 4;
+  if (activar) {
     if(!d.classList.contains('perf-mobile')) d.classList.add('perf-mobile');
+  } else {
+    d.classList.remove('perf-mobile');
   }
 }
 window.addEventListener('resize', activarModoRendimientoMovil, { passive:true });
@@ -526,7 +535,6 @@ const configuracionTablas = {
   apartamento: [
     { claves: ['idApartamento'], titulo: 'ID Apartamento', esId: true },
     { claves: ['num_apartamento'], titulo: 'Número Apartamento' },
-    { claves: ['num_piso'], titulo: 'Número Piso' },
     { claves: ['estado'], titulo: 'Estado' },
     { claves: ['idProyecto', 'Proyecto'], titulo: 'Proyecto' }
   ],
@@ -918,7 +926,20 @@ async function cargarModelosFace() {
   if (modelosRostroCargados || cargandoModeloRostro) return;
   cargandoModeloRostro = true;
   try {
-    if (typeof window.faceapi === 'undefined') throw new Error('Biblioteca face-api no cargada');
+    if (typeof window.faceapi === 'undefined') {
+      if (!_faceApiLoaderPromise) {
+        _faceApiLoaderPromise = new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = '/vendor/face-api/face-api.js';
+          s.crossOrigin = 'anonymous';
+          s.defer = true;
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error('No se pudo cargar face-api.js'));
+          document.head.appendChild(s);
+        });
+      }
+      await _faceApiLoaderPromise;
+    }
     const baseLocal = '/models';
     if (mensajeLoginRostro) mensajeLoginRostro.textContent = 'Cargando modelos...';
     await faceapi.nets.tinyFaceDetector.loadFromUri(baseLocal);
@@ -1047,7 +1068,6 @@ const camposFormulario = {
   ],
   apartamento: [
     { name: 'num_apartamento', type: 'number', req: true },
-    { name: 'num_piso', type: 'number', req: true },
     { name: 'estado', type: 'select', options: ['Disponible','Ocupado','En mantenimiento'] },
     { name: 'idProyecto', type: 'select', source: '/api/min/proyectos' }
   ],
