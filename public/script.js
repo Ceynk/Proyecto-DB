@@ -658,17 +658,11 @@ function renderizarTabla(filas) {
     }
   }
 
-  const tabla = crear('table'); 
+ const tabla = crear('table'); 
   tabla.className = 'data-table';
   
   const cabecera = crear('thead');
   const filaCabecera = crear('tr');
-  // Celda de encabezado adicional antes del ID (todas las entidades)
-  const thPrevio = crear('th');
-  thPrevio.textContent = '';
-  thPrevio.setAttribute('scope', 'col');
-  thPrevio.style.width = '32px';
-  filaCabecera.appendChild(thPrevio);
   
   columnasParaRender.forEach((columna) => {
     const th = crear('th');
@@ -689,6 +683,8 @@ function renderizarTabla(filas) {
 
   const cuerpo = crear('tbody');
   filasNorm.forEach((registro) => {
+    const filaTabla = crear('tr');
+    
     columnasParaRender.forEach((columna) => {
       const celda = crear('td');
       celda.setAttribute('data-label', columna.titulo);
@@ -766,6 +762,16 @@ function renderizarTabla(filas) {
   });
   
   tabla.appendChild(cuerpo);
+try {
+    const idHeader = Array.from(tabla.querySelectorAll('th')).find(th => /^ID\b/i.test(th.textContent.trim()));
+    if (idHeader && idHeader.parentElement) {
+      const newTh = document.createElement('th');
+      idHeader.parentElement.insertBefore(newTh, idHeader);
+    } else {
+     
+    }
+  } catch (_) {}
+
   contenedorTabla.appendChild(tabla);
 }
 
