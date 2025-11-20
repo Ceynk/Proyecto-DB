@@ -67,6 +67,8 @@ async function verificarSesion() {
   cargarTareas().catch(()=>{});
   cargarMaterialesTrabajador().catch(()=>{});
   cargarListaMaterialesSelect().catch(()=>{});
+  // Asegurar que el resumen de asistencia se refresque tras autenticación
+  refrescarResumenAsistencia();
 }
 
 async function cargarInfo() {
