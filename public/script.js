@@ -60,8 +60,7 @@ window.addEventListener('scroll', ()=>{
   requestAnimationFrame(()=>{ _rafScroll = false;});
 }, { passive:true });
 
-window._perfMark = function(label){ performance.mark(label); };
-window._perfMeasure = function(name,start,end){ try { performance.measure(name,start,end); console.log(performance.getEntriesByName(name).pop()); } catch(e){} };
+ 
 
 const baseAPI = (typeof window !== 'undefined' && (window.API_BASE || localStorage.getItem('API_BASE'))) || '';
 let usuarioActual = null;
@@ -97,7 +96,6 @@ const btnCerrarSesion = document.getElementById('btnCerrarSesion');
 
 // Login con rostro
 const videoRostro = document.getElementById('videoRostro');
-const lienzoRostro = document.getElementById('lienzoRostro');
 const btnIniciarRostro = document.getElementById('btnIniciarRostro');
 const btnLoginRostro = document.getElementById('btnLoginRostro');
 const mensajeLoginRostro = document.getElementById('mensajeLoginRostro');
@@ -764,15 +762,6 @@ function renderizarTabla(filas) {
   });
   
   tabla.appendChild(cuerpo);
-  try {
-    const idHeader = Array.from(tabla.querySelectorAll('th')).find(th => /^ID\b/i.test(th.textContent.trim()));
-    if (idHeader && idHeader.parentElement) {
-      const newTh = document.createElement('th');
-      idHeader.parentElement.insertBefore(newTh, idHeader);
-    } else {
-     
-    }
-  } catch (_) {}
   contenedorTabla.appendChild(tabla);
 }
 
@@ -1426,7 +1415,7 @@ if (formularioCrearAdmin) {
       formularioCrearAdmin.reset();
       cargarAdminsSeguro();
       if (body.idUsuario && body.foto_url) {
-        intentarAutoDescriptor(body.idUsuario, body.foto_url).catch(e => console.warn('Auto descriptor falló:', e.message));
+        intentarAutoDescriptor(body.idUsuario, body.foto_url).catch(() => {});
       }
     } catch (e) {
       mensajeCrearAdmin.style.color = 'salmon';
@@ -1523,9 +1512,7 @@ async function intentarAutoDescriptor(idUsuario, fotoUrl) {
     await solicitarAPI(`/api/users/${idUsuario}/face`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ descriptor })
     });
-    console.log('Descriptor generado automáticamente para usuario', idUsuario);
   } catch (e) {
-    console.warn('Intento auto descriptor falló:', e.message);
     throw e;
   }
 }

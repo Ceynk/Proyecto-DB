@@ -30,16 +30,9 @@ function renderFacturaPDF(doc, factura, opts = {}) {
   doc.rect(0, 0, pageWidth, headerHeight).fill(colores.primario);
   doc.restore();
 
-  // Logo
-  let logoBottom = 20;
+  // Logo (opcional)
   if (logoPath) {
-    try {
-  // Reubicar el logo más arriba y reducir altura para evitar que toque la línea
-  doc.image(logoPath, marginLeft + 2, 22, { width: 80 });
-  logoBottom = 22 + 80; // aprox
-    } catch (e) {
-      // Ignorar si falla
-    }
+    try { doc.image(logoPath, marginLeft + 2, 22, { width: 80 }); } catch (_) {}
   }
 
   // Título
@@ -135,7 +128,6 @@ if (isProd) {
   app.set('trust proxy', 1);
 }
 app.use(cors());
-app.options('*', cors());
 app.use(express.json());
 
 // Utilidades
@@ -201,6 +193,20 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0
 });
+
+// Calcula el menor ID positivo libre (1,2,3,...) para una tabla dada
+async function obtenerSiguienteIdDisponible(tabla, llavePrimaria) {
+  // Nota: implementación simple; adecuada para baja concurrencia de admin.
+  const [rows] = await pool.query(`SELECT ${llavePrimaria} AS id FROM ${tabla} ORDER BY ${llavePrimaria} ASC`);
+  let nextId = 1;
+  for (const r of rows) {
+    const v = Number(r.id);
+    if (!Number.isFinite(v)) continue;
+    if (v === nextId) { nextId++; }
+    else if (v > nextId) { break; }
+  }
+  return nextId;
+}
 
 // Ensure schema (extra columns) and seed admin user
 async function asegurarEsquemaYSemilla() {
@@ -841,9 +847,26 @@ app.post('/api/create/:entity', requerirAutenticacion, requerirAdmin, async (req
   if (entidadesExclusivasContador.has(entidad)) return res.status(403).json({ error: 'Entidad exclusiva del Contador' });
   try {
     const values = cols.map((c) => (req.body && Object.prototype.hasOwnProperty.call(req.body, c)) ? req.body[c] : null);
-    const placeholders = cols.map(() => '?').join(', ');
-    const sql = `INSERT INTO ${definicion.tabla} (${cols.join(', ')}) VALUES (${placeholders})`;
-    const [resultado] = await pool.query(sql, values);
+    const entidadesReusoId = new Set(['empleado','cliente','proyecto','apartamento','piso','material','tarea','turno']);
+    let resultado;
+    if (entidadesReusoId.has(entidad)) {
+      try {
+        const nextId = await obtenerSiguienteIdDisponible(definicion.tabla, definicion.llavePrimaria);
+        const colsInsert = [definicion.llavePrimaria, ...cols];
+        const placeholders = colsInsert.map(() => '?').join(', ');
+        const sql = `INSERT INTO ${definicion.tabla} (${colsInsert.join(', ')}) VALUES (${placeholders})`;
+        [resultado] = await pool.query(sql, [nextId, ...values]);
+      } catch (e) {
+        // En caso de colisión/concurrencia, caer al auto-incremento normal
+        const placeholders = cols.map(() => '?').join(', ');
+        const sql = `INSERT INTO ${definicion.tabla} (${cols.join(', ')}) VALUES (${placeholders})`;
+        [resultado] = await pool.query(sql, values);
+      }
+    } else {
+      const placeholders = cols.map(() => '?').join(', ');
+      const sql = `INSERT INTO ${definicion.tabla} (${cols.join(', ')}) VALUES (${placeholders})`;
+      [resultado] = await pool.query(sql, values);
+    }
     res.status(201).json({ id: resultado.insertId });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1489,9 +1512,15 @@ app.post('/api/empleados/crear-con-usuario', requerirAutenticacion, requerirAdmi
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
+    // Reusar el menor ID libre para empleados
+    let nextId = 1;
+    try {
+      const [ids] = await conn.query('SELECT idEmpleado AS id FROM empleados ORDER BY idEmpleado ASC');
+      for (const r of ids) { const v = Number(r.id); if (v === nextId) nextId++; else if (v > nextId) break; }
+    } catch (_) {}
     const [emp] = await conn.query(
-      'INSERT INTO empleados (Nombre, Correo, Telefono, Especialidad, idProyecto) VALUES (?, ?, ?, ?, ?)',
-      [Nombre, Correo || null, Telefono || null, Especialidad || null, idProyecto || null]
+      'INSERT INTO empleados (idEmpleado, Nombre, Correo, Telefono, Especialidad, idProyecto) VALUES (?, ?, ?, ?, ?, ?)',
+      [nextId, Nombre, Correo || null, Telefono || null, Especialidad || null, idProyecto || null]
     );
     const idEmpleado = emp.insertId;
 
@@ -1782,7 +1811,13 @@ app.post('/api/clientes/crear-con-usuario', requerirAutenticacion, requerirAdmin
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    const [cli] = await conn.query('INSERT INTO clientes (Nombre, Telefono, Correo) VALUES (?, ?, ?)', [Nombre, Telefono || null, Correo || null]);
+    // Reusar el menor ID libre para clientes
+    let nextId = 1;
+    try {
+      const [ids] = await conn.query('SELECT idCliente AS id FROM clientes ORDER BY idCliente ASC');
+      for (const r of ids) { const v = Number(r.id); if (v === nextId) nextId++; else if (v > nextId) break; }
+    } catch (_) {}
+    const [cli] = await conn.query('INSERT INTO clientes (idCliente, Nombre, Telefono, Correo) VALUES (?, ?, ?, ?)', [nextId, Nombre, Telefono || null, Correo || null]);
     const idCliente = cli.insertId;
     let idUsuario = null;
     const deberiaCrearUsuario = crear_usuario === true || crear_usuario === 'true' || crear_usuario === '1' || crear_usuario === 1 || crear_usuario === 'on';
