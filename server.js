@@ -59,7 +59,7 @@ function renderFacturaPDF(doc, factura, opts = {}) {
     .text('BuildSmarts S.A.')
     .text('NIT: 900.000.000-1')
     .text('Calle 1 # 2-3, Villavicencio')
-    .text('Teléfono: +57 300 000 0000');
+    .text('Teléfono: +57 311 221 4827');
 
   // Datos factura
   doc.fontSize(13).font('Helvetica-Bold').text('Factura', rightX, startY);
@@ -275,6 +275,18 @@ async function asegurarEsquemaYSemilla() {
     }
   } catch (e) {
     console.warn('No se pudo verificar/agregar materials.stock:', e.message);
+  }
+  // Asegurar que apartamentos.num_piso permita NULL (ya que el formulario no lo solicita)
+  try {
+    const [colNP] = await pool.query("SHOW COLUMNS FROM apartamentos LIKE 'num_piso'");
+    if (colNP.length) {
+      const esNullable = String(colNP[0].Null || '').toUpperCase() === 'YES';
+      if (!esNullable) {
+        await pool.query('ALTER TABLE apartamentos MODIFY num_piso INT NULL');
+      }
+    }
+  } catch (e) {
+    console.warn('No se pudo ajustar apartamentos.num_piso a NULL:', e.message);
   }
   try {
     const [col] = await pool.query("SHOW COLUMNS FROM facturas LIKE 'Estado'");
@@ -1093,6 +1105,16 @@ app.get('/api/min/empleados', requerirAutenticacion, requerirAdmin, async (req, 
 app.get('/api/min/materiales', requerirAutenticacion, requerirAdmin, async (req, res) => {
   try {
     const [filas] = await pool.query('SELECT idMaterial as id, Nombre as nombre FROM materials ORDER BY idMaterial DESC LIMIT 200');
+    res.json(filas);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Lista mínima de apartamentos para selects
+app.get('/api/min/apartamentos', requerirAutenticacion, requerirAdmin, async (req, res) => {
+  try {
+    const [filas] = await pool.query(
+      "SELECT idApartamento as id, CONCAT('Apto ', num_apartamento, IFNULL(CONCAT(' - Piso ', num_piso), '')) as nombre FROM apartamentos ORDER BY idApartamento DESC LIMIT 300"
+    );
     res.json(filas);
   } catch (error) { res.status(500).json({ error: error.message }); }
 });

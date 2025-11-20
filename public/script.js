@@ -1109,7 +1109,7 @@ const camposFormulario = {
   piso: [
     { name: 'idProyecto', type: 'select', source: '/api/min/proyectos' },
     { name: 'numero', type: 'number', req: true },
-    { name: 'idApartamento', type: 'number' }
+    { name: 'idApartamento', type: 'select', source: '/api/min/apartamentos' }
   ],
   material: [
     { name: 'Nombre', type: 'text', req: true },

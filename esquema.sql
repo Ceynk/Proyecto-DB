@@ -44,7 +44,7 @@ CREATE TABLE usuarios (
 CREATE TABLE apartamentos (
     idApartamento INT AUTO_INCREMENT PRIMARY KEY,
     num_apartamento INT NOT NULL,
-    num_piso INT NOT NULL,
+    num_piso INT NULL,
     estado ENUM('Disponible', 'Ocupado', 'En mantenimiento') DEFAULT 'Disponible',
     idProyecto INT,
     FOREIGN KEY (idProyecto) REFERENCES proyectos(idProyecto)
@@ -98,9 +98,7 @@ CREATE TABLE inventarios (
     FOREIGN KEY (idProyecto) REFERENCES proyectos(idProyecto)
 );
 
--- ================================================
--- TRIGGERS PARA MANTENER STOCK EN materials
--- ================================================
+
 DROP TRIGGER IF EXISTS trig_inventarios_ai;
 DROP TRIGGER IF EXISTS trig_inventarios_au;
 DROP TRIGGER IF EXISTS trig_inventarios_ad;
@@ -120,15 +118,14 @@ END$$
 CREATE TRIGGER trig_inventarios_au AFTER UPDATE ON inventarios FOR EACH ROW
 BEGIN
     IF OLD.idMaterial IS NOT NULL THEN
-        -- Revertir efecto antiguo
         IF LOWER(OLD.tipo_movimiento) IN ('entrada','ingreso','compra') THEN
             UPDATE materials SET stock = stock - OLD.cantidad WHERE idMaterial = OLD.idMaterial;
         ELSEIF LOWER(OLD.tipo_movimiento) IN ('salida','consumo','uso') THEN
             UPDATE materials SET stock = stock + OLD.cantidad WHERE idMaterial = OLD.idMaterial;
         END IF;
     END IF;
+    
     IF NEW.idMaterial IS NOT NULL THEN
-        -- Aplicar efecto nuevo
         IF LOWER(NEW.tipo_movimiento) IN ('entrada','ingreso','compra') THEN
             UPDATE materials SET stock = stock + NEW.cantidad WHERE idMaterial = NEW.idMaterial;
         ELSEIF LOWER(NEW.tipo_movimiento) IN ('salida','consumo','uso') THEN
@@ -186,7 +183,6 @@ CREATE TABLE pagos (
     FOREIGN KEY (idFactura) REFERENCES facturas(idFactura)
 );
 
--- Detalles de factura (materiales consumidos)
 CREATE TABLE IF NOT EXISTS factura_detalles (
     idDetalle INT AUTO_INCREMENT PRIMARY KEY,
     idFactura INT NOT NULL,
@@ -198,7 +194,6 @@ CREATE TABLE IF NOT EXISTS factura_detalles (
     FOREIGN KEY (idMaterial) REFERENCES materials(idMaterial)
 );
 
--- Registro de asistencias por empleado (una por día)
 CREATE TABLE IF NOT EXISTS asistencias (
     idAsistencia INT AUTO_INCREMENT PRIMARY KEY,
     idEmpleado INT NOT NULL,
