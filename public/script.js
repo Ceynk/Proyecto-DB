@@ -678,7 +678,29 @@ function renderizarTabla(filas) {
         valor = registro.idEmpleado || registro.id || registro.ID || registro.Id || '';
       }
       
-      celda.textContent = valor == null ? '' : String(valor);
+      // Render especial para columnas de imagen
+      if (columna.tipo === 'imagen') {
+        const url = resolverRutaImagen(valor);
+        const enlace = document.createElement('a');
+        enlace.href = url;
+        enlace.target = '_blank';
+        enlace.rel = 'noopener noreferrer';
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = 'foto';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.style.width = '64px';
+        img.style.height = '48px';
+        img.style.objectFit = 'cover';
+        img.style.borderRadius = '6px';
+        img.style.border = '1px solid var(--card-border, rgba(255,255,255,.08))';
+        img.onerror = () => { img.src = '/default-user.svg'; };
+        enlace.appendChild(img);
+        celda.appendChild(enlace);
+      } else {
+        celda.textContent = valor == null ? '' : String(valor);
+      }
       filaTabla.appendChild(celda);
     });
 
