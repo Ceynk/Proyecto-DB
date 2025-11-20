@@ -9,21 +9,21 @@ async function api(ruta, opciones = {}) {
   return cuerpo;
 }
 
-// Formatea fechas a DD/MM/AAAA (solo fecha, sin hora)
+// Formatea fechas a DD/MM/AAAA (evita desfase por zona horaria)
 function formatFecha(val) {
   if (!val) return '';
   try {
-    // Si viene como "YYYY-MM-DD..." recortar antes de la "T" como fallback rápido
-    const raw = String(val);
-    const cut = raw.includes('T') ? raw.split('T')[0] : raw;
-    const d = new Date(val);
-    if (!isNaN(d)) {
-      return d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    if (val instanceof Date && !isNaN(val)) {
+      return val.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
-    // Si el parse falla pero el recorte parece YYYY-MM-DD, reordenar a DD/MM/YYYY
-    const m = cut.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const raw = String(val);
+    // Extraer parte de fecha si viene como ISO o YYYY-MM-DD
+    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
     if (m) return `${m[3]}/${m[2]}/${m[1]}`;
-    return cut; // Último recurso: mostrar tal cual sin la hora
+    // Fallback: intentar parsear y formatear localmente
+    const d = new Date(raw);
+    if (!isNaN(d)) return d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return raw;
   } catch (_) {
     return String(val);
   }

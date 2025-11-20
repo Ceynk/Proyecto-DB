@@ -9,6 +9,24 @@ async function api(ruta, opciones = {}) {
   return cuerpo;
 }
 
+// Formato de fecha DD/MM/AAAA (sin desfase)
+function formatFecha(val) {
+  if (!val) return '';
+  try {
+    if (val instanceof Date && !isNaN(val)) {
+      return val.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+    const raw = String(val);
+    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+    const d = new Date(raw);
+    if (!isNaN(d)) return d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return raw;
+  } catch (_) {
+    return String(val);
+  }
+}
+
 async function verificarSesion() {
   let me;
   try { me = await api('/api/auth/me'); } catch (_) { window.location.href='/'; return; }
@@ -68,7 +86,7 @@ async function cargarTareas() {
     const tbody = document.createElement('tbody');
     tareas.forEach(t => {
       const tr = document.createElement('tr');
-      [t.idTarea, t.Descripcion, t.Estado, t.Proyecto || '—', t.Pisos ?? 0, t.Apartamentos ?? 0, t.Fecha_inicio ? String(t.Fecha_inicio).slice(0,10) : '—', t.Fecha_fin ? String(t.Fecha_fin).slice(0,10) : '—']
+      [t.idTarea, t.Descripcion, t.Estado, t.Proyecto || '—', t.Pisos ?? 0, t.Apartamentos ?? 0, t.Fecha_inicio ? formatFecha(t.Fecha_inicio) : '—', t.Fecha_fin ? formatFecha(t.Fecha_fin) : '—']
         .forEach((v,i) => { const td=document.createElement('td'); td.setAttribute('data-label', headers[i]); td.textContent = v==null?'':String(v); tr.appendChild(td); });
       tbody.appendChild(tr);
     });

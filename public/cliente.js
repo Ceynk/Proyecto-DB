@@ -9,6 +9,24 @@ async function api(ruta, opciones = {}) {
   return cuerpo;
 }
 
+// DD/MM/AAAA para todas las fechas visibles (evita desfase)
+function formatFecha(val) {
+  if (!val) return '';
+  try {
+    if (val instanceof Date && !isNaN(val)) {
+      return val.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+    const raw = String(val);
+    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+    const d = new Date(raw);
+    if (!isNaN(d)) return d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return raw;
+  } catch (_) {
+    return String(val);
+  }
+}
+
 async function verificarSesionCliente() {
   let me;
   try { me = await api('/api/auth/me'); } catch (_) { window.location.href='/'; return; }
@@ -183,7 +201,7 @@ async function cargarFacturas() {
     lista.forEach(f => {
       const tr = document.createElement('tr');
       const tdId = document.createElement('td'); tdId.setAttribute('data-label', headers[0]); tdId.textContent = f.idFactura; tr.appendChild(tdId);
-      const tdFecha = document.createElement('td'); tdFecha.setAttribute('data-label', headers[1]); tdFecha.textContent = f.Fecha; tr.appendChild(tdFecha);
+      const tdFecha = document.createElement('td'); tdFecha.setAttribute('data-label', headers[1]); tdFecha.textContent = formatFecha(f.Fecha); tr.appendChild(tdFecha);
       const tdProyecto = document.createElement('td'); tdProyecto.setAttribute('data-label', headers[2]); tdProyecto.textContent = f.Proyecto || '—'; tr.appendChild(tdProyecto);
       const tdTotal = document.createElement('td'); tdTotal.setAttribute('data-label', headers[3]); tdTotal.textContent = `$ ${Number(f.Valor_total).toLocaleString('es-CO', { minimumFractionDigits: 2 })}`; tr.appendChild(tdTotal);
       const tdPdf = document.createElement('td'); tdPdf.setAttribute('data-label', headers[4]); tdPdf.className='actions-cell';
@@ -235,7 +253,7 @@ async function cargarPagos() {
     const tbody = document.createElement('tbody');
     lista.forEach(p => {
       const tr = document.createElement('tr');
-      [p.idPago, p.Fecha, p.idFactura, `$ ${Number(p.Monto).toLocaleString('es-CO', { minimumFractionDigits: 2 })}`].forEach((v,i) => { const td=document.createElement('td'); td.setAttribute('data-label', headers[i]); td.textContent=String(v); tr.appendChild(td); });
+      [p.idPago, formatFecha(p.Fecha), p.idFactura, `$ ${Number(p.Monto).toLocaleString('es-CO', { minimumFractionDigits: 2 })}`].forEach((v,i) => { const td=document.createElement('td'); td.setAttribute('data-label', headers[i]); td.textContent=String(v); tr.appendChild(td); });
       tbody.appendChild(tr);
     });
     tabla.appendChild(thead); tabla.appendChild(tbody);

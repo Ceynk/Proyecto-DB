@@ -506,6 +506,7 @@ function obtenerColumnasDisponibles(filas) {
 }
 function inferirTipoColumna(nombreClave) {
   const limpio = limpiarNombreClave(nombreClave);
+  if (limpio.includes('fecha')) return 'fecha';
   if (limpio.includes('foto') || limpio.includes('imagen')) return 'imagen';
   return 'texto';
 }
@@ -608,6 +609,24 @@ function resolverRutaImagen(valor) {
   return limpio;
 }
 
+// Fecha en formato DD/MM/AAAA (sin desfase por zona horaria)
+function formatFecha(val) {
+  if (!val) return '';
+  try {
+    if (val instanceof Date && !isNaN(val)) {
+      return val.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+    const raw = String(val);
+    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+    const d = new Date(raw);
+    if (!isNaN(d)) return d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return raw;
+  } catch (_) {
+    return String(val);
+  }
+}
+
 // Tabla
 function renderizarTabla(filas) {
   contenedorTabla.innerHTML = '';
@@ -698,6 +717,8 @@ function renderizarTabla(filas) {
         img.onerror = () => { img.src = '/default-user.svg'; };
         enlace.appendChild(img);
         celda.appendChild(enlace);
+      } else if (columna.tipo === 'fecha') {
+        celda.textContent = valor == null ? '' : formatFecha(valor);
       } else {
         celda.textContent = valor == null ? '' : String(valor);
       }
