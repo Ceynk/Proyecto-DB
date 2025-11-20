@@ -689,13 +689,6 @@ function renderizarTabla(filas) {
 
   const cuerpo = crear('tbody');
   filasNorm.forEach((registro) => {
-    const filaTabla = crear('tr');
-    // Celda adicional previa al ID para alinear con el th agregado
-    const celdaPrevia = crear('td');
-    celdaPrevia.textContent = '';
-    celdaPrevia.style.width = '32px';
-    filaTabla.appendChild(celdaPrevia);
-    
     columnasParaRender.forEach((columna) => {
       const celda = crear('td');
       celda.setAttribute('data-label', columna.titulo);
