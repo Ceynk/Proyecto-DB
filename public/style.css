@@ -1474,6 +1474,73 @@ table {
   table-layout: auto;
 }
 
+/* === Mejora de tablas en móvil === */
+@media (max-width: 680px) {
+  /* Reducir padding del contenedor para aprovechar el ancho */
+  .table-wrap {
+    padding: var(--spacing-sm) var(--spacing-sm);
+    border-radius: var(--radius-lg);
+  }
+
+  /* Forzar ancho mínimo menor pero con scroll horizontal cuando hay muchas columnas */
+  .table-wrap table {
+    min-width: 520px; /* permite scroll pero conserva estructura */
+  }
+
+  /* Compactar celdas para mejor densidad */
+  .table-wrap th,
+  .table-wrap td {
+    padding: .55rem .6rem;
+  }
+
+  /* Evitar que contenido largo quiebre todo el layout: permitir scroll horizontal + wrap controlado */
+  .table-wrap td {
+    white-space: nowrap;
+  }
+  .table-wrap td.long, /* si JS marca celdas largas */
+  .table-wrap td[data-long="1"] {
+    white-space: normal; /* permitir múltiples líneas en marcadas como largas */
+  }
+
+  /* Sombra de extremos para indicar desplazamiento horizontal disponible */
+  .table-wrap.scroll-hint {
+    position: relative;
+  }
+  .table-wrap.scroll-hint::before,
+  .table-wrap.scroll-hint::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    width: 28px;
+    height: 100%;
+    pointer-events: none;
+    z-index: 3;
+    background: linear-gradient(to right, var(--bg-secondary) 0%, transparent 100%);
+    opacity: .85;
+    transition: opacity var(--transition-fast);
+  }
+  .table-wrap.scroll-hint::after {
+    right: 0;
+    left: auto;
+    transform: scaleX(-1);
+  }
+  .table-wrap.scroll-hint.scrolled-start::before { opacity: 0; }
+  .table-wrap.scroll-hint.scrolled-end::after { opacity: 0; }
+}
+
+/* Variante opcional tipo "cards" para pantallas muy pequeñas si se agrega la clase .stack-mobile al <table> vía JS */
+@media (max-width: 520px) {
+  table.stack-mobile thead { display: none; }
+  table.stack-mobile,
+  table.stack-mobile tbody,
+  table.stack-mobile tr,
+  table.stack-mobile td { display: block; width: 100%; min-width: 0; }
+  table.stack-mobile tr { margin: 0 0 .85rem; background: var(--surface); border:1px solid var(--border-medium); border-radius: var(--radius-lg); padding:.4rem .65rem; position: relative; }
+  table.stack-mobile tr::before { display:none; }
+  table.stack-mobile td { border:0; max-width: 100%; padding:.4rem 0 .35rem; white-space: normal !important; }
+  table.stack-mobile td::before { content: attr(data-label); display:block; font-size:.6rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color: var(--text-muted); margin-bottom:2px; }
+}
+
 @media (max-width: 767px) {
   table {
     min-width: 100%;
