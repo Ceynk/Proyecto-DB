@@ -1232,15 +1232,11 @@ async function construirFormulario() {
             <option value="Contador">Contador</option>
           </select>
         </div>
-        <div>
-          <label>Correo (usuario)</label>
-          <input name="correo_usuario" type="email" placeholder="correo@dominio.com" disabled />
-        </div>
       </div>
     `;
     formularioDinamico.appendChild(bloque);
     const chk = bloque.querySelector('#chkCrearUsuario');
-    const dependientes = ['nombre_usuario','contraseña','rol_usuario','correo_usuario'].map(n => bloque.querySelector(`[name="${n}"]`));
+    const dependientes = ['nombre_usuario','contraseña','rol_usuario'].map(n => bloque.querySelector(`[name="${n}"]`));
     const actualizar = () => { dependientes.forEach(el => { el.disabled = !chk.checked; }); };
     chk.addEventListener('change', actualizar);
     actualizar();
